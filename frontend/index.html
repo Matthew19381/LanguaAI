@@ -394,7 +394,7 @@
     // Main App
     function App() {
       const { route, navigate } = useRouter();
-      const [userId, setUserId] = useState(localStorage.getItem('userId') || null);
+      const [userId, setUserId] = useState(() => { const v = localStorage.getItem('userId'); return v ? parseInt(v, 10) : null; });
 
       useEffect(() => { localStorage.setItem('userId', userId); }, [userId]);
 
