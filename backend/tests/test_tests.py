@@ -163,7 +163,7 @@ def test_submit_test(client, sample_user):
             "user_id": uid,
             "test_type": "daily",
             "questions": [],
-            "answers": [],
+            "answers": {},
         })
         print(f"DEBUG: submit called: {mock_submit.called}, award called: {mock_award.called}")
     finally:
