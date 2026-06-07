@@ -1,0 +1,60 @@
+[project]
+name = "lingua-ai"
+version = "1.0.0"
+description = "AI-powered language learning platform"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.115.0",
+    "uvicorn==0.30.0",
+    "sqlalchemy==2.0.35",
+    "pydantic-settings==2.5.0",
+    "google-genai>=1.56.0",
+    "edge-tts==7.0.2",
+    "genanki==0.13.0",
+    "python-multipart==0.0.12",
+    "aiofiles==24.1.0",
+    "fpdf2==2.7.9",
+    "feedparser==6.0.11",
+    "httpx==0.27.2",
+    "pytest==8.3.3",
+    "pytest-asyncio==0.24.0",
+    "google-auth-oauthlib==1.2.1",
+    "google-api-python-client==2.147.0",
+    "fsrs==6.3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "ANN", # flake8-annotations
+]
+ignore = [
+    "ANN101", # missing-type-self
+    "ANN102", # missing-type-cls
+]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/*" = ["ANN"]  # Don't require annotations in tests
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

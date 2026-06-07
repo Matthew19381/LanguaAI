@@ -30,83 +30,10 @@ from backend.services.pdf_service import generate_lesson_pdf, EXPORTS_DIR
 from backend.services.obsidian_service import save_obsidian_md
 from backend.services.gemini_service import generate_json as ai_generate_json, with_model
 from backend.services.topic_service import process_lesson_topics_bg
+from backend.services.flashcard_service import create_flashcards_from_vocab
+from backend.services.streak_service import calculate_streak
 
 logger = logging.getLogger(__name__)
-
-
-def _create_flashcards_from_vocab(db, vocabulary, user_id, target_language, cefr_level, lesson_id, day_number, topic):
-    """Shared helper: batch-create flashcards from vocabulary list, skipping duplicates."""
-    vocab_words = [v.get("word", "") for v in vocabulary if v.get("word") and v.get("translation")]
-    if vocab_words:
-        existing = db.query(Flashcard.word).filter(
-            Flashcard.user_id == user_id,
-            Flashcard.language == target_language,
-            Flashcard.word.in_(vocab_words)
-        ).all()
-        existing_words = {row[0] for row in existing}
-    else:
-        existing_words = set()
-
-    for item in vocabulary:
-        word = item.get("word", "")
-        translation = item.get("translation", "")
-        if word and translation and word not in existing_words:
-            db.add(Flashcard(
-                user_id=user_id,
-                word=word,
-                translation=translation,
-                example_sentence=item.get("example", ""),
-                language=target_language,
-                cefr_level=cefr_level,
-                lesson_id=lesson_id,
-                lesson_day=day_number,
-                lesson_topic=topic
-            ))
-router = APIRouter()
-
-
-def _calculate_streak(db: Session, user_id: int, freezes_available: int = 0) -> tuple[int, int]:
-    """Calculate consecutive days with at least one completed lesson.
-
-    Uses streak freezes to bridge single-day gaps (1 missed day = 1 freeze).
-    Returns (streak_length, freezes_remaining).
-    """
-    from sqlalchemy import func
-    dates = db.query(func.date(Lesson.completed_at)).filter(
-        Lesson.user_id == user_id,
-        Lesson.is_completed == True,
-        Lesson.completed_at != None
-    ).distinct().order_by(func.date(Lesson.completed_at).desc()).all()
-
-    if not dates:
-        return 0, freezes_available
-
-    date_list = [d[0] for d in dates]
-    today = date.today()
-
-    # Count freezes needed to connect today to the most recent lesson
-    freezes_used = 0
-    gap_to_today = (today - date_list[0]).days
-    if gap_to_today > 1:
-        needed = gap_to_today - 1  # missed days between today and last lesson
-        if needed > freezes_available:
-            return 0, freezes_available
-        freezes_used = needed
-
-    # Count consecutive days backwards, using freezes for gaps
-    streak = 1
-    remaining_freezes = freezes_available - freezes_used
-    for i in range(1, len(date_list)):
-        gap = (date_list[i - 1] - date_list[i]).days
-        if gap == 1:
-            streak += 1
-        elif gap == 2 and remaining_freezes > 0:
-            remaining_freezes -= 1
-            streak += 2  # missed day + current date
-        else:
-            break
-
-    return streak, remaining_freezes
 
 
 def get_day_number(user: User, db: Session = None, language: str = None) -> int:
@@ -276,7 +203,7 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
         raise
 
     # Extract vocabulary and create flashcards
-    _create_flashcards_from_vocab(
+    create_flashcards_from_vocab(
         db, lesson_content.get("vocabulary", []),
         user_id, user.target_language, user.cefr_level,
         lesson.id, lesson.day_number, lesson.topic
@@ -362,7 +289,7 @@ async def complete_lesson(
             if user:
                 user.total_xp += 25  # 25 XP for completing a lesson
                 # Update streak — consecutive days with at least one completed lesson (with freeze support)
-                streak, freezes_left = _calculate_streak(db, user.id, user.streak_freezes)
+                streak, freezes_left = calculate_streak(db, user.id, user.streak_freezes)
                 user.streak_days = streak
                 user.streak_freezes = freezes_left
 
@@ -742,7 +669,7 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
     db.refresh(lesson)
 
     # Create flashcards from vocabulary
-    _create_flashcards_from_vocab(
+    create_flashcards_from_vocab(
         db, lesson_content.get("vocabulary", []),
         user_id, user.target_language, user.cefr_level,
         lesson.id, lesson.day_number, lesson.topic

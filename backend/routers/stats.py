@@ -53,8 +53,8 @@ async def get_stats(user_id: int, db: Session = Depends(get_db)):
     due_flashcards = [f for f in flashcards if f.next_review_date and f.next_review_date <= now]
 
     # Calculate streaks (with freeze support)
-    from backend.routers.lessons import _calculate_streak
-    streak, freezes_left = _calculate_streak(db, user_id, user.streak_freezes)
+    from backend.services.streak_service import calculate_streak
+    streak, freezes_left = calculate_streak(db, user_id, user.streak_freezes)
 
     # Calculate error categories with examples
     error_categories = {}
