@@ -77,22 +77,91 @@ Return ONLY valid JSON:
         result = await generate_json(prompt)
         if isinstance(result, list):
             result = {"questions": result}
-        return result
+        questions = result.get("questions", [])
+        # Validate: ensure we have 20 questions with proper structure
+        if len(questions) < 20:
+            logger.warning(f"AI returned only {len(questions)} questions, expected 20. Padding with fallback questions.")
+            questions = _ensure_20_questions(questions, language, native_language)
+        # Ensure sequential IDs
+        for i, q in enumerate(questions):
+            q["id"] = i + 1
+        return {"questions": questions}
     except Exception as e:
         logger.error(f"Error generating placement test: {e}")
-        return {
-            "questions": [
-                {
-                    "id": 1,
-                    "type": "vocabulary",
-                    "question": f"What does the {language} word for 'hello' translate to?",
-                    "options": ["A. Goodbye", "B. Hello", "C. Thank you", "D. Please"],
-                    "correct": "B",
-                    "points": 1,
-                    "cefr_hint": "A1",
-                }
-            ]
-        }
+        return {"questions": _generate_fallback_questions(language, native_language)}
+
+
+def _ensure_20_questions(existing: list, language: str, native_language: str) -> list:
+    """Pad existing questions up to 20 with fallback questions if AI returned too few."""
+    fallback = _generate_fallback_questions(language, native_language)
+    # Add fallback questions until we have 20
+    i = 0
+    while len(existing) < 20 and i < len(fallback):
+        existing.append(fallback[i])
+        i += 1
+    # If still not enough, duplicate last fallback with modified IDs
+    while len(existing) < 20:
+        q = dict(fallback[len(existing) % len(fallback)])
+        q["id"] = len(existing) + 1
+        existing.append(q)
+    return existing[:20]
+
+
+def _generate_fallback_questions(language: str, native_language: str) -> list:
+    """Generate a full 20-question fallback placement test."""
+    lang_lower = language.lower()
+    if lang_lower == "german":
+        return [
+            {"id": 1, "type": "fill_blank", "question": "Uzupełnij: Ich ___ aus Polen.", "options": ["A. kommen", "B. komme", "C. kommt", "D. kommst"], "correct": "B", "points": 1, "cefr_hint": "A1"},
+            {"id": 2, "type": "fill_blank", "question": "Uzupełnij: Das ___ ein Buch.", "options": ["A. ist", "B. sind", "C. bin", "D. seid"], "correct": "A", "points": 1, "cefr_hint": "A1"},
+            {"id": 3, "type": "fill_blank", "question": "Uzupełnij: Er ___ Deutsch.", "options": ["A. spreche", "B. sprichst", "C. spricht", "D. sprechen"], "correct": "C", "points": 1, "cefr_hint": "A1"},
+            {"id": 4, "type": "fill_blank", "question": "Rodzajnik: ___ Mann (mianownik)", "options": ["A. der", "B. die", "C. das", "D. den"], "correct": "A", "points": 1, "cefr_hint": "A1"},
+            {"id": 5, "type": "fill_blank", "question": "Uzupełnij (biernik): Ich sehe ___ Hund.", "options": ["A. der", "B. den", "C. dem", "D. die"], "correct": "B", "points": 1, "cefr_hint": "A2"},
+            {"id": 6, "type": "fill_blank", "question": "Uzupełnij (celownik): Ich gebe ___ Kind ein Geschenk.", "options": ["A. der", "B. die", "C. dem", "D. das"], "correct": "C", "points": 1, "cefr_hint": "A2"},
+            {"id": 7, "type": "fill_blank", "question": "Czas Perfekt: Ich ___ nach Hause ___.", "options": ["A. habe / gegangen", "B. bin / gegangen", "C. habe / gehen", "D. bin / gehen"], "correct": "B", "points": 1, "cefr_hint": "A2"},
+            {"id": 8, "type": "fill_blank", "question": "Przyimek: Er geht ___ Schule.", "options": ["A. nach", "B. zu", "C. in", "D. an"], "correct": "B", "points": 1, "cefr_hint": "A2"},
+            {"id": 9, "type": "word_order", "question": "Ułóż zdanie: weil / ich / müde / bin", "options": ["A. weil ich müde bin", "B. weil bin ich müde", "C. weil ich bin müde", "D. weil müde ich bin"], "correct": "A", "points": 2, "cefr_hint": "B1"},
+            {"id": 10, "type": "fill_blank", "question": "Konjunktiv II: Ich ___ gern mehr Zeit.", "options": ["A. hätte", "B. habe", "C. hatte", "D. hat"], "correct": "A", "points": 2, "cefr_hint": "B1"},
+            {"id": 11, "type": "fill_blank", "question": "Zwrotny czasownik: Er ___ sich die Hände.", "options": ["A. wäscht", "B. wascht", "C. waschen", "D. wäschen"], "correct": "A", "points": 2, "cefr_hint": "B1"},
+            {"id": 12, "type": "fill_blank", "question": "Przyimek dwupadkowy: Er sitzt ___ Stuhl. (Dativ)", "options": ["A. auf den", "B. auf dem", "C. auf das", "D. auf die"], "correct": "B", "points": 2, "cefr_hint": "B1"},
+            {"id": 13, "type": "fill_blank", "question": "Dopełniacz: Die Farbe ___ Hauses (neutrum)", "options": ["A. des", "B. der", "C. dem", "D. die"], "correct": "A", "points": 2, "cefr_hint": "B1"},
+            {"id": 14, "type": "correct_sentence", "question": "Które zdanie jest poprawne (strona bierna)?", "options": ["A. Das Buch wurde gelesen.", "B. Das Buch ist gelesen worden.", "C. Das Buch hat gelesen werden.", "D. Das Buch wird gelesen gewesen."], "correct": "A", "points": 3, "cefr_hint": "B2"},
+            {"id": 15, "type": "fill_blank", "question": "Tryb łączący (Konj.II): Er sagte, er ___ krank.", "options": ["A. ist", "B. sei", "C. wäre", "D. war"], "correct": "B", "points": 3, "cefr_hint": "B2"},
+            {"id": 16, "type": "fill_blank", "question": "Rozszerzone wyprzedzenie: Die ___ Blumen sind schön.", "options": ["A. rot", "B. roten", "C. roter", "D. rotes"], "correct": "B", "points": 3, "cefr_hint": "B2"},
+            {"id": 17, "type": "fill_blank", "question": "Rzeczownik odsłownik: Das ___ ist wichtig.", "options": ["A. Lesen", "B. lesen", "C. gelesen", "D. lesend"], "correct": "A", "points": 3, "cefr_hint": "B2"},
+            {"id": 18, "type": "fill_blank", "question": "Partykuła modalna: Das ist ___ wahr.", "options": ["A. doch", "B. ja", "C. wohl", "D. schon"], "correct": "C", "points": 4, "cefr_hint": "C1"},
+            {"id": 19, "type": "comprehension", "question": "Trotz der Schwierigkeiten hat er seine Ziele erreicht. Co oznacza 'trotz'?", "options": ["A. Dzięki", "B. Pomimo", "C. Z powodu", "D. Przed"], "correct": "B", "points": 4, "cefr_hint": "C1"},
+            {"id": 20, "type": "correct_sentence", "question": "Które zdanie zawiera subtelny błąd?", "options": ["A. Kaum dass er ankam, rief er an.", "B. Er aß, nachdem er gekocht hatte.", "C. Je mehr er lernte, desto besser wurde er.", "D. Er behauptete, er habe es nicht gewusst."], "correct": "A", "points": 5, "cefr_hint": "C2"},
+        ]
+    elif lang_lower == "english":
+        return [
+            {"id": 1, "type": "fill_blank", "question": "She ___ to school every day.", "options": ["A. go", "B. goes", "C. going", "D. gone"], "correct": "B", "points": 1, "cefr_hint": "A1"},
+            {"id": 2, "type": "fill_blank", "question": "I ___ a student.", "options": ["A. am", "B. is", "C. are", "D. be"], "correct": "A", "points": 1, "cefr_hint": "A1"},
+            {"id": 3, "type": "fill_blank", "question": "There ___ three cats in the garden.", "options": ["A. is", "B. are", "C. was", "D. has"], "correct": "B", "points": 1, "cefr_hint": "A1"},
+            {"id": 4, "type": "fill_blank", "question": "He ___ like coffee.", "options": ["A. don't", "B. doesn't", "C. isn't", "D. hasn't"], "correct": "B", "points": 1, "cefr_hint": "A1"},
+            {"id": 5, "type": "fill_blank", "question": "I have ___ finished my homework.", "options": ["A. yet", "B. already", "C. still", "D. since"], "correct": "B", "points": 1, "cefr_hint": "A2"},
+            {"id": 6, "type": "fill_blank", "question": "She is taller ___ her brother.", "options": ["A. that", "B. than", "C. then", "D. as"], "correct": "B", "points": 1, "cefr_hint": "A2"},
+            {"id": 7, "type": "fill_blank", "question": "If I ___ rich, I would travel the world.", "options": ["A. am", "B. was", "C. were", "D. be"], "correct": "C", "points": 1, "cefr_hint": "A2"},
+            {"id": 8, "type": "fill_blank", "question": "He has ___ to Paris three times.", "options": ["A. been", "B. gone", "C. went", "D. go"], "correct": "A", "points": 1, "cefr_hint": "A2"},
+            {"id": 9, "type": "fill_blank", "question": "The book ___ by Shakespeare is famous.", "options": ["A. wrote", "B. written", "C. writing", "D. was written"], "correct": "B", "points": 2, "cefr_hint": "B1"},
+            {"id": 10, "type": "fill_blank", "question": "I wish I ___ harder for the exam.", "options": ["A. study", "B. studied", "C. had studied", "D. would study"], "correct": "C", "points": 2, "cefr_hint": "B1"},
+            {"id": 11, "type": "fill_blank", "question": "She made me ___ the whole story.", "options": ["A. repeat", "B. to repeat", "C. repeating", "D. repeated"], "correct": "A", "points": 2, "cefr_hint": "B1"},
+            {"id": 12, "type": "fill_blank", "question": "___ it was raining, we went out.", "options": ["A. Despite", "B. Although", "C. However", "D. Because"], "correct": "B", "points": 2, "cefr_hint": "B1"},
+            {"id": 13, "type": "fill_blank", "question": "The report must ___ by Friday.", "options": ["A. finish", "B. be finished", "C. finished", "D. finishing"], "correct": "B", "points": 2, "cefr_hint": "B1"},
+            {"id": 14, "type": "fill_blank", "question": "Not until midnight ___ the results.", "options": ["A. we received", "B. did we receive", "C. we did receive", "D. received we"], "correct": "B", "points": 3, "cefr_hint": "B2"},
+            {"id": 15, "type": "fill_blank", "question": "The proposal is worthy ___ consideration.", "options": ["A. of", "B. for", "C. to", "D. with"], "correct": "A", "points": 3, "cefr_hint": "B2"},
+            {"id": 16, "type": "fill_blank", "question": "He denied ___ the money.", "options": ["A. take", "B. to take", "C. taking", "D. having taken"], "correct": "D", "points": 3, "cefr_hint": "B2"},
+            {"id": 17, "type": "fill_blank", "question": "___ the circumstances, we did well.", "options": ["A. Given", "B. Giving", "C. Having given", "D. To give"], "correct": "A", "points": 3, "cefr_hint": "B2"},
+            {"id": 18, "type": "fill_blank", "question": "The ___ of evidence was overwhelming.", "options": ["A. weigh", "B. weight", "C. weighted", "D. weighing"], "correct": "B", "points": 4, "cefr_hint": "C1"},
+            {"id": 19, "type": "fill_blank", "question": "She spoke so ___ that everyone was captivated.", "options": ["A. eloquent", "B. eloquently", "C. eloquence", "D. elocution"], "correct": "B", "points": 4, "cefr_hint": "C1"},
+            {"id": 20, "type": "correct_sentence", "question": "Which sentence contains a subtle error?", "options": ["A. I look forward to hearing from you.", "B. He insisted that she stay.", "C. Between you and I, this is wrong.", "D. The data shows a clear trend."], "correct": "C", "points": 5, "cefr_hint": "C2"},
+        ]
+    else:
+        # Generic fallback for any language
+        return [
+            {"id": i+1, "type": "fill_blank", "question": f"Question {i+1} in {language}", "options": ["A. Option 1", "B. Option 2", "C. Option 3", "D. Option 4"], "correct": "A", "points": 1, "cefr_hint": "A1" if i < 4 else "A2" if i < 8 else "B1" if i < 13 else "B2" if i < 17 else "C1" if i < 19 else "C2"}
+            for i in range(20)
+        ]
 
 
 @with_model("placement")
