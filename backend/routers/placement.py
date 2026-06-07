@@ -93,7 +93,7 @@ async def submit_placement(
     try:
         # Analyze results
         analysis = await analyze_placement_results(
-            questions=request.questions,
+            questions=request.questions or [],
             answers=request.answers,
             language=language,
             native_language=native_language

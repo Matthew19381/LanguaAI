@@ -11,7 +11,7 @@ class StartPlacementRequest(BaseModel):
 
 class SubmitPlacementRequest(BaseModel):
     user_id: Optional[int] = None
-    questions: list
+    questions: Optional[list] = None
     answers: dict
     language: Optional[str] = None
     native_language: Optional[str] = None

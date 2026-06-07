@@ -140,6 +140,7 @@
         try {
           const res = await axios.post(`${API_URL}/placement/submit`, {
             user_id: userId,
+            questions: questions,
             answers: answers
           });
           setResult(res.data);
