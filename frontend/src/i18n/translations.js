@@ -256,6 +256,7 @@
     // DailyTest
     'test.loading': 'Ĺadowanie dziennego testu...',
     'test.couldNotLoad': 'Nie moĹĽna zaĹ‚adowaÄ‡ testu',
+    'test.tryAgain': 'SprĂłbuj ponownie',
     'test.goToLesson': 'PrzejdĹş do dzisiejszej lekcji',
     'test.analyzing': 'Analizowanie odpowiedzi...',
     'test.title': 'Dzienny test',
@@ -646,6 +647,7 @@
     // DailyTest
     'test.loading': 'Loading your daily test...',
     'test.couldNotLoad': 'Could not load test',
+    'test.tryAgain': 'Try Again',
     'test.goToLesson': "Go to Today's Lesson",
     'test.analyzing': 'Analyzing your answers...',
     'test.title': 'Daily Test',

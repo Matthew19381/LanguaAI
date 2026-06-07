@@ -146,16 +146,21 @@ export default function DailyTest() {
 
   if (step === STEPS.LOADING) return <PageLoader text={t('test.loading')} />
 
-  if (error && step === STEPS.TESTING) {
+  if (error) {
     return (
       <div className="page-container">
         <div className="card border-red-700/30 bg-red-900/10 text-center">
           <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-3" />
           <h2 className="text-xl font-semibold mb-2">{t('test.couldNotLoad')}</h2>
           <p className="text-gray-400 mb-4">{error}</p>
-          <button onClick={() => navigate('/lesson')} className="btn-primary mt-2">
-            {t('test.goToLesson')}
-          </button>
+          <div className="flex flex-col gap-2">
+            <button onClick={() => { setError(''); setStep(STEPS.LOADING); }} className="btn-secondary">
+              {t('test.tryAgain')}
+            </button>
+            <button onClick={() => navigate('/lesson')} className="btn-primary">
+              {t('test.goToLesson')}
+            </button>
+          </div>
         </div>
       </div>
     )

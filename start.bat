@@ -1,37 +1,34 @@
 @echo off
+chcp 65001 >nul 2>&1
 echo ============================================
 echo   LinguaAI - AI-Powered Learning App
 echo ============================================
 echo.
 
-REM Check if .env exists (root or backend/)
-if exist ".env" (
-    echo Found .env at project root.
-) else if exist "backend\.env" (
-    echo Found .env in backend/.
-) else (
-    echo [WARNING] .env not found!
-    echo Please copy .env.example to .env and add your API keys.
-    echo.
-    pause
+REM Check if .env exists
+if not exist "backend\.env" (
+    if exist "backend\.env.example" (
+        echo [UWAGA] backend\.env nie znaleziony!
+        echo Kopiowanie .env.example do .env...
+        copy backend\.env.example backend\.env
+        echo Otworz backend\.env i ustaw OPENROUTER_API_KEY.
+        pause
+        exit /b 1
+    )
 )
 
-echo Starting LinguaAI Backend...
-start cmd /k "title LinguaAI - Backend && py -3.11 -m uvicorn backend.main:app --reload --port 8001"
+echo [1/2] Uruchamianie backendu...
+start "LinguaAI-Backend" cmd /k "cd /d %~dp0 && python -m uvicorn backend.main:app --reload --port 8001"
 
-cd frontend
-echo Starting LinguaAI Frontend...
-start cmd /k "title LinguaAI - Frontend && npm run dev"
+echo [2/2] Uruchamianie frontendu...
+start "LinguaAI-Frontend" cmd /k "cd /d %~dp0\frontend && if not exist node_modules\npm install && npm run dev"
 
 echo.
 echo ============================================
-echo   Uruchamianie...
 echo   Backend:  http://localhost:8001
 echo   Frontend: http://localhost:5173
 echo ============================================
 echo.
-echo Za chwile otworz przegladarke na http://localhost:5173
-echo.
-timeout /t 3 /nobreak >nul
+echo Czekam na uruchomienie...
+timeout /t 5 /nobreak >nul
 start http://localhost:5173
-exit
