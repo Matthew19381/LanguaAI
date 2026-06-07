@@ -35,6 +35,8 @@ from backend.services.streak_service import calculate_streak
 
 logger = logging.getLogger(__name__)
 
+router = APIRouter()
+
 
 def get_day_number(user: User, db: Session = None, language: str = None) -> int:
     """Calculate which day number the user is on for a specific language.

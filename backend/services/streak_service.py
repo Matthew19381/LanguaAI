@@ -1,8 +1,17 @@
 """Streak calculation service."""
-from datetime import date
+from datetime import date, datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.models.lesson import Lesson
+
+
+def _parse_date(val):
+    """Convert a date value from SQLite (string) or Python date to date object."""
+    if isinstance(val, date):
+        return val
+    if isinstance(val, str):
+        return datetime.strptime(val, "%Y-%m-%d").date()
+    return val
 
 
 def calculate_streak(db: Session, user_id: int, freezes_available: int = 0) -> tuple[int, int]:
@@ -20,7 +29,7 @@ def calculate_streak(db: Session, user_id: int, freezes_available: int = 0) -> t
     if not dates:
         return 0, freezes_available
 
-    date_list = [d[0] for d in dates]
+    date_list = [_parse_date(d[0]) for d in dates]
     today = date.today()
 
     # Count freezes needed to connect today to the most recent lesson
