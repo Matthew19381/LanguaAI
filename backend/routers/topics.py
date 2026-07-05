@@ -150,7 +150,7 @@ async def topic_detail(
     db: Session = Depends(get_db),
 ):
     """Get single topic with all its items (lessons, tests, exercises)."""
-    topic = db.query(Topic).get(topic_id)
+    topic = db.get(Topic, topic_id)
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
 
@@ -218,7 +218,7 @@ async def review_topic(
         raise HTTPException(status_code=400, detail="Rating must be 1-4")
 
     # Verify ownership
-    topic_check = db.query(Topic).get(topic_id)
+    topic_check = db.get(Topic, topic_id)
     if not topic_check:
         raise HTTPException(status_code=404, detail="Topic not found")
     if review.user_id and topic_check.user_id != review.user_id:

@@ -137,7 +137,7 @@ def assign_item_to_topic(db: Session, topic_id: int, item_type: str,
     db.add(item)
 
     # Update topic total_items count
-    topic = db.query(Topic).get(topic_id)
+    topic = db.get(Topic, topic_id)
     if topic:
         topic.total_items = db.query(TopicItem).filter(
             TopicItem.topic_id == topic_id
@@ -231,7 +231,7 @@ def review_topic(db: Session, topic_id: int, rating: int) -> Topic:
     Returns:
         Updated Topic object
     """
-    topic = db.query(Topic).get(topic_id)
+    topic = db.get(Topic, topic_id)
     if not topic:
         raise ValueError(f"Topic {topic_id} not found")
 

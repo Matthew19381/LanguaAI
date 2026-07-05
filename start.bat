@@ -21,7 +21,7 @@ echo [1/2] Uruchamianie backendu...
 start "LinguaAI-Backend" cmd /k "cd /d %~dp0 && python -m uvicorn backend.main:app --reload --port 8001"
 
 echo [2/2] Uruchamianie frontendu...
-start "LinguaAI-Frontend" cmd /k "cd /d %~dp0\frontend & if not exist node_modules\ (npm install) & npm run dev"
+start "LinguaAI-Frontend" cmd /k "cd /d %~dp0\frontend && if not exist node_modules (npm install) && npm run dev"
 
 echo.
 echo ============================================
