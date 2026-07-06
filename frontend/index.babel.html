@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinguaAI - Nauka Języków</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone (JSX transform) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Axios -->
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <style>
+    body { background: #030712; color: #f3f4f6; }
+    .nav-link { @apply px-4 py-2 rounded-lg hover:bg-gray-800 transition; }
+    .btn-primary { @apply bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg font-medium; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // API Base URL
+    const API_URL = '/api';
+
+    // Simple Router (hash-based)
+    function useRouter() {
+      const [route, setRoute] = useState(window.location.hash.slice(1) || 'home');
+
+      useEffect(() => {
+        const handler = () => setRoute(window.location.hash.slice(1) || 'home');
+        window.addEventListener('hashchange', handler);
+        return () => window.removeEventListener('hashchange', handler);
+      }, []);
+
+      const navigate = (path) => { window.location.hash = path; };
+      return { route, navigate };
+    }
+
+    // Components
+    function Layout({ children }) {
+      useEffect(() => { lucide.createIcons(); }, [children]);
+
+      return (
+        <div className="min-h-screen">
+          <nav className="bg-gray-900 border-b border-gray-800 p-4">
+            <div className="max-w-6xl mx-auto flex justify-between items-center">
+              <a href="#home" className="text-xl font-bold text-indigo-400 flex items-center gap-2">
+                <i data-lucide="book-open"></i> LinguaAI
+              </a>
+              <div className="flex gap-2">
+                <a href="#home" className="nav-link text-sm">Strona główna</a>
+                <a href="#lesson" className="nav-link text-sm">Lekcja</a>
+                <a href="#flashcards" className="nav-link text-sm">Fiszki</a>
+                <a href="#conversation" className="nav-link text-sm">Chat</a>
+                <a href="#stats" className="nav-link text-sm">Statystyki</a>
+              </div>
+            </div>
+          </nav>
+          <main className="max-w-6xl mx-auto p-4">{children}</main>
+        </div>
+      );
+    }
+
+    function HomePage({ userId, setUserId }) {
+      const [languages] = useState(['Niemiecki', 'Angielski', 'Hiszpański', 'Francuski', 'Włoski']);
+      const [selectedLang, setSelectedLang] = useState('Niemiecki');
+
+      const start = async () => {
+        if (!userId) {
+          try {
+            // Create user first
+            const createRes = await axios.post(`${API_URL}/placement/create-user`, {
+              name: `User_${Date.now()}`,
+              target_language: selectedLang
+            });
+            const newUserId = createRes.data.user_id;
+            setUserId(newUserId);
+            localStorage.setItem('userId', newUserId);
+            // Start placement test
+            await axios.post(`${API_URL}/placement/start`, {
+              user_id: newUserId,
+              language: selectedLang
+            });
+          } catch (e) {
+            alert('Błąd tworzenia użytkownika: ' + e.message);
+          }
+        }
+        window.location.hash = 'placement';
+      };
+
+      return (
+        <div className="text-center py-20">
+          <h1 className="text-4xl font-bold mb-4">Witaj w LinguaAI</h1>
+          <p className="text-gray-400 mb-8">Nauka języków z pomocą sztucznej inteligencji</p>
+
+          <div className="max-w-md mx-auto mb-8">
+            <label className="block text-left mb-2 text-sm text-gray-400">Wybierz język:</label>
+            <select value={selectedLang} onChange={e => setSelectedLang(e.target.value)}
+                    className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg">
+              {languages.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+
+          <button onClick={start} className="btn-primary text-lg">
+            {userId ? 'Kontynuuj naukę' : 'Rozpocznij'}
+          </button>
+        </div>
+      );
+    }
+
+    function PlacementPage({ userId }) {
+      const [questions, setQuestions] = useState([]);
+      const [answers, setAnswers] = useState({});
+      const [submitted, setSubmitted] = useState(false);
+      const [result, setResult] = useState(null);
+
+      useEffect(() => {
+        if (userId) {
+          axios.post(`${API_URL}/placement/start`, { user_id: userId }).then(res => setQuestions(res.data.questions || [])).catch(e => {
+            alert('Błąd pobierania testu: ' + e.message);
+          });
+        }
+      }, [userId]);
+
+      const submit = async () => {
+        try {
+          const res = await axios.post(`${API_URL}/placement/submit`, {
+            user_id: userId,
+            questions: questions,
+            answers: answers
+          });
+          setResult(res.data);
+          setSubmitted(true);
+        } catch (e) {
+          alert('Błąd wysłania testu: ' + e.message);
+        }
+      };
+
+      if (submitted) {
+        return (
+          <div className="py-10 text-center">
+            <h2 className="text-2xl font-bold mb-4">Wynik testu</h2>
+            <p className="text-4xl text-indigo-400 mb-4">{result?.level || 'A1'}</p>
+            <p className="text-gray-400 mb-8">Poziom CEFR: {result?.cefr || 'Beginner'}</p>
+            <a href="#lesson" className="btn-primary">Przejdź do pierwszej lekcji</a>
+          </div>
+        );
+      }
+
+      return (
+        <div className="py-6">
+          <h2 className="text-2xl font-bold mb-6">Test poziomujący (20 pytań)</h2>
+          <div className="space-y-4">
+            {questions.map((q, i) => (
+              <div key={q.id} className="bg-gray-800 p-4 rounded-lg">
+                <p className="font-medium mb-3">{i+1}. {q.question}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {q.options.map(opt => {
+                                      const letter = opt.split('.')[0]?.trim()
+                                      return (
+                                      <button
+                                        key={opt}
+                                        onClick={() => setAnswers({...answers, [q.id]: letter})}
+                                        className={`p-2 rounded border ${answers[q.id]===letter ? 'bg-indigo-600 border-indigo-500' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}
+                                      >{opt}</button>
+                                    ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button onClick={submit} className="btn-primary mt-6">Zakończ test</button>
+        </div>
+      );
+    }
+
+    function LessonPage({ userId }) {
+      const [lesson, setLesson] = useState(null);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        if (userId) {
+          axios.get(`${API_URL}/lessons/today/${userId}`).then(res => {
+            setLesson(res.data.lesson || res.data);
+            setLoading(false);
+          }).catch(e => {
+            console.error(e);
+            setLoading(false);
+          });
+        }
+      }, [userId]);
+
+      const complete = async () => {
+        try {
+          await axios.post(`${API_URL}/lessons/${lesson.id}/complete`, { user_id: userId });
+          alert('Lekcja ukończona! +25 XP');
+          window.location.hash = 'home';
+        } catch (e) {
+          alert('Błąd: ' + e.message);
+        }
+      };
+
+      if (loading) return <div className="py-10 text-center">Ładowanie...</div>;
+      if (!lesson) return <div className="py-10 text-center">Brak lekcji na dzisiaj.</div>;
+
+      return (
+        <div className="py-6">
+          <h2 className="text-2xl font-bold mb-2">{lesson.title}</h2>
+          <p className="text-gray-400 mb-6">{lesson.objective}</p>
+
+          <div className="prose prose-invert max-w-none whitespace-pre-wrap" style={{lineHeight: '1.8'}}>
+            {lesson.content}
+          </div>
+
+          <div className="mt-8 flex gap-4">
+            <button onClick={complete} className="btn-primary">Ukończ lekcję (+25 XP)</button>
+            <button className="bg-gray-700 px-4 py-2 rounded-lg">Eksportuj PDF</button>
+          </div>
+        </div>
+      );
+    }
+
+    function FlashcardsPage({ userId }) {
+      const [cards, setCards] = useState([]);
+      const [index, setIndex] = useState(0);
+      const [flipped, setFlipped] = useState(false);
+
+      useEffect(() => {
+        if (userId) {
+          axios.get(`${API_URL}/flashcards/${userId}/due`).then(res => setCards(res.data.flashcards || res.data || [])).catch(e => {
+            console.error(e);
+            setCards([]);
+          });
+        }
+      }, [userId]);
+
+      const next = () => { setFlipped(false); setIndex(i => Math.min(i+1, cards.length-1)); };
+      const prev = () => { setFlipped(false); setIndex(i => Math.max(i-1, 0)); };
+
+      if (!cards.length) return <div className="py-10 text-center">Brak fiszek do nauki.</div>;
+
+      const card = cards[index];
+      return (
+        <div className="py-6 max-w-xl mx-auto">
+          <div className="mb-4 flex justify-between text-sm text-gray-400">
+            <span>{index+1} z {cards.length}</span>
+            <span>{Math.round((index+1)/cards.length*100)}%</span>
+          </div>
+
+          <div className="h-64 bg-gray-800 rounded-xl flex items-center justify-center cursor-pointer border-2 border-gray-700" onClick={() => setFlipped(!flipped)}>
+            <div className="text-center p-8">
+              {flipped ? (
+                <>
+                  <p className="text-sm text-gray-400 mb-2">Tłumaczenie:</p>
+                  <p className="text-2xl">{card.native}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-400 mb-2">Słowo:</p>
+                  <p className="text-2xl">{card.foreign}</p>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-between mt-6">
+            <button onClick={prev} className="bg-gray-700 px-4 py-2 rounded-lg">Poprzednie</button>
+            <button onClick={next} className="bg-gray-700 px-4 py-2 rounded-lg">Następne</button>
+          </div>
+
+          <div className="flex gap-2 mt-4 justify-center">
+            <button className="bg-green-600 px-3 py-1 rounded text-sm">Znam</button>
+            <button className="bg-yellow-600 px-3 py-1 rounded text-sm">Trudne</button>
+            <button className="bg-red-600 px-3 py-1 rounded text-sm">Nie znam</button>
+          </div>
+        </div>
+      );
+    }
+
+    function ConversationPage({ userId }) {
+      const [messages, setMessages] = useState([]);
+      const [input, setInput] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [sessionId, setSessionId] = useState(null);
+
+      useEffect(() => {
+        // Start conversation session on mount
+        if (userId && !sessionId) {
+          axios.post(`${API_URL}/conversation/start/${userId}`).then(res => {
+            setSessionId(res.data.session_id);
+          }).catch(e => {
+            console.error('Failed to start conversation:', e);
+          });
+        }
+      }, [userId]);
+
+      const send = async () => {
+        if (!input.trim() || !sessionId) return;
+        const userMsg = { role: 'user', content: input };
+        setMessages(m => [...m, userMsg]);
+        setInput('');
+        setLoading(true);
+        try {
+          const res = await axios.post(`${API_URL}/conversation/message`, {
+            session_id: sessionId,
+            user_message: input
+          });
+          setMessages(m => [...m, res.data.message]);
+        } catch (e) {
+          setMessages(m => [...m, { role: 'assistant', content: 'Błąd połączenia z AI.' }]);
+        }
+        setLoading(false);
+      };
+
+      return (
+        <div className="py-6 max-w-2xl mx-auto">
+          <h2 className="text-2xl font-bold mb-6">Rozmowa z AI</h2>
+          <div className="bg-gray-800 rounded-lg h-96 overflow-y-auto p-4 mb-4 space-y-3">
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role==='user'?'justify-end':'justify-start'}`}>
+                <div className={`max-w-[80%] p-3 rounded-lg ${m.role==='user'?'bg-indigo-600':'bg-gray-700'}`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {loading && <div className="text-gray-400">AI pisze...</div>}
+          </div>
+          <div className="flex gap-2">
+            <input value={input} onChange={e => setInput(e.target.value)}
+                   onKeyPress={e => e.key==='Enter' && send()}
+                   placeholder="Napisz wiadomość..." className="flex-1 p-3 bg-gray-800 border border-gray-700 rounded-lg" />
+            <button onClick={send} className="btn-primary">Wyślij</button>
+          </div>
+        </div>
+      );
+    }
+
+    function StatsPage({ userId }) {
+      const [stats, setStats] = useState(null);
+
+      useEffect(() => {
+        if (userId) {
+          axios.get(`${API_URL}/stats/${userId}`).then(res => setStats(res.data)).catch(e => {
+            console.error(e);
+            setStats({ xp: 0, level: 1, streak: 0, lessons_completed: 0, new_achievements: [] });
+          });
+        }
+      }, [userId]);
+
+      if (!stats) return <div className="py-10 text-center">Ładowanie statystyk...</div>;
+
+      return (
+        <div className="py-6">
+          <h2 className="text-2xl font-bold mb-6">Twoje postępy</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-gray-800 p-4 rounded-lg text-center">
+              <p className="text-3xl font-bold text-indigo-400">{stats.xp}</p>
+              <p className="text-gray-400 text-sm">XP</p>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg text-center">
+              <p className="text-3xl font-bold text-green-400">{stats.level}</p>
+              <p className="text-gray-400 text-sm">Poziom</p>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg text-center">
+              <p className="text-3xl font-bold text-yellow-400">{stats.streak}</p>
+              <p className="text-gray-400 text-sm">Dni z rzędu</p>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg text-center">
+              <p className="text-3xl font-bold text-blue-400">{stats.lessons_completed}</p>
+              <p className="text-gray-400 text-sm">Lekcje</p>
+            </div>
+          </div>
+
+          {stats.new_achievements && stats.new_achievements.length > 0 && (
+            <div className="bg-green-900/50 border border-green-700 p-4 rounded-lg mb-6">
+              <h3 className="font-bold text-green-400 mb-2">Nowe osiągnięcia!</h3>
+              <ul className="list-disc list-inside">{stats.new_achievements.map(a => <li key={a.id}>{a.title}</li>)}</ul>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Main App
+    function App() {
+      const { route, navigate } = useRouter();
+      const [userId, setUserId] = useState(() => { const v = localStorage.getItem('userId'); return v ? parseInt(v, 10) : null; });
+
+      useEffect(() => { localStorage.setItem('userId', userId); }, [userId]);
+
+      const renderRoute = () => {
+        if (!userId && route !== 'home') {
+          navigate('home');
+          return null;
+        }
+        if (route === 'home') return <HomePage userId={userId} setUserId={setUserId} />;
+        if (route === 'placement') return <PlacementPage userId={userId} />;
+        if (route === 'lesson') return <LessonPage userId={userId} />;
+        if (route === 'flashcards') return <FlashcardsPage userId={userId} />;
+        if (route === 'conversation') return <ConversationPage userId={userId} />;
+        if (route === 'stats') return <StatsPage userId={userId} />;
+        return <HomePage userId={userId} setUserId={setUserId} />;
+      };
+
+      return (
+        <Layout>
+          {renderRoute()}
+        </Layout>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

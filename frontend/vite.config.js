@@ -16,6 +16,12 @@ export default defineConfig({
         target: process.env.VITE_API_URL || 'http://localhost:8001',
         changeOrigin: true,
       }
+    },
+    // Handle client-side routing - serve index.html for all non-asset routes
+    fs: {
+      strict: false
     }
-  }
+  },
+  // Ensure proper handling of SPA routing in dev
+  appType: 'spa'
 })

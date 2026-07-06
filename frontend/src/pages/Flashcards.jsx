@@ -484,13 +484,11 @@ export default function Flashcards() {
                           </>
                         )}
                         {currentCard.example_sentence && (
-                          <p
-                            className="text-gray-400 text-sm mt-3 italic max-w-xs"
-                            dangerouslySetInnerHTML={{ __html: highlightWordInSentence(currentCard.example_sentence, currentCard.word, currentCard.gender, currentCard.isImportant) }}
-                          />
-                            {currentCard.example_sentence}
-                          </p>
-                        )}
+                                                                          <p
+                                                                            className="text-gray-400 text-sm mt-3 italic max-w-xs"
+                                                                            dangerouslySetInnerHTML={{ __html: highlightWordInSentence(currentCard.example_sentence, currentCard.word, currentCard.gender, currentCard.isImportant) }}
+                                                                          ></p>
+                                                                        )}
                       </div>
                     </div>
                   </div>
