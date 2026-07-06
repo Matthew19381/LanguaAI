@@ -29,6 +29,15 @@ echo   Backend:  http://localhost:8001
 echo   Frontend: http://localhost:5173
 echo ============================================
 echo.
-echo Czekam na uruchomienie...
-timeout /t 5 /nobreak >nul
+echo Czekam na uruchomienie serwerow...
+timeout /t 15 /nobreak >nul
+echo Sprawdzam czy frontend jest gotowy...
+:check_frontend
+powershell -Command "try { $r = Invoke-WebRequest -Uri 'http://localhost:5173' -TimeoutSec 5; exit 0 } catch { exit 1 }" >nul 2>&1
+if errorlevel 1 (
+    echo Frontend jeszcze sie kompiluje, czekam...
+    timeout /t 3 /nobreak >nul
+    goto check_frontend
+)
+echo Frontend gotowy! Otwieram przegladarke...
 start http://localhost:5173
