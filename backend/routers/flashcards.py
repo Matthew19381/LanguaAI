@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import httpx
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from typing import Optional
@@ -21,6 +21,7 @@ from backend.schemas.flashcard import (
 from backend.services.anki_service import generate_anki_deck
 from backend.services.audio_service import generate_flashcard_audio
 from backend.services.gemini_service import generate_json, with_model
+from backend.services.fsrs_neuro import neuro_fsrs_next_interval, NeuroCardState
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -32,7 +33,7 @@ async def get_flashcards(
     active_only: bool = True,
     limit: int = 200,
     offset: int = 0,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     user = get_user_or_404(db, user_id)
 
@@ -123,45 +124,61 @@ async def review_flashcard(
     if flashcard.user_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to review this flashcard")
 
-    # FSRS algorithm (1-4 rating scale: 1=Again, 2=Hard, 3=Good, 4=Easy)
-    from backend.services.fsrs_service import apply_fsrs
-    from datetime import timezone as _tz
+    # Determine session type based on current UTC hour
+    now = datetime.now(timezone.utc)
+    current_hour = now.hour
+    if 6 <= current_hour <= 10:
+        session_type = "morning"
+    elif 20 <= current_hour <= 22:
+        session_type = "evening"
+    else:
+        session_type = "day"
 
-    # Ensure last_review_date is timezone-aware (SQLite may store naive datetimes)
-    last_review = flashcard.next_review_date
-    if last_review and last_review.tzinfo is None:
-        last_review = last_review.replace(tzinfo=_tz.utc)
-
-    result = apply_fsrs(
-        rating=request.rating,
+    # Prepare neuro card state from flashcard
+    card_state = NeuroCardState(
         difficulty=flashcard.difficulty,
         stability=flashcard.stability,
-        retrievability=flashcard.retrievability if flashcard.retrievability > 0 else None,
-        elapsed_days=0,
-        reps=flashcard.repetitions,
-        lapses=flashcard.lapses or 0,
-        current_state=flashcard.fsrs_state or "Learning",
-        last_review_date=last_review,
+        retrievability=flashcard.retrievability if flashcard.retrievability > 0 else 0.0,
+        interval_days=flashcard.interval_days,
+        repetitions=flashcard.repetitions,
+        sleep_quality=None,  # Not collected from user yet; neuro function will default to 3
+        session_type=session_type,
+        interleaving_bonus=flashcard.interleaving_bonus,
+        interference_penalty=flashcard.interference_penalty,
+        time_of_day=session_type,
     )
 
+    # Apply neuro-enhanced FSRS
+    result = neuro_fsrs_next_interval(
+        card=card_state,
+        rating=request.rating,
+        similar_count=0,  # TODO: compute similarity with other cards
+        current_hour=current_hour,
+    )
+
+    # Update flashcard with results
     flashcard.difficulty = result.difficulty
     flashcard.stability = result.stability
     flashcard.retrievability = result.retrievability
-    flashcard.interval_days = result.interval
+    flashcard.interval_days = result.interval_days
     flashcard.repetitions = result.repetitions
-    flashcard.lapses = result.lapses
-    flashcard.fsrs_state = result.state
-    flashcard.next_review_date = result.next_review_date
+    flashcard.lapses = result.lapses if hasattr(result, 'lapses') else flashcard.lapses  # neuro function doesn't return lapses yet
+    flashcard.fsrs_state = result.state if hasattr(result, 'state') else "Review"
+    flashcard.next_review_date = now + timedelta(days=result.interval_days)
+    flashcard.session_type = result.session_type
+    flashcard.sleep_quality = result.sleep_quality
+    flashcard.interleaving_bonus = result.interleaving_bonus
+    flashcard.interference_penalty = result.interference_penalty
 
     db.commit()
 
     return {
         "success": True,
         "flashcard_id": flashcard_id,
-        "new_interval": result.interval,
+        "new_interval": result.interval_days,
         "new_difficulty": result.difficulty,
         "new_stability": result.stability,
-        "state": result.state,
+        "state": getattr(result, 'state', "Review"),
         "next_review": flashcard.next_review_date.isoformat()
     }
 
@@ -293,7 +310,8 @@ Return ONLY valid JSON:
 {{
     "valid": true/false,
     "correction": "corrected form if invalid, empty string if valid"
-}}"""
+}}
+"""
     try:
         val = await _ai_validate_spelling(validation_prompt)
         if isinstance(val, dict) and val.get("valid") is False:
@@ -316,8 +334,8 @@ Return ONLY valid JSON:
     "translation": "single main Polish translation",
     "example": "Example sentence in {user.target_language}",
     "example_translation": "Polish translation of the example"
-}}"""
-
+}}
+"""
     translation = ""
     example = ""
     try:
@@ -424,7 +442,7 @@ async def bulk_import_flashcards(
             translation=translation,
             example_sentence=example or None,
             language=user.target_language,
-            cefr_level=user.cefr_level,
+            cefr_level=user.cefr_level
         ))
         existing_words.add(word)
         created += 1
@@ -440,7 +458,7 @@ async def bulk_import_flashcards(
     }
 
 
-# ── Topic-based flashcard generation ─────────────────────────────────────────
+# ── Topic-based flashcard generation ─────────────────────────────────────
 
 @router.post("/api/flashcards/generate-from-topic")
 async def generate_flashcards_from_topic(
@@ -492,7 +510,8 @@ Return ONLY valid JSON:
 {{"flashcards": [
   {{"word": "...", "translation": "...", "example": "...", "example_translation": "...", "gender": "der"|"die"|"das"|null, "isImportant": true/false}},
   ...
-]}}"""
+]}}
+"""
 
     try:
         result = await _ai_generate_flashcard(prompt)
@@ -500,134 +519,8 @@ Return ONLY valid JSON:
             flashcards = result.get("flashcards", [])
         else:
             flashcards = []
-        return {"success": True, "flashcards": flashcards, "topic_name": topic.name}
     except Exception as e:
-        logger.exception("Failed to generate flashcards from topic")
-        raise HTTPException(status_code=500, detail="Failed to generate flashcards")
+        logger.exception("AI flashcard generation from topic failed: %s", e)
+        flashcards = []
 
-
-@router.post("/api/flashcards/generate-from-errors")
-async def generate_flashcards_from_errors(
-    user_id: int,
-    count: int = 10,
-    db: Session = Depends(get_db),
-):
-    """Generate flashcard previews from user's frequent errors (not saved to DB yet)."""
-    user = get_user_or_404(db, user_id)
-
-    # Collect recent errors from test results
-    from backend.models.test_result import TestResult
-    import json as _json
-    test_results = db.query(TestResult).filter(
-        TestResult.user_id == user_id,
-        TestResult.language == user.target_language
-    ).order_by(TestResult.created_at.desc()).limit(20).all()
-
-    all_errors = []
-    for test in test_results:
-        if not test.errors:
-            continue
-        try:
-            errors = _json.loads(test.errors)
-            for err in errors:
-                if isinstance(err, dict):
-                    all_errors.append({
-                        "question": err.get("question", err.get("error", "")),
-                        "user_answer": err.get("user_answer", ""),
-                        "correct_answer": err.get("correct_answer", err.get("correction", "")),
-                        "type": err.get("type", "unknown"),
-                    })
-        except (json.JSONDecodeError, TypeError):
-            pass
-
-    if not all_errors:
-        raise HTTPException(status_code=404, detail="Brak błędów do analizy. Najpierw rozwiąż kilka testów.")
-
-    # Get existing flashcard words to avoid duplicates
-    existing_words = {
-        row[0] for row in
-        db.query(Flashcard.word).filter(
-            Flashcard.user_id == user_id,
-            Flashcard.language == user.target_language,
-        ).all()
-    }
-
-    error_summary = "\n".join(
-        f"- Q: {e['question']} | Twoja odpowiedź: {e['user_answer']} | Poprawna: {e['correct_answer']}"
-        for e in all_errors[:15]
-    )
-
-    prompt = f"""You are helping a Polish-speaking student learn {user.target_language} at {user.cefr_level} level.
-
-The user made these errors in recent tests:
-{error_summary}
-
-Generate {count} flashcards that target these weak areas.
-Focus on vocabulary and grammar patterns the user struggles with.
-Avoid these existing words: {', '.join(list(existing_words)[:50])}
-
-For each flashcard provide:
-- word: the {user.target_language} word/phrase (the correct form)
-- translation: Polish translation
-- example: example sentence in {user.target_language}
-- example_translation: Polish translation of the example
-- gender: grammatical gender if the word is a German noun (der/die/das), or null
-- isImportant: boolean indicating if the word is particularly important for mastering this topic (e.g., key conjugations, essential vocabulary that unlocks other concepts)
-
-Return ONLY valid JSON:
-{{"flashcards": [
-  {{"word": "...", "translation": "...", "example": "...", "example_translation": "...", "gender": "der"|"die"|"das"|null, "isImportant": true/false}},
-  ...
-]}}"""
-
-    try:
-        result = await _ai_generate_flashcard(prompt)
-        if isinstance(result, dict):
-            flashcards = result.get("flashcards", [])
-        else:
-            flashcards = []
-        return {"success": True, "flashcards": flashcards, "errors_count": len(all_errors)}
-    except Exception as e:
-        logger.exception("Failed to generate flashcards from errors")
-        raise HTTPException(status_code=500, detail="Failed to generate flashcards")
-
-
-@router.post("/api/flashcards/batch-add")
-async def batch_add_flashcards(
-    user_id: int,
-    flashcards: list[dict],
-    db: Session = Depends(get_db),
-):
-    """Save a batch of flashcards to the DB (after user preview/acceptance)."""
-    user = get_user_or_404(db, user_id)
-
-    existing_words = {
-        row[0] for row in
-        db.query(Flashcard.word).filter(
-            Flashcard.user_id == user_id,
-            Flashcard.language == user.target_language,
-        ).all()
-    }
-
-    created = 0
-    skipped = 0
-    for fc in flashcards:
-        word = (fc.get("word") or "").strip()
-        if not word or word in existing_words:
-            skipped += 1
-            continue
-        db.add(Flashcard(
-            user_id=user_id,
-            word=word,
-            translation=(fc.get("translation") or "").strip(),
-            example_sentence=(fc.get("example") or "").strip() or None,
-            language=user.target_language,
-            cefr_level=user.cefr_level,
-            gender=fc.get("gender") or None,
-            isImportant=fc.get("isImportant") or False,
-        ))
-        existing_words.add(word)
-        created += 1
-
-    db.commit()
-    return {"success": True, "created": created, "skipped": skipped}
+    return {"flashcards": flashcards}

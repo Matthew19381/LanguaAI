@@ -136,13 +136,136 @@ _ĹąrĂłdĹ‚a: FEEDBACK.md, wĹ‚asne implementacje_
 
 ---
 
-## WymagajÄ…ce decyzji / Otwarte
+## Wymagające decyzji / Otwarte
 
-- [ ] **Finalny wybĂłr architektury** â€” Dockeryzacja caĹ‚ego stacku vs. lokalne uruchamianie (backend+frontend z rĂłĹĽnych Ĺ›cieĹĽek)
-- [ ] **ĹšcieĹĽki projektu** â€” rename folder na ASCII (prawidĹ‚owe rozwiÄ…zanie npm Unicode bug) â€” C:\LinguaAI lub G:\Projects\LinguaAI
-- [ ] **Backup DB** â€” automatyzacja i lokalizacja backupĂłw (cloud? lokalny NAS?)
-- [ ] **Testy** â€” framework do wyboru (pytest + Playwright recommended)
-- [ ] **Dokumentacja** â€” format (PDF vs online README) i poziom szczegĂłĹ‚owoĹ›ci
+- [ ] **Finalny wybór architektury** — Dockeryzacja całego stacku vs. lokalne uruchamianie (backend+frontend z różnych ścieżek)
+- [ ] **Ścieżki projektu** — rename folder na ASCII (prawidłowe rozwiązanie npm Unicode bug) — C:\LinguaAI lub G:\Projects\LinguaAI
+- [ ] **Backup DB** — automatyzacja i lokalizacja backupów (cloud? lokalny NAS?)
+- [ ] **Testy** — framework do wyboru (pytest + Playwright recommended)
+- [ ] **Dokumentacja** — format (PDF vs online README) i poziom szczegółowości
+
+
+---
+
+## NEUROSCIENCE-BACKED LANGUAGE LEARNING FEATURES (Phase 2)
+_Based on 2024-2025 neuroscience of language acquisition research_
+
+### Phase 2A — Sleep & Memory Optimization (High Impact, Low Effort)
+- [ ] **NEURO-1** Sleep-Aware Scheduler — `evening_encoding` (20:00-21:00) + `morning_retrieval` (07:00-08:00) flags for lessons
+  - Backend: Add `session_type` field to Lesson model (`evening`/`morning`/`day`)
+  - Frontend: Schedule notifications for optimal encoding/retrieval windows
+  - Integration: Optional sleep quality tracking (manual or wearable API)
+- [ ] **NEURO-2** i+1 Content Generator (Predictive Coding / Comprehensible Input)
+  - Backend: New endpoint `/api/lessons/iplus1/{user_id}` — generates text where 90% vocab known, 10% new
+  - Uses `known_words` from flashcards + lesson history to calibrate difficulty
+  - Returns `i_plus_1_text`, `new_words_highlighted`, `cefr_level`
+- [ ] **NEURO-3** Variable Reward Gamification (Dopamine Optimization)
+  - Backend: Extend `achievement_service.py` with `surprise_loot` (15% chance), `prediction_bonus` (+50% XP for context guesses)
+  - Frontend: Loot box animation, "prediction streak" counter
+  - Config: `target_success_rate: 0.85` (i+1 zone)
+
+### Phase 2B — Motor-Enhanced Pronunciation (High Impact, Medium Effort)
+- [ ] **NEURO-4** Shadowing Engine with Delayed Playback
+  - Frontend: Audio player with configurable delay (0.5s default) — listen → speak with offset
+  - Visual waveform sync, "choral mode" (user + AI simultaneous)
+- [ ] **NEURO-5** Gestural Anchoring for German Phonemes
+  - Mapping: 🤲 "ch" (ich/ach), 👉 "ü/ö", 🤏 "r" (uvular), ✋ "sch", 👌 "pf/ts"
+  - Frontend: Gesture prompt cards during pronunciation practice
+  - Backend: Store `gesture_anchor` per flashcard/phrase
+- [ ] **NEURO-6** Articulatory Visualization (3D)
+  - Frontend: Three.js/WebGL tongue/palate animation for German sounds
+  - Toggle in PronunciationTrainer: "Show articulation"
+
+### Phase 2C — Interleaving & Desirable Difficulties (High Impact)
+- [ ] **NEURO-7** Interleaved Session Mixer
+  - Backend: `session_mixer` service — mixes vocab/grammar/pronunciation/listening/production blocks
+  - German-specific: `der_die_das` → procedural drill, `verb_position` → working memory n-back, `pronunciation` → motor cortex
+  - Config: `contextual_interference_maximization` algorithm
+- [ ] **NEURO-8** Neuro-Informed FSRS V2
+  - Extend `fsrs` parameters: `sleep_cycles_since_review`, `time_of_day_factor`, `interleaving_bonus`, `interference_penalty`
+  - Formula: `R = S * exp(-t/S) * sleep_modulator * interference_modulator`
+  - Track: `sleep_quality` (1-5), `time_of_day` (morning/evening), `session_type`
+
+### Phase 2D — Embodied & Spatial Vocabulary (Medium Impact)
+- [ ] **NEURO-9** Mind Palace / Spatial Vocabulary Map
+  - Frontend: 2D "Memory Palace" grid — rooms = topics, objects = words
+  - Click room → see vocab with spatial context
+  - Backend: `spatial_anchor` (x,y,room) per flashcard
+- [ ] **NEURO-10** Social Predictive Coding (Conversation AI)
+  - Backend: Turn-taking prediction model (when user finishes)
+  - Real-time error correction (prediction error = learning signal)
+  - Persona-based agents with Theory of Mind modeling
+
+---
+
+## IMPLEMENTATION PRIORITY MATRIX
+
+| Feature | Effort | Neuro Impact | German Specificity | Dependencies |
+|---------|--------|--------------|-------------------|--------------|
+| NEURO-1 Sleep Scheduler | 🟢 Low | ⭐⭐⭐⭐⭐ | High | Notification system |
+| NEURO-2 i+1 Generator | 🟡 Medium | ⭐⭐⭐⭐⭐ | High | Known words tracking |
+| NEURO-3 Variable Rewards | 🟢 Low | ⭐⭐⭐ | Medium | Achievement service |
+| NEURO-4 Shadowing | 🟡 Medium | ⭐⭐⭐⭐ | High | Audio player |
+| NEURO-5 Gestural Anchors | 🟡 Medium | ⭐⭐⭐⭐ | **German-only** | Pronunciation UI |
+| NEURO-6 3D Articulation | 🔴 High | ⭐⭐⭐ | High | Three.js |
+| NEURO-7 Interleaving | 🟡 Medium | ⭐⭐⭐⭐ | High | Session service |
+| NEURO-8 Neuro-FSRS | 🔴 High | ⭐⭐⭐⭐⭐ | Medium | FSRS library |
+| NEURO-9 Mind Palace | 🔴 High | ⭐⭐⭐ | Medium | Canvas/SVG |
+| NEURO-10 Social AI | 🔴 Very High | ⭐⭐⭐⭐ | Medium | LLM fine-tuning |
+
+---
+
+## RECOMMENDED MVP (Weeks 1-4)
+1. **Week 1**: NEURO-1 (Sleep Scheduler) + NEURO-3 (Variable Rewards)
+2. **Week 2**: NEURO-2 (i+1 Generator) + NEURO-4 (Shadowing)
+3. **Week 3**: NEURO-5 (Gestural Anchors) + NEURO-7 (Interleaving)
+4. **Week 4**: NEURO-8 (Neuro-FSRS) — core algorithm upgrade
+
+---
+
+## CODEBASE ANALYSIS NEEDED
+_To be completed after saving this file_
+- [ ] Audit `backend/services/lesson_generator.py` for i+1 integration points
+- [ ] Audit `backend/services/achievement_service.py` for reward system extension
+- [ ] Audit `backend/models/lesson.py` for `session_type` field
+- [ ] Audit `frontend/src/components/PlayButton.jsx` for shadowing/delay support
+- [ ] Audit `frontend/src/pages/PronunciationTrainer.jsx` for gestural/3D integration
+- [ ] Audit `backend/services/test_generator.py` for interleaving logic
+- [ ] Audit `backend/services/flashcard_service.py` for spatial anchors
+- [ ] Review `fsrs` library integration for Neuro-FSRS params
+
+---
+
+## GERMAN-SPECIFIC NEURO ADAPTATIONS
+| Domain | Neuro Mechanism | Implementation |
+|--------|----------------|----------------|
+| **der/die/das** | Procedural memory (basal ganglia) | Procedural drill mode, not declarative |
+| **Verb position (V2)** | Working memory (DLPFC) | n-back style drills |
+| **Trennbare Verben** | Procedural + working memory | Shadowing + motor sequencing |
+| **Ü/Ö/CH/R** | Motor cortex + cerebellum | Gestural anchors + 3D articulation |
+| **Cases (Nom/Akk/Dat/Gen)** | Procedural memory | Interleaved procedural drills |
+
+---
+
+## RESEARCH REFERENCES (Key Papers)
+- Diekelmann & Born (2010) — Sleep-dependent memory consolidation
+- Friston (2010) — Predictive coding / free energy principle
+- Schultz (2016) — Dopamine reward prediction error
+- Pulvermüller & Fadiga (2010) — Motor theory of speech perception
+- Ullman (2004) — Declarative/procedural model of language
+- Rohrer & Taylor (2007) — Interleaving / contextual interference
+- Bjork & Bjork (1992) — Desirable difficulties
+- Rasch & Born (2013) — Sleep and memory consolidation
+- Guenther (2016) — Neural control of speech production
+- Krashen (1985) + modern validation — Comprehensible input (i+1)
+
+---
+
+## CHANGELOG
+- **2026-07-06**: Added neuroscience-backed features (Phase 2A-2D) based on 2024-2025 research
+- Priority matrix and MVP timeline defined
+- Codebase audit checklist created
+- German-specific neuro adaptations documented
 
 
 

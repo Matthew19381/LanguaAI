@@ -21,5 +21,8 @@ class Lesson(Base):
     is_completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
+    # Neuro: session type for sleep-aware scheduling
+    session_type = Column(String, default="day")  # "evening" | "morning" | "day"
+    sleep_quality = Column(Integer, nullable=True)  # 1-5, user-reported
 
     user = relationship("User", back_populates="lessons")

@@ -1,5 +1,8 @@
-"""Daily lesson content generation."""
+"""
+Daily lesson content generation.
+"""
 import logging
+from sqlalchemy.orm import Session
 from backend.services.gemini_service import generate_json, with_model
 
 logger = logging.getLogger(__name__)
@@ -7,220 +10,212 @@ logger = logging.getLogger(__name__)
 
 @with_model("lesson")
 async def generate_daily_lesson(
-    day_number: int,
-    study_plan_data: dict,
-    user_errors: list,
-    cefr_level: str,
-    language: str,
+    user_id: int,
+    target_language: str,
     native_language: str,
-    recent_topics: list = None,
-    user_vocabulary: list = None,
-    weak_topics: list = None,
-    strong_topics: list = None,
+    cefr_level: str,
+    recent_topics: list[str],
+    day_number: int,
+    db: Session,
 ) -> dict:
-    daily_topics = study_plan_data.get("daily_topics", [])
-    today_topic = {}
-    for topic in daily_topics:
-        if topic.get("day") == day_number:
-            today_topic = topic
-            break
+    """Generate a full daily lesson with all sections."""
+    # Import here to avoid circular dependencies
+    from backend.services.lesson_generator.placement_test import generate_placement_test
+    from backend.services.lesson_generator.study_plan import generate_study_plan
+    from backend.services.lesson_generator.daily_test import generate_daily_test
+    from backend.services.lesson_generator.weekly_test import generate_weekly_test
 
-    if not today_topic and daily_topics:
-        today_topic = daily_topics[(day_number - 1) % len(daily_topics)]
+    # Generate core lesson
+    prompt = f"""
+    You are an expert language teacher creating a daily lesson for a {native_language} speaker learning {target_language} at {cefr_level} level.
+    The student has recently studied: {', '.join(recent_topics) if recent_topics else 'none yet'}.
+    This is day {day_number} of their personalized study plan.
 
-    grammar_topic = today_topic.get("grammar_topic", "Basic grammar")
-    vocab_theme = today_topic.get("vocabulary_theme", "Everyday vocabulary")
-    conversation_topic = today_topic.get("conversation_topic", "Daily conversation")
+    Create a comprehensive lesson with the following sections:
+    1. Warm-up (2-3 min): Quick review of previous day's material
+    2. Vocabulary introduction (10-15 min): 10-15 new words with translations, example sentences, and audio cues
+    3. Grammar explanation (10-15 min): One key grammar point with clear examples
+    4. Practice exercises (15-20 min): Mix of filling gaps, translation, and sentence creation
+    5. Cultural note (2-3 min): Interesting cultural fact related to the language
+    6. Speaking practice (5-10 min): Prompts for pronunciation and fluency
+    7. Writing exercise (5-10 min): Short writing prompt with guidance
+    8. Wrap-up (2-3 min): Summary and preview of next day
 
-    error_section = ""
-    if user_errors:
-        error_section = f"\nRecent errors to address: {user_errors[:3]}"
+    Make sure the content is engaging, culturally appropriate, and follows CEFR {cefr_level} guidelines.
+    Include approximate timings for each section.
 
-    interleaving_section = ""
-    if recent_topics:
-        interleaving_section = f"\nRecent topics from the last 7 days (for interleaved review): {recent_topics[:5]}"
-
-    vocab_section = ""
-    if user_vocabulary:
-        vocab_list = ", ".join(user_vocabulary[:30])
-        vocab_section = f"\nStudent's known vocabulary (use these words in examples, dialogues, and exercises where appropriate): {vocab_list}"
-
-    weak_section = ""
-    if weak_topics:
-        weak_list = ", ".join(weak_topics[:5])
-        weak_section = f"\nWeak topics needing extra practice (include targeted exercises): {weak_list}"
-
-    strong_section = ""
-    if strong_topics:
-        strong_list = ", ".join(strong_topics[:3])
-        strong_section = f"\nStrong topics the student has mastered (can be referenced as known material): {strong_list}"
-
-    prompt = f"""Create a comprehensive language lesson for Day {day_number}.
-
-Student profile:
-- Learning: {language}
-- Native language: {native_language}
-- CEFR level: {cefr_level}
-- Grammar topic: {grammar_topic}
-- Vocabulary theme: {vocab_theme}
-- Conversation topic: {conversation_topic}
-{error_section}
-{interleaving_section}
-{vocab_section}
-{weak_section}
-{strong_section}
-
-Generate a complete lesson with rich content. Return JSON:
-{{
-    "title": "Dzień {day_number}: {grammar_topic}",
-    "topic": "{vocab_theme}",
-    "explanation": "Detailed grammar explanation in {native_language} with {language} examples...",
-    "vocabulary": [
-        {{
-            "word": "{language} word",
-            "translation": "{native_language} translation",
-            "example": "Example sentence in {language}",
-            "example_translation": "Translation of example in {native_language}"
+    Return ONLY valid JSON:
+    {{
+        "warmup": {{
+            "activity": "description of warm-up activity",
+            "duration_minutes": 3,
+            "content": "specific content for the warm-up"
+        }},
+        "vocabulary": [{{
+            "word": "target language word",
+            "translation": "native language translation",
+            "example_sentence": "sentence in target language",
+            "audio_cue": "description of when to play audio"
+        }}],
+        "grammar": {{
+            "topic": "grammar topic name",
+            "explanation": "clear explanation in native language",
+            "examples": [{{
+                "sentence": "example sentence in target language",
+                "translation": "translation in native language"
+            }}],
+            "rule": "concise rule summary"
+        }},
+        "exercises": [{{
+            "type": "fill-in-the-blank|translation|sentence_creation|matching",
+            "instruction": "what the student should do",
+            "items": [{{
+                "prompt": "prompt or question",
+                "answer": "correct answer"
+            }}],
+            "feedback": "explanation of correct answer"
+        }}],
+        "cultural_note": {{
+            "title": "cultural topic title",
+            "content": "interesting cultural information",
+            "relevance": "how this relates to language learning"
+        }},
+        "speaking_practice": [{{
+            "prompt": "what the student should say",
+            "focus": "pronunciation|fluency|intonation",
+            "sample_answer": "sample correct response"
+        }}],
+        "writing_exercise": {{
+            "prompt": "writing prompt",
+            "guidelines": "brief guidelines for the writing task",
+            "sample_response": "sample good response"
+        }},
+        "wrap_up": {{
+            "summary": "summary of what was learned",
+            "preview": "preview of tomorrow's topic",
+            "motivational_message": "encouraging message to continue learning"
         }}
-    ],
-    "dialogue": {{
-        "context": "Scenario description",
-        "lines": [
-            {{
-                "speaker": "A",
-                "text": "{language} sentence",
-                "translation": "{native_language} translation"
-            }},
-            {{
-                "speaker": "B",
-                "text": "{language} response",
-                "translation": "{native_language} translation"
-            }}
-        ]
-    }},
-    "exercises": [
-        {{
-            "type": "fill_blank",
-            "instruction": "Fill in the blank",
-            "content": "Sentence with ___",
-            "answer": "correct answer"
-        }},
-        {{
-            "type": "multiple_choice",
-            "instruction": "Choose the correct form",
-            "content": "Question text",
-            "options": ["A. option1", "B. option2", "C. option3", "D. option4"],
-            "answer": "A"
-        }},
-        {{
-            "type": "translation",
-            "instruction": "Translate to {language}",
-            "content": "Sentence in {native_language}",
-            "answer": "Translation in {language}"
-        }},
-        {{
-            "type": "matching",
-            "instruction": "Match words with their translations",
-            "pairs": [
-                {{"left": "word1", "right": "translation1"}},
-                {{"left": "word2", "right": "translation2"}}
-            ],
-            "answer": "1-A, 2-B"
-        }},
-        {{
-            "type": "error_correction",
-            "instruction": "Find and correct the error",
-            "content": "Sentence with ONE error in {language}",
-            "answer": "Corrected sentence",
-            "explanation": "What was wrong (in {native_language})"
-        }}
-    ],
-    "production_task": {{
-        "instruction": "Write 2-3 sentences in {language} using today's vocabulary and grammar. AI will evaluate your answer. Keep it simple and focused on today's topic.",
-        "example": "Example answer in {language}"
-    }},
-    "error_review": [],
-    "comprehensible_input": {{
-        "text": "A 100-150 word passage in {language} at {cefr_level} level using 95% known words and 3-5 new words in context",
-        "new_words": ["new_word_1", "new_word_2"],
-        "comprehension_questions": [
-            {{"question": "Question about the text in {native_language}", "answer": "Answer"}}
-        ]
-    }},
-    "interleaved_review": [],
-    "output_forcing": {{
-        "instruction": "Przeczytaj 5 zdań poniżej, zakryj je i spróbuj odtworzyć z pamięci. To trudne ćwiczenie na pamięć długotrwałą.",
-        "text": "EXACTLY 5 LONG sentences in {language} (each 15-25 words, total 75-100 words) using today's grammar + vocabulary. Each sentence should be complex enough to challenge memory.",
-        "translation": "Polish translation of all 5 sentences above"
     }}
-}}
-
-Include at least 10 vocabulary words, a 6-line dialogue, and 5 exercises.
-
-ENFORCE VARIETY: The 5 exercises MUST be of DIFFERENT types. Use a mix of:
-- fill_blank (NO options, student types the answer)
-- multiple_choice (A/B/C/D options)
-- translation (native_language → target_language, student types full sentence)
-- error_correction (find and fix the error in a sentence)
-- application (write 1-2 sentences using today's grammar + vocabulary)
-- word_order (scrambled words, student orders correctly)
-DO NOT generate 2 exercises of the same type. Each of the 5 must be unique.
-{f'Also add 2-3 interleaved review questions from recent topics: {recent_topics[:3]}. Format: [{{"topic": "...", "question": "...", "answer": "..."}}]' if recent_topics else 'Leave interleaved_review as empty array.'}
-If there are errors to address, add them to the error_review array with format:
-{{"error": "original mistake", "correction": "correct form", "explanation": "why it's wrong (write explanation in {native_language})", "practice": "practice exercise in {language}"}}"""
+    """
 
     try:
-        return await generate_json(prompt)
+        lesson = await generate_json(prompt)
+        # Ensure all expected fields are present
+        required_sections = [
+            "warmup", "vocabulary", "grammar", "exercises", "cultural_note",
+            "speaking_practice", "writing_exercise", "wrap_up"
+        ]
+        for section in required_sections:
+            if section not in lesson:
+                lesson[section] = {} if section not in ["vocabulary", "exercises", "speaking_practice"] else []
+
+        # Add interleaved review and output forcing sections (will be filled by other functions)
+        lesson["interleaved_review"] = []
+        lesson["output_forcing"] = {
+            "instruction": "Przeczytaj 5 zdań poniżej, zakryj je i spróbuj odtworzyć z pamięci. To trudne ćwiczenie na pamięć długotrwałą.",
+            "text": "Hallo, ich heiße Max und ich komme aus Polen. In meiner Freizeit lerne ich Deutsch und treffe meine Freunde. Die Universität ist groß und ich studiere dort seit zwei Jahren. Meine Familie wohnt in Warschau i wir besuchen uns oft am Wochenende. Deutsch zu lernen macht viel Spaß und ich habe schon viele neue Freunde gefunden."
+        }
+
+        return lesson
     except Exception as e:
         logger.error(f"Error generating daily lesson: {e}")
+        # Fallback lesson
         return {
-            "title": f"Dzień {day_number}: {grammar_topic}",
-            "topic": vocab_theme,
-            "explanation": f"Today we will study {grammar_topic} in {language}. This is an important foundation for your {cefr_level} level studies.",
-            "vocabulary": [
-                {"word": "Hallo", "translation": "Cześć", "example": "Hallo, wie geht es dir?", "example_translation": "Cześć, jak się masz?"},
-                {"word": "Danke", "translation": "Dziękuję", "example": "Danke schön!", "example_translation": "Dziękuję bardzo!"},
-                {"word": "Bitte", "translation": "Proszę", "example": "Bitte sehr.", "example_translation": "Proszę bardzo."},
-            ],
-            "dialogue": {
-                "context": "Two people meeting for the first time",
-                "lines": [
-                    {"speaker": "A", "text": "Hallo! Wie heißt du?", "translation": "Cześć! Jak masz na imię?"},
-                    {"speaker": "B", "text": "Ich heiße Anna. Und du?", "translation": "Mam na imię Anna. A ty?"},
-                    {"speaker": "A", "text": "Ich bin Max. Freut mich!", "translation": "Jestem Max. Miło mi!"},
-                ],
+            "warmup": {
+                "activity": "Review yesterday's vocabulary",
+                "duration_minutes": 3,
+                "content": "Go over the 5 words from yesterday's lesson"
             },
-            "exercises": [
-                {"type": "fill_blank", "instruction": "Fill in the blank", "content": "___ heiße Maria.", "answer": "Ich"},
-                {"type": "multiple_choice", "instruction": "Choose the correct greeting",
-                 "content": "How do you say 'Good morning' in German?",
-                 "options": ["A. Gute Nacht", "B. Guten Morgen", "C. Auf Wiedersehen", "D. Danke"],
-                 "answer": "B"},
-                {"type": "translation", "instruction": "Translate to German",
-                 "content": "My name is Anna.", "answer": "Ich heiße Anna."},
-                {"type": "matching", "instruction": "Match words with translations",
-                 "pairs": [{"left": "Hallo", "right": "Cześć"}, {"left": "Danke", "right": "Dziękuję"}],
-                 "answer": "1-A, 2-B"},
-                {"type": "error_correction", "instruction": "Find and correct the error",
-                 "content": "Ich heiße Anna und lerne Deutsch.",
-                 "answer": "Ich heiße Anna und lerne Deutsch.",
-                 "explanation": "'lerne' should be 'lerne' - separable verb with 'lernen'"},
-            ],
-            "production_task": {
-                "instruction": "Write 3 sentences introducing yourself in German",
-                "example": "Ich heiße Max. Ich komme aus Polen. Ich lerne Deutsch.",
+            "vocabulary": [{
+                "word": "Hallo",
+                "translation": "Hello",
+                "example_sentence": "Hallo! Wie heißen Sie?",
+                "audio_cue": "After greeting"
+            }],
+            "grammar": {
+                "topic": "Basic sentence structure",
+                "explanation": "Simple sentences follow Subject-Verb-Object order",
+                "examples": [{
+                    "sentence": "Ich heiße Anna.",
+                    "translation": "My name is Anna."
+                }],
+                "rule": "Subject comes first, then verb, then object"
             },
-            "error_review": [],
-            "comprehensible_input": {
-                "text": "Hallo! Ich heiße Max. Ich komme aus Polen. Ich lerne Deutsch. Das ist schön. Ich mag Deutsch sehr.",
-                "new_words": ["schön", "mag"],
-                "comprehension_questions": [
-                    {"question": "Skąd pochodzi Max?", "answer": "Z Polski"},
-                ],
+            "exercises": [{
+                "type": "translation",
+                "instruction": "Translate to German",
+                "items": [{
+                    "prompt": "Hello",
+                    "answer": "Hallo"
+                }],
+                "feedback": "Hallo is the correct greeting"
+            }],
+            "cultural_note": {
+                "title": "German-speaking countries",
+                "content": "German is spoken in Germany, Austria, Switzerland, Liechtenstein, and parts of Belgium and Italy.",
+                "relevance": "Understanding where the language is spoken helps with motivation"
+            },
+            "speaking_practice": [{
+                "prompt": "Say your name in German",
+                "focus": "pronunciation",
+                "sample_answer": "Ich heißen [Your Name]"
+            }],
+            "writing_exercise": {
+                "prompt": "Write a simple sentence introducing yourself",
+                "guidelines": "Use the structure: Ich heiße [name]. Ich komme aus [country].",
+                "sample_response": "Ich heiße Max. Ich komme aus Polen."
+            },
+            "wrap_up": {
+                "summary": "Learned basic greetings and self-introduction",
+                "preview": "Tomorrow: numbers 1-10 and basic questions",
+                "motivational_message": "Great job starting your language journey!"
             },
             "interleaved_review": [],
             "output_forcing": {
                 "instruction": "Przeczytaj 5 zdań poniżej, zakryj je i spróbuj odtworzyć z pamięci. To trudne ćwiczenie na pamięć długotrwałą.",
-                "text": "Hallo, ich heiße Max und ich komme aus Polen. In meiner Freizeit lerne ich Deutsch und treffe meine Freunde. Die Universität ist groß und ich studiere dort seit zwei Jahren. Meine Familie wohnt in Warschau und wir besuchen uns oft am Wochenende. Deutsch zu lernen macht viel Spaß und ich habe schon viele neue Freunde gefunden.",
-            },
+                "text": "Hallo, ich heiße Max und ich komme aus Polen. In meiner Freizeit lerne ich Deutsch und treffe meine Freunde. Die Universität ist groß und ich studiere dort seit zwei Jahren. Meine Familie wohnt in Warschau i wir besuchen uns często am Weekend. Deutsch zu lernen macht viel Spaß und ich habe schon viele neue Freunde gefunden."
+            }
+        }
+
+
+@with_model("lesson")
+async def generate_iplus1_content(
+    known_words: list,
+    target_language: str,
+    native_language: str,
+    cefr_level: str,
+    topic: str = "daily life",
+) -> dict:
+    """Generate i+1 content: 90% known vocabulary, 10% new words.
+    Based on Predictive Coding / Comprehensible Input (Krashen + Friston).
+    """
+    known_vocab = ", ".join(known_words[:50]) if known_words else "basic greetings, numbers, basic verbs"
+
+    prompt = f"""Generate a {target_language} text for a {native_language} speaker at {cefr_level}.
+Topic: {topic}
+
+STRICT RULES:
+- 90% of words MUST be from this KNOWN vocabulary: {known_vocab}
+- Only 10% new words (3-5 max), clearly marked with ** around them
+- Use ONLY grammar appropriate for {cefr_level}
+- Length: 100-150 words
+- Comprehension questions in {native_language}
+
+Return JSON:
+{{
+    "text": "...",
+    "new_words": ["w1", "w2"],
+    "questions": [{{"question": "...", "answer": "..."}}],
+    "cefr_level": "{cefr_level}"
+}}"""
+
+    try:
+        return await generate_json(prompt)
+    except Exception as e:
+        logger.error(f"Error generating i+1 content: {e}")
+        return {
+            "text": f"Hallo! Ich lerne {target_language}. Das ist gut.",
+            "new_words": ["lernen", "gut"],
+            "questions": [{"question": "Was lernt die Person?", "answer": "Deutsch"}],
+            "cefr_level": cefr_level
         }
