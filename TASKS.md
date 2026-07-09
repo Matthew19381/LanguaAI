@@ -55,7 +55,7 @@ _Źródło: FEEDBACK.md, własne implementacje_
 
 ### Faza 2B – Motoryczna wymowa (wysoki wpływ, średni nakład)
 
-- [ ] **NEURO‑4** Mechanizm shadowing z odtwarzaniem opóźnionym  
+- [ ] **NEURO‑4** Mechanizm shadowing z odtwarzaniem opóźnioným  
     - Frontend: odtwarzacz audio z konfigurowalnym opóźnieniem (domyślnie 0,5 s) – słuchaj → mów z przesunięciem  
     - Synchronizacja fali dźwiękowej, tryb „choralny” (użytkownik + AI jednocześnie)  
 
@@ -250,13 +250,13 @@ Po zakończeniu tego cyklu podstawowe funkcje neuronaukowe będą dostępne i pr
     - Dodaj endpoint backendu `/api/users/{id}/push-subscription`.
     - Przechowuj subskrypcję (zaszyfrowaną) powiązaną z użytkownikiem.
     - Utwórz lekki worker (Cloudflare Workers / Lambda) wysyłający przypomnienia o lekcjach do powtórzenia, seriach, nowych osiągnięciach.
-- [ ] (Opcjonalnie) Dodaj otoczkę Capacitor, jeśli potrzebny dostęp do natywnych funkcji (np. odczyt danych snu z Health Kit/Google Fit):
+- [ ] (Opcjonalnie) Dodaj otoczkę Capacitor, jeśli potrzebny dostęp do natywnych funkcji (np. odczyt danych snu z Health Kit/Google Fit):
     - `npm i @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios`.
     - Skopiuj zbudowane zasoby webowe do projektu capacitor.
-    - Zintegruj wtyczki: powiadomienia push, health, preferences.
+    - Zintegruj wtyczki: push notifications, health, preferences.
 - [ ] (Opcjonalnie) Opublikuj w Google Play / App Store po pomyślnym zbudowaniu natywnej wersji.
 
-### 🧪 Testy i QA
-- [ ] Dodaj test jednostkowy potwierdzający, że pole `isImportant` pojawia się w odpowiedziach GET/POST `/api/flashcards/*`.
+### 🧪 Testing & QA
+- [ ] Dodaj test jednostkowy potwierdzający, że pole `isImportant` pojawia się w odpowiedzi GET/POST `/api/flashcards/*`.
 - [ ] Dodaj test punktu końcowego `/api/health` zwracającego `{status:"healthy"}`.
 - [ ] Po gotowości PWA dodaj test Cypress/Playwright sprawdzający buforowanie offline tras lekcji i fiszek.
