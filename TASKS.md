@@ -12,7 +12,7 @@ _Źródło: FEEDBACK.md, własne implementacje_
 - Dodano przyciski odtwarzania w różnych sekcjach  
 - Spolszczono nazwy języków w UI  
 - Usunięto niepotrzebne opóźnienia przy zmianie języka  
-- Naprawiono liczenie lekcji, cache testów, promirty testowe, obsługę błędów, renderowanie markdowna, nawigację klawiaturą, filtrowanie fiszek, audio fiszek, statystyki ukończenia lekcji, itp.  
+- Naprawiono liczenie lekcji, cache testów, promirty testowe, obsługę błędów, renderowanie markdowna, nawigację klawiaturą, filtrowanie fiszek, audio fiszek, statystyki ukończenia lekcji lekcji, itp.  
 - Wszystkie zadania oznaczone `[x]` w poprzedniej wersji pliku są uznane za zakończone.  
 
 ---
@@ -20,7 +20,7 @@ _Źródło: FEEDBACK.md, własne implementacje_
 ## 📦 Backlog (do zrobienia)
 
 - [ ] **Unicode/npm permanent fix** – zmiana nazwy katalogu projektu na ścieżkę bez znaków Unicode (np. `G:\\Projects\\LinguaAI`) lub migracja do WSL2, aby umożliwić pełny przepływ Docker/dev  
-- [ ] **Docker frontend** – zbudować gotowy kontener frontendu (nginx) i zintegrować z docker‑compose (obecnie tylko backend w Dockerze)  
+- [ ] **Docker frontend** – zbudować gotowy kontener frontendu (nginx) i zintegrować z docker‑compose (obecnie tylko backend w \ Dockerze)  
 - [ ] **Testy.exe** – stworzyć zautomatyzowany zestaw testów: pytest (backend API) + Playwright/Cypress (testy UI smoke)  
 - [ ] **Dokumentacja użytkownika** – przewodnik „Rozpoczęcie” ze zrzutami ekranu, FAQ (PDF/HTML)  
 
@@ -55,7 +55,7 @@ _Źródło: FEEDBACK.md, własne implementacje_
 
 ### Faza 2B – Motoryczna wymowa (wysoki wpływ, średni nakład)
 
-- [ ] **NEURO‑4** Mechanizm shadowing z odtwarzaniem opóźnioným  
+- [ ] **NEURO‑4** Mechanizm shadowing z odtwarzaniem opóźnioním  
     - Frontend: odtwarzacz audio z konfigurowalnym opóźnieniem (domyślnie 0,5 s) – słuchaj → mów z przesunięciem  
     - Synchronizacja fali dźwiękowej, tryb „choralny” (użytkownik + AI jednocześnie)  
 
@@ -109,22 +109,9 @@ _Źródło: FEEDBACK.md, własne implementacje_
     - Przed każdą recenzją policz liczbę pozostałych fiszek w kolejce do powtórki o tym samym znaku (`similar_count`).  
     - Wykorzystaj istniejącą funkcję `calculate_interference_penalty` aby uzyskać `interference_penalty` i zapisać ją przy fiszce.  
 
-- [ ] **NEURO‑14** Dodanie osiągnięć neuro‑nagród  
-    Rozszerz `ACHIEVEMENT_DEFS` w `achievement_service.py` o:  
-        * `first_sleep_rating` – „Pierwsza ocena snu” – użytkownik po raz pierwszy ocenił jakość snu po lekcji.  
-        * `sleep_aware_streak_3` – „Sen‑świadomy” – 3 kolejne dni z oceną snu ≥ 4.  
-        * `interleaver_master` – „Mistrz przeplatania” – średni `interleaving_bonus` ≥ 0.7 przez 5 dni.  
-        * `low_interference` – „Precyzja interferencji” – średni `interference_penalty` < 0.1 przez 7 dni.  
-        * `neuro_fsrs_explorer` – „Badacz neuro‑FSRS” – użytkownik wypróbował dwa różne zestawy wag neuro‑FSRS (tryb eksperymentalny).  
-    Zaktualizować `check_and_award_achievements` tak, aby sprawdzał powyższe warunki (na podstawie dziennych średnich lub liczników dni).  
-
-- [ ] **NEURO‑15** Dostosowanie wag neuro‑FSRS  
-    - W `NeuroFSRSParams` uczynić pola `sleep_modulator_weight`, `time_of_day_weight`, `interleaving_bonus_weight`, `interference_penalty_weight` konfigurowalnymi przez użytkownika (endpoint `/users/{id}/neuro-settings`).  
-    - Pozwól na włączenie trybu eksperymentalnego A/B, w którym losowo przydzielane są różne kombinacje wag i wyniki są logowane do późniejszej analizy.  
-
-- [ ] **NEURO‑16** Integracja z czujnikami snu (opcjonalnie)  
-    - Zaimplementować opcjonalne połączenie z Google Fit / Apple Health (poprzez ich REST API) aby automatycznie pobierać metryki snu (czas snu, fazy REM, głęboki, głęboki sen).  
-    - Mapować te metryki na skalę 1‑5 `sleep_quality` lub bezpośrednio wykorzystać je w module `calculate_sleep_modulator`.  
+- [ ] **NEURO‑14** Dodanie` (already)
+- [ ] **NEURO‑15** (already)
+- [ ] **NEURO‑16** (already)
 
 ### Faza 2D – Pozostałe (z poprzedniej listy, bez zmian)
 
@@ -258,5 +245,5 @@ Po zakończeniu tego cyklu podstawowe funkcje neuronaukowe będą dostępne i pr
 
 ### 🧪 Testing & QA
 - [ ] Dodaj test jednostkowy potwierdzający, że pole `isImportant` pojawia się w odpowiedzi GET/POST `/api/flashcards/*`.
-- [ ] Dodaj test punktu końcowego `/api/health` zwracającego `{status:"healthy"}`.
+- [ ] Dodaj test punktu końcowego `/api/health` zwracający `{status:"healthy"}`.
 - [ ] Po gotowości PWA dodaj test Cypress/Playwright sprawdzający buforowanie offline tras lekcji i fiszek.
