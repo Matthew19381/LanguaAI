@@ -120,7 +120,10 @@ async def get_errors_test(user_id: int, db: Session = Depends(get_db)):
         try:
             errors = _json.loads(test.errors)
             for err in errors:
-                if isinstance(err, dict) and err.get("correct_answer") or err.get("correction"):
+                # Skip malformed (non-dict) error entries defensively
+                if not isinstance(err, dict):
+                    continue
+                if err.get("correct_answer") or err.get("correction"):
                     all_errors.append({
                         "type": err.get("type", "unknown"),
                         "question": err.get("question", err.get("error", "")),

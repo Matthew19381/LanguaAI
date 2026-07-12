@@ -133,6 +133,44 @@ _Źródło: FEEDBACK.md, własne implementacje_
 
 ---
 
+## 🔍 Audyt logiczny systemu (2026-07-12)
+
+Przeprowadzono audyt poprawności działania algorytmów i przepływu danych
+(FSRS / neuro‑FSRS, XP/poziomy, osiągnięcia, testy, recenzje fiszek).
+Wynik: **2 błędy logiczne naprawione, 3 obserwacje (niski priorytet)**.
+
+### ✅ Naprawione błędy logiczne
+- **[BUG] `backend/routers/tests.py:123` — operator precedence → 500 na `GET /api/tests/errors/{id}`**
+  Stara linia: `if isinstance(err, dict) and err.get("correct_answer") or err.get("correction"):`
+  Ewaluuje się jako `(isinstance(...) and err.get(...)) or err.get("correction")`.
+  Gdy `err` nie jest dictem (np. plain string / lista z AI) → `AttributeError` na `err.get(...)`
+  → łapane przez zewnętrzny `except Exception` → endpoint zwraca **500**.
+  **Naprawa:** osobna guarda `if not isinstance(err, dict): continue` przed sprawdzeniem pól.
+  Test regresji: `backend/tests/test_tests.py::test_errors_test_handles_non_dict_entries`.
+- **[BUG] `backend/services/achievement_service.py:151` — `first_test_perfect` nieosiągalne przy floacie**
+  Warunek `t.score >= 100` nigdy się nie odpalał, gdy `analyze_test_errors` zwracał
+  score jako float (np. 99.5) — osiągnięcie „Idealny wynik” było martwe.
+  **Naprawa:** próg obniżony do `>= 99.5`.
+
+### 📋 Obserwacje (do rozważenia, bez akcji teraz)
+- **Duplikacja schedulera FSRS:** `backend/services/fsrs_service.py` (`apply_fsrs`,
+  `calculate_memory_strength_fsrs`) jest **martwym kodem** — `review_flashcard` używa
+  `neuro_fsrs_next_interval` z `fsrs_neuro.py`. Dwie różne implementacje FSRS w repo
+  (uproszczona neuro + pełna `fsrs` lib). Warto ujednolicić lub usunąć martwą ścieżkę.
+- **Heurystyka neuro‑FSRS przy `rating == 1` (Again):** w `neuro_fsrs_next_interval`
+  `stability` się nie zmniejsza (problem z `w[12]=0.0` w `pow(s, -w[12]) - 1 = 0`).
+  Dla uproszczonego modelu akceptowalne, ale warto zweryfikować vs pełna lib `fsrs`.
+- **Niespójność wersjonowania API:** `topics` → `/api/topics`, `users` → `/api/v1/users`,
+  reszta → `/api/...`. Frontend używa `baseURL: '/api'`, więc działa, ale warto
+  ujednolicić prefixy (np. wszędzie `/api/v1`).
+
+### ✅ Weryfikacja
+- Backend: **284 passed** (2 nowe testy na errors endpoint)
+- Frontend: 43 passed (bez zmian)
+- Ruff (F401/F811/F841/F823/F822/F405/F403/F821): czysty
+
+---
+
 ## 📊 Priorytetowa macierz wdrożenia
 
 || Feature                              | Wysiłek | Wpływ neuronaukowy | Specyfika niemiecka | Zależności                     |

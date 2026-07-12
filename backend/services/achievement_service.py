@@ -148,7 +148,7 @@ def check_and_award_achievements(user, db: Session) -> list:
     ).all()
 
     total_tests = len(test_results)
-    perfect_tests = sum(1 for t in test_results if t.score >= 100)
+    perfect_tests = sum(1 for t in test_results if t.score >= 99.5)
     xp = user.total_xp
     streak = user.streak_days or 0
     level_info = calculate_level_from_xp(xp)

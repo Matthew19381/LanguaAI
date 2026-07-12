@@ -176,3 +176,54 @@ def test_submit_test(client, sample_user):
     assert data["success"] is True
     assert data["score"] == 100.0
     assert data["xp_earned"] == 50
+
+
+# ---------------------------------------------------------------------------
+# GET /api/tests/errors/{user_id}  — defensive against malformed (non-dict) errors
+# ---------------------------------------------------------------------------
+
+def test_errors_test_handles_non_dict_entries(client, sample_user, db):
+    """Regression: error list may contain non-dict entries (e.g. plain strings
+    from the AI service). The old code did `err.get(...)` on a str -> 500."""
+    from backend.models.test_result import TestResult
+    import json as _json
+    from datetime import datetime, timezone
+
+    result = TestResult(
+        user_id=sample_user["user_id"],
+        test_type="daily",
+        score=50.0,
+        answers=_json.dumps({}),
+        errors=_json.dumps([
+            {"type": "grammar", "correct_answer": "der Hund"},
+            "plain string error from AI",
+            ["nested", "list", "entry"],
+        ]),
+        cefr_level="A1",
+        language="German",
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(result)
+    db.commit()
+
+    uid = sample_user["user_id"]
+    with patch(
+        "backend.services.lesson_generator.generate_errors_test",
+        new=AsyncMock(return_value={"questions": []}),
+    ):
+        r = client.get(f"/api/tests/errors/{uid}")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["success"] is True
+    assert "test_type" in data
+
+
+def test_errors_test_empty(client, sample_user):
+    uid = sample_user["user_id"]
+    with patch(
+        "backend.services.lesson_generator.generate_errors_test",
+        new=AsyncMock(return_value={"questions": []}),
+    ):
+        r = client.get(f"/api/tests/errors/{uid}")
+    assert r.status_code == 200
+    assert r.json()["success"] is True
