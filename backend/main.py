@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
 
 from backend.database import engine, Base
-from backend.routers import placement, lessons, tests, flashcards, conversation, stats, voice_chat
+from backend.routers import placement, lessons, tests, flashcards, conversation, stats, voice_chat, users
 from backend.routers import quickmode, news, pronunciation, settings, audio, youtube, topics, admin
 
 logging.basicConfig(
@@ -45,6 +45,7 @@ async def lifespan(app: FastAPI):
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_day INTEGER"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_topic TEXT"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN gender TEXT"),
+        ("flashcards", "ALTER TABLE flashcards ADD COLUMN isImportant BOOLEAN NOT NULL DEFAULT 0"),
     ]
     with engine.connect() as conn:
         # Create conversation_sessions table if it doesn't exist
@@ -108,10 +109,17 @@ _ai_rate_limits: dict[str, list[float]] = defaultdict(list)
 _ai_rate_lock = Lock()
 AI_RATE_LIMIT = 30  # requests
 AI_RATE_WINDOW = 60  # seconds
-AI_ENDPOINT_PREFIXES = ("/api/placement", "/api/lessons", "/api/tests", "/api/conversation",
-                        "/api/quickmode", "/api/news", "/api/pronunciation", "/api/youtube",
-                        "/api/voice-chat", "/api/flashcards", "/api/settings/gdrive/auth")
-
+AI_ENDPOINT_PREFIXES = (
+    "/api/placement",
+    "/api/lessons",
+    "/api/tests",
+    "/api/conversation",
+    "/api/quickmode",
+    "/news",
+    "/api/pronunciation",
+    "/api/youtube",
+    "/api/voice-chat/flashcards"
+)
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     # Skip rate limiting during tests
@@ -141,6 +149,7 @@ app.include_router(tests.router, tags=["Tests"])
 app.include_router(flashcards.router, tags=["Flashcards"])
 app.include_router(conversation.router, tags=["Conversation"])
 app.include_router(stats.router, tags=["Stats"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(quickmode.router, tags=["QuickMode"])
 app.include_router(news.router, tags=["News"])
 app.include_router(pronunciation.router, tags=["Pronunciation"])
@@ -163,7 +172,6 @@ async def health_check():
         "service": "LinguaAI API",
         "version": "1.0.0"
     }
-
 
 # Serve simple frontend (no Vite, just static files)
 # Use relative path to avoid Unicode issues in absolute paths

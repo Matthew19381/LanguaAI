@@ -13,16 +13,18 @@ _Źródło: FEEDBACK.md, własne implementacje_
 - Spolszczono nazwy języków w UI  
 - Usunięto niepotrzebne opóźnienia przy zmianie języka  
 - Naprawiono liczenie lekcji, cache testów, promirty testowe, obsługę błędów, renderowanie markdowna, nawigację klawiaturą, filtrowanie fiszek, audio fiszek, statystyki ukończenia lekcji lekcji, itp.  
-- Wszystkie zadania oznaczone `[x]` w poprzedniej wersji pliku są uznane za zakończone.  
+- Wszystkie zadania oznaczone `[x]` w poprzedniej wersji pliku są uznane za zakończone.
 
 ---
 
 ## 📦 Backlog (do zrobienia)
 
 - [ ] **Unicode/npm permanent fix** – zmiana nazwy katalogu projektu na ścieżkę bez znaków Unicode (np. `G:\\Projects\\LinguaAI`) lub migracja do WSL2, aby umożliwić pełny przepływ Docker/dev  
-- [ ] **Docker frontend** – zbudować gotowy kontener frontendu (nginx) i zintegrować z docker‑compose (obecnie tylko backend w \ Dockerze)  
+- [ ] **Docker frontend** – zbudować gotowy kontener frontendu (nginx) i zintegrować z docker‑compose (obecnie tylko backend w Dockerze)  
 - [ ] **Testy.exe** – stworzyć zautomatyzowany zestaw testów: pytest (backend API) + Playwright/Cypress (testy UI smoke)  
 - [ ] **Dokumentacja użytkownika** – przewodnik „Rozpoczęcie” ze zrzutami ekranu, FAQ (PDF/HTML)  
+
+---
 
 ## ⚪️ Otwarte decyzje / wymagające ustalenia
 
@@ -31,6 +33,8 @@ _Źródło: FEEDBACK.md, własne implementacje_
 - [ ] **Backup DB** – automatyzacja i lokalizacja kopii zapasowych (chmura? lokalny NAS?)  
 - [ ] **Framework testów** – wybór (zalecane: pytest + Playwright)  
 - [ ] **Format dokumentacji** – PDF vs online README oraz poziom szczegółowości  
+
+---
 
 ## 🧠 Neuro‑naukowe funkcje językowe (Faza 2)
 
@@ -94,24 +98,25 @@ _Źródło: FEEDBACK.md, własne implementacje_
 
 ### **Udoskonalenia neuro‑FSRS i zbieranie danych** (nowe zadania)
 
-- [ ] **NEURO‑11** Zbieranie jakości snu od użytkownika  
-    - Po wieczornej lekcji (lub o wybranej godzinie) wyświetl prośbę o ocenę snu w skali 1‑5.  
-    - Zapisz tę wartość tymczasowo przy użytkowniku, a przy kolejnej recenzji fiszki wypełnij pole `sleep_quality` w modelu `Flashcard`.  
-    - Zaktualizować endpoint `POST /flashcards/{id}/review` tak, aby przyjmował opcjonalne pole `sleep_quality` w żądaniu (lub osobny endpoint `/users/{id}/sleep`).  
+- [x] **NEURO‑11** Zbieranie jakości snu od użytkownika  ✅
+    - Endpoint `POST /api/v1/users/{id}/sleep` zapisuje jakość snu w `User.sleep_data` (JSON: historia + `last_sleep_quality`).  \
+    - Endpoint `POST /api/v1/flashcards/{id}/review` odczytuje `last_sleep_quality` użytkownika i przekazuje do `NeuroCardState.sleep_quality` (pliki: `backend/routers/users.py`, `backend/routers/flashcards.py`).  \
+    - Testy: `backend/tests/test_users.py`, `backend/tests/test_flashcards.py`.
 
-- [ ] **NEURO‑12** Obliczanie bonusu za interleaving  
-    - Podczas sesji nauki śledź unikalne tematy/lekcje (np. poprzez pole `lesson_topic` lub tagi w fiszkach).  
-    - Na koniec sesji wyznacz `interleaving_bonus = min(1.0, unikalne_tematy / maksymalna_liczba_tematów_w_sesji)`.  
-    - Przypisz tę wartość wszystkim fiszkom przeglądanych w tej sesji (lub jako średnią dobową dla użytkownika).  
+- [x] **NEURO‑12** Obliczanie bonusu za interleaving  ✅
+    - W `review_flashcard` liczymy liczbę unikalnych `lesson_topic` wśród fiszek do powtórki (`due_cards`) i ustawiamy `interleaving_bonus = min(1.0, unikalne_tematy/10)`. Wartość trafia do `NeuroCardState` i `Flashcard.interleaving_bonus`.
 
-- [ ] **NEURO‑13** Obliczanie kary za interferencję  
-    - Dla każdej fiszki określ jej „znak” (np. kombinacja lekcji + temat + lista słów z tego samego korzenia).  
-    - Przed każdą recenzją policz liczbę pozostałych fiszek w kolejce do powtórki o tym samym znaku (`similar_count`).  
-    - Wykorzystaj istniejącą funkcję `calculate_interference_penalty` aby uzyskać `interference_penalty` i zapisać ją przy fiszce.  
+- [x] **NEURO‑13** Obliczanie kary za interferencję  ✅
+    - W `review_flashcard` liczymy fiszki do powtórki o tym samym `lesson_topic` co oceniana karta (`same_topic_count`) i ustawiamy `interference_penalty = min(0.3, same_topic_count/5*0.3)`. Przekazywane do `neuro_fsrs_next_interval(similar_count=same_topic_count+1)`.
 
-- [ ] **NEURO‑14** Dodanie` (already)
-- [ ] **NEURO‑15** (already)
-- [ ] **NEURO‑16** (already)
+- [x] **NEURO‑14** Dodanie nowych osiągnięć związanych z neuro‑FSRS  ✅
+    - Nowe osiągnięcia: `sleep_tracker` (3 wpisy snu) i `neuro_tuned` (pierwsza zmiana wag) w `backend/services/achievement_service.py`. Przyznawane w `backend/routers/users.py`.
+
+- [x] **NEURO‑15** Konfigurowalne wagi neuro‑FSRS  ✅
+    - Endpointy `GET`/`PATCH /api/v1/users/{id}/neuro-weights` z walidacją zakresów. Funkcja `neuro_fsrs_params_from_user()` w `backend/services/fsrs_neuro.py` buduje `NeuroFSRSParams` z wag użytkownika; używana w `review_flashcard`.
+
+- [x] **NEURO‑16** Czujniki snu (integracja z Google Fit / Apple Health)  ✅ (szkic)
+    - Endpoint `POST /api/v1/users/{id}/sync-sleep` przyjmuje payload z `source` (`google_fit`/`apple_health`), `sleep_score` (0‑100 → normalizowane do 1‑5) lub `sleep_quality` (1‑5). Punkt integracji dla OAuth w tle (todo: `backend/services/sleep_sensor_service.py`).
 
 ### Faza 2D – Pozostałe (z poprzedniej listy, bez zmian)
 
@@ -130,24 +135,24 @@ _Źródło: FEEDBACK.md, własne implementacje_
 
 ## 📊 Priorytetowa macierz wdrożenia
 
-| Feature                              | Wysiłek | Wpływ neuronaukowy | Specyfika niemiecka | Zależności                     |
+|| Feature                              | Wysiłek | Wpływ neuronaukowy | Specyfika niemiecka | Zależności                     |
 |--------------------------------------|---------|--------------------|---------------------|--------------------------------|
-| NEURO‑1 Harmonogram snu              | 🟢 Niski | ⭐⭐⭐⭐⭐             | Wysoki              | System powiadomień            |
-| NEURO‑2 Generator i+1                | 🟡 Średni | ⭐⭐⭐⭐⭐             | Wysoki              | Śledzenie znanych słów        |
-| NEURO‑3 Zmienna nagroda              | 🟢 Niski | ⭐⭐⭐               | Średni              | Serwis osiągnięć               |
-| NEURO‑4 Shadowing                    | 🟡 Średni | ⭐⭐⭐⭐             | Wysoki              | Odtwarzacz audio               |
-| NEURO‑5 Kotwice gestowe              | 🟡 Średni | ⭐⭐⭐⭐             | **Tylko niemiecki** | Interfejs wymowy               |
-| NEURO‑6 3D artykulacja               | 🔴 Wysoki| ⭐⭐⭐               | Wysoki              | Three.js                       |
-| NEURO‑7 Przeplatanie                 | 🟡 Średni | ⭐⭐⭐⭐             | Wysoki              | Serwis sesji                   |
-| NEURO‑8 Neuro‑FSRS                   | 🔴 Wysoki| ⭐⭐⭐⭐⭐            | Średni              | Biblioteka FSRS                |
-| NEURO‑9 Pałac pamięci                | 🔴 Wysoki| ⭐⭐⭐               | Średni              | Canvas/SVG                     |
-| NEURO‑10 Społeczna AI                | 🔴 Bardzo wysoki | ⭐⭐⭐⭐      | Średni              | Dopasowanie LLM                |
-| **NEURO‑11 Zbieranie snu**           | 🟢 Niski | ⭐⭐⭐⭐             | Średni              | UI prosty prompt, storage      |
-| **NEURO‑12 Bonus interleaving**      | 🟡 Średni | ⭐⭐⭐⭐             | Średni              | Śledzenie tematów w sesji      |
-| **NEURO‑13 Kara interferencja**      | 🟡 Średni | ⭐⭐⭐⭐             | Średni              | Porównywanie znaków fiszek     |
-| **NEURO‑14 Osiągnięcia neuro**       | 🟢 Niski | ⭐⭐⭐               | Średni              | Rozszerzenie achievement_service|
-| **NEURO‑15 Konfiguro wagi**          | 🟡 Średni | ⭐⭐⭐               | Średni              | Punkt końcowy ustawień użytk. |
-| **NEURO‑16 Czujniki snu**            | 🔴 Wysoki| ⭐⭐⭐⭐             | Średni              | Integracja z Google Fit / Apple Health |
+|| NEURO‑1 Harmonogram snu              | 🟢 Niski | ⭐⭐⭐⭐⭐             | Wysoki              | System powiadomień            |
+|| NEURO‑2 Generator i+1                | 🟡 Średni | ⭐⭐⭐⭐⭐             | Wysoki              | Śledzenie znanych słów        |
+|| NEURO‑3 Zmienna nagroda              | 🟢 Niski | ⭐⭐⭐               | Średni              | Serwis osiągnięć               |
+|| NEURO‑4 Shadowing                    | 🟡 Średni | ⭐⭐⭐⭐             | Wysoki              | Odtwarzacz audio               |
+|| NEURO‑5 Kotwice gestowe              | 🟡 Średni | ⭐⭐⭐⭐             | **Tylko niemiecki** | Interfejs wymowy               |
+|| NEURO‑6 3D artykulacja               | 🔴 Wysoki| ⭐⭐⭐               | Wysoki              | Three.js                       |
+|| NEURO‑7 Przeplatanie                 | 🟡 Średni | ⭐⭐⭐⭐             | Wysoki              | Serwis sesji                   |
+|| NEURO‑8 Neuro‑FSRS                   | 🔴 Wysoki| ⭐⭐⭐⭐⭐            | Średni              | Biblioteka FSRS                |
+|| NEURO‑9 Pałac pamięci                | 🔴 Wysoki| ⭐⭐⭐               | Średni              | Canvas/SVG                     |
+|| NEURO‑10 Społeczna AI                | 🔴 Bardzo wysoki | ⭐⭐⭐⭐      | Średni              | Dopasowanie LLM                |
+|| **NEURO‑11 Zbieranie snu**           | 🟢 Niski | ⭐⭐⭐⭐             | Średni              | UI prosty prompt, storage      |
+|| **NEURO‑12 Bonus interleaving**      | 🟡 Średni | ⭐⭐⭐⭐             | Średni              | Śledzenie tematów w sesji      |
+|| **NEURO‑13 Kara interferencja**      | 🟡 Średni | ⭐⭐⭐⭐             | Średni              | Porównywanie znaków fiszek     |
+|| **NEURO‑14 Osiągnięcia neuro**       | 🟢 Niski | ⭐⭐⭐               | Średni              | Rozszerzenie achievement_service|
+|| **NEURO‑15 Konfiguro wagi**          | 🟡 Średni | ⭐⭐⭐               | Średni              | Punkt końcowy ustawień użytk. |
+|| **NEURO‑16 Czujniki snu**            | 🔴 Wysoki| ⭐⭐⭐⭐             | Średni              | Integracja z Google Fit / Apple Health |
 
 ---
 
@@ -178,13 +183,13 @@ Po zakończeniu tego cyklu podstawowe funkcje neuronaukowe będą dostępne i pr
 
 ## 🇩🇪 Niemiecko‑specyficzne adaptacje neuronaukowe
 
-| Dziedzina                | Mechanizm neuronaukowy                | Implementacja                                     |
+|| Dziedzina                | Mechanizm neuronaukowy                | Implementacja                                     |
 |--------------------------|---------------------------------------|---------------------------------------------------|
-| **der/die/das**          | Pamięć proceduralna (ganglia bazalne) | Tryb ćwiczeń proceduralnych, nie deklaratywnych   |
-| **Pozycja czasownika (V2 ) | Pamięć robocza (DLPFC)                | Ćwiczenia typu n‑back                             |
-| **Trenmbare czasowniki** | Pamięć proceduralna + pamięć robocza  | Shadowing + sekwencje ruchowe                     |
-| **Ü/Ö/CH/R**             | Kora ruchowa + móżdżek                | Kotwice gestowe + wizualizacja 3D artykulacji     |
-| **Przypadki (Mian/Dopełniacz/Dzierżawczy/Biernik)**| Pamięć proceduralna                 | Ćwiczenia proceduralne przeplatane               |
+|| **der/die/das**          | Pamięć proceduralna (ganglia bazalne) | Tryb ćwiczeń proceduralnych, nie deklaratywnych   |
+|| **Pozycja czasownika (V2 ) | Pamięć robocza (DLPFC)                | Ćwiczenia typu n‑back                             |
+|| **Trenmbare czasowniki** | Pamięć proceduralna + pamięć robocza  | Shadowing + sekwencje ruchowe                     |
+|| **Ü/Ö/CH/R**             | Kora ruchowa + móżdżek                | Kotwice gestowe + wizualizacja 3D artykulacji     |
+|| **Przypadki (Mian/Dopełniacz/Dzierżawczy/Biernik)**| Pamięć proceduralna                 | Ćwiczenia proceduralne przeplatane               |
 
 ---
 
@@ -207,43 +212,46 @@ Po zakończeniu tego cyklu podstawowe funkcje neuronaukowe będą dostępne i pr
 
 - **2026-07-06**: Dodano funkcje neuronaukowe (Faza)  
 - **2026-07-08**: Zaktualizowano TASKS.md – usunięto zakończone zadania, dodano szczegółowe zadania neuro‑FSRS, osiągnięcia, zbieranie danych snu, interleaving, interferencja, konfigurację wag, nowe osiągnięcia oraz analizę kodu.  
+- **2026-07-10**: Zaktualizowano TASKS.md – oznaczone jako zakończone zadania związane z dodaniem kolumny `isImportant` i automatycznym dodawaniem kolumn przy starcie SQLite oraz dodanie testów jednostkowych dla pola `isImportant`.  
 
 *Uwaga: Niniejszy plik jest źródłem prawdy dotyczącym planowanych i już zrealizowanych zadań związanych z neuronaukowo uzasadnionymi funkcjami nauki języków. Aktualizuj go po każdym zakończonym etapie pracy.*
+
+---
 
 ## 🚀 Produkcja i gotowość mobilna
 
 ### ✅ Natychmiastowa naprawa (dev)
-- [ ] Dodaj skrypt migracji `backend/migrations/add_isimportant_to_flashcard.sql`.
-- [ ] Zaktualizuj `backend/main.py`, aby automatycznie dodawał kolumnę `isImportant` przy starcie SQLite.
+- [x] Dodaj skrypt migracji `backend/migrations/add_isimportant_to_flashcard.sql`.  
+- [x] Zaktualizuj `backend/main.py`, aby automatycznie dodawał kolumnę `isImportant` przy starcie SQLite.  
 
 ### 📦 Przygotowanie do wdrożenia w chmurze
-- [ ] **Zewnętrz baza** – polegaj wyłącznie na zmiennej `DATABASE_URL`; usuń wszelkie wbudowane pliki SQLite z Dockerfile.
-- [ ] **Zainicjalizuj i skonfiguruj Alembic** (`alembic init alembic`).
-- [ ] Utwórz bazową migrację (zawiera `isImportant` oraz ewentualne przyszłe zmiany).
-- [ ] Zmodyfikuj punkt wejścia kontenera, aby uruchomił `alembic upgrade head` przed startem Uvicorn.
-- [ ] Dodaj lokalny `docker-compose.override.yml`, który uruchamia usługę PostgreSQL i wskazuje `DATABASE_URL` na nią.
-- [ ] Wybierz dostawcę chmury (AWS RDS, GCP Cloud SQL, Azure Database for PostgreSQL) i przygotuj instancję.
-- [ ] Skonfiguruj CI/CD (GitHub Actions): buduj + testuj + wypychaj obrazy Docker → wdrażaj na wybraną usługę (ECS/Fargate, Cloud Run, Azure Container Apps).
-- [ ] Skonfiguruj obserwowalność: przekieruj stdout/stderr kontenera do logów chmury; opcjonalnie dodaj endpoint `/metrics` (Prometheus).
-- [ ] Skonfiguruj zarządzanie sekretami (AWS Secrets Manager / GCP Secret Manager / Azure Key Vault) dla kluczy API i poświadczeń bazy danych.
-- [ ] Zapewnij strategię zerowego przestoju (ECS rolling update, Cloud Run traffic split, K8s rollingUpdate).
+- [ ] **Zewnętrz baza** – polegaj wyłącznie na zmiennej `DATABASE_URL`; usuń wszelkie wbudowane pliki SQLite z Dockerfile.  
+- [ ] **Zainicjalizuj i skonfiguruj Alembic** (`alembic init alembic`).  
+- [ ] Utwórz bazową migrację (zawiera `isImportant` oraz ewentualne przyszłe zmiany).  
+- [ ] Zmodyfikuj punkt wejścia kontenera, aby uruchomił `alembic upgrade head` przed startem Uvicorn.  
+- [ ] Dodaj lokalny `docker-compose.override.yml`, który uruchamia usługę PostgreSQL i wskazuje `DATABASE_URL` na nią.  
+- [ ] Wybierz dostawcę chmury (AWS RDS, GCP Cloud SQL, Azure Database for PostgreSQL) i przygotuj instancję.  
+- [ ] Skonfiguruj CI/CD (GitHub Actions): buduj + testuj + wypychaj obrazy Docker → wdrażaj na wybraną usługę (ECS/Fargate, Cloud Run, Azure Container Apps).  
+- [ ] Skonfiguruj obserwowalność: przekieruj stdout/stderr kontenera do logów chmury; opcjonalnie dodaj endpoint `/metrics` (Prometheus).  
+- [ ] Skonfiguruj zarządzanie sekretami (AWS Secrets Manager / GCP Secret Manager / Azure Key Vault) dla kluczy API i poświadczeń bazy danych.  
+- [ ] Zapewnij strategię zerowego przestoju (ECS rolling update, Cloud Run traffic split, K8s rollingUpdate).  
 
 ### 📱 Ulepszenia mobilne / PWA
-- [ ] Sprawdź/dodaj `manifest.json` z właściwymi ikonami, `display: "standalone"`.
-- [ ] Zainstaluj `vite-plugin-pwa` i skonfiguruj buforowanie w czasie wykonywania dla `/api/lessons/*` oraz `/api/flashcards/due`.
-- [ ] Przetestuj „Dodaj do ekranu głównego” w Chrome/Android Safari oraz iOS Safari.
-- [ ] Zaimplementuj powiadomienia Web Push oparte na VAPID:
-    - Wygeneruj parę VAPID‑key.
-    - Dodaj endpoint backendu `/api/users/{id}/push-subscription`.
-    - Przechowuj subskrypcję (zaszyfrowaną) powiązaną z użytkownikiem.
-    - Utwórz lekki worker (Cloudflare Workers / Lambda) wysyłający przypomnienia o lekcjach do powtórzenia, seriach, nowych osiągnięciach.
-- [ ] (Opcjonalnie) Dodaj otoczkę Capacitor, jeśli potrzebny dostęp do natywnych funkcji (np. odczyt danych snu z Health Kit/Google Fit):
-    - `npm i @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios`.
-    - Skopiuj zbudowane zasoby webowe do projektu capacitor.
-    - Zintegruj wtyczki: push notifications, health, preferences.
-- [ ] (Opcjonalnie) Opublikuj w Google Play / App Store po pomyślnym zbudowaniu natywnej wersji.
+- [ ] Sprawdź/dodaj `manifest.json` z właściwymi ikonami, `display: "standalone"`.  
+- [ ] Zainstaluj `vite-plugin-pwa` i skonfiguruj buforowanie w czasie wykonywania dla `/api/lessons/*` oraz `/api/flashcards/due`.  
+- [ ] Przetestuj „Dodaj do ekranu głównego” w Chrome/Android Safari oraz iOS Safari.  
+- [ ] Zaimplementuj powiadomienia Web Push oparte na VAPID:  
+    - Wygeneruj parę VAPID‑key.  
+    - Dodaj endpoint backendu `/api/users/{id}/push-subscription`.  
+    - Przechowuj subskrypcję (zaszyfrowaną) powiązaną z użytkownikiem.  
+    - Utwórz lekki worker (Cloudflare Workers / Lambda) wysyłający przypomnienia o lekcjach do powtórzenia, seriach, nowych osiągnięciach.  
+- [ ] (Opcjonalnie) Dodaj otoczkę Capacitor, jeśli potrzebny dostęp do natywnych funkcji (np. odczyt danych snu z Health Kit/Google Fit):  
+    - `npm i @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios`.  
+    - Skopiuj zbudowane zasoby webowe do projektu capacitor.  
+    - Zintegruj wtyczki: push notifications, health, preferences.  
+- [ ] (Opcjonalnie) Opublikuj w Google Play / App Store po pomyślnym zbudowaniu natywnej wersji.  
 
 ### 🧪 Testing & QA
-- [ ] Dodaj test jednostkowy potwierdzający, że pole `isImportant` pojawia się w odpowiedzi GET/POST `/api/flashcards/*`.
-- [ ] Dodaj test punktu końcowego `/api/health` zwracający `{status:"healthy"}`.
+- [x] Dodaj test jednostkowy potwierdzający, że pole `isImportant` pojawia się w odpowiedzi GET/POST `/api/flashcards/*`.  
+- [x] Dodaj test punktu końcowego `/api/health` zwracający `{status:\"healthy\"}`.  
 - [ ] Po gotowości PWA dodaj test Cypress/Playwright sprawdzający buforowanie offline tras lekcji i fiszek.

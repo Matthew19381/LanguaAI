@@ -57,6 +57,9 @@ ACHIEVEMENT_DEFS = {
     "first_topic": ("Pierwszy temat", "Utworzono pierwszy temat", "📌"),
     "topics_5": ("Kolekcjonertematów", "Utworzono 5 tematów", "📋"),
     "topics_review_10": ("Powtórki z tematów", "10 przeglądów tematów", "📖"),
+    # ── Neuro-FSRS ──
+    "sleep_tracker": ("Strażnik snu", "Zanotowano jakość snu 3 razy", "🌙"),
+    "neuro_tuned": ("Architekt pamięci", "Dostosowano wagi neuro-FSRS", "🧬"),
     # ── News ──
     "first_news": ("Pierwszy artykuł", "Przeczytano pierwszy artykuł", "📰"),
     "news_10": ("Czytelnik", "Przeczytano 10 artykułów", "🗞️"),

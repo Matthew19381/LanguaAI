@@ -51,9 +51,36 @@ def calculate_sleep_modulator(sleep_quality: int, session_type: str) -> float:
         return 1.0 + 0.2 * (base - 0.5)  # 0.9 - 1.1
     elif session_type == "morning":
         # Morning retrieval boost (after sleep consolidation)
-        return 
+        return 1.0 + 0.25 * (base - 0.5)  # 0.875 - 1.125
     return 1.0 + 0.15 * (base - 0.5)  # 0.925 - 1.075
-    return 1.0
+
+
+def neuro_fsrs_params_from_user(user) -> "NeuroFSRSParams":
+    """Build NeuroFSRSParams using the user's configurable weights (NEURO-15).
+
+    Reads the JSON ``neuro_weights`` column on the User model. Falls back to the
+    dataclass defaults if the column is missing or invalid.
+    """
+    defaults = NeuroFSRSParams()
+    raw = getattr(user, "neuro_weights", None)
+    if not raw:
+        return defaults
+    try:
+        import json
+        weights = json.loads(raw) if isinstance(raw, str) else raw
+    except (json.JSONDecodeError, TypeError):
+        return defaults
+
+    return NeuroFSRSParams(
+        sleep_modulator_weight=float(weights.get(
+            "sleep_modulator_weight", defaults.sleep_modulator_weight)),
+        time_of_day_weight=float(weights.get(
+            "time_of_day_weight", defaults.time_of_day_weight)),
+        interleaving_bonus_weight=float(weights.get(
+            "interleaving_bonus_weight", defaults.interleaving_bonus_weight)),
+        interference_penalty_weight=float(weights.get(
+            "interference_penalty_weight", defaults.interference_penalty_weight)),
+    )
 
 
 def calculate_time_of_day_factor(session_type: str, current_hour: int) -> float:

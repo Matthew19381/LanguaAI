@@ -124,6 +124,8 @@ async def review_flashcard(
     if flashcard.user_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to review this flashcard")
 
+    user = get_user_or_404(db, user_id)
+
     # Determine session type based on current UTC hour
     now = datetime.now(timezone.utc)
     current_hour = now.hour
@@ -134,6 +136,37 @@ async def review_flashcard(
     else:
         session_type = "day"
 
+    # ── NEURO-11: read the user's most recent sleep quality ──
+    sleep_quality = None
+    if user.sleep_data:
+        try:
+            import json as _json
+            sd = _json.loads(user.sleep_data)
+            sleep_quality = sd.get("last_sleep_quality")
+        except (json.JSONDecodeError, TypeError):
+            sleep_quality = None
+
+    # ── NEURO-12: interleaving bonus (topic variety among due cards) ──
+    # A diverse due-queue (more distinct lesson topics) strengthens
+    # desirable-difficulties / spacing effect → small bonus per review.
+    due_cards = db.query(Flashcard).filter(
+        Flashcard.user_id == user_id,
+        Flashcard.language == user.target_language,
+        Flashcard.is_active == True,
+        Flashcard.next_review_date <= now,
+        Flashcard.id != flashcard_id,
+    ).all()
+    due_topics = {c.lesson_topic for c in due_cards if c.lesson_topic}
+    # Bonus scales with how many *different* topics are queued alongside this card
+    interleaving_bonus = round(min(1.0, len(due_topics) / 10.0), 3)
+
+    # ── NEURO-13: interference penalty (same-topic cards competing) ──
+    # Cards sharing the exact lesson topic compete for the same neural trace.
+    same_topic_count = sum(
+        1 for c in due_cards if c.lesson_topic and c.lesson_topic == flashcard.lesson_topic
+    )
+    interference_penalty = round(min(0.3, (same_topic_count) / 5.0 * 0.3), 3)
+
     # Prepare neuro card state from flashcard
     card_state = NeuroCardState(
         difficulty=flashcard.difficulty,
@@ -141,18 +174,23 @@ async def review_flashcard(
         retrievability=flashcard.retrievability if flashcard.retrievability > 0 else 0.0,
         interval_days=flashcard.interval_days,
         repetitions=flashcard.repetitions,
-        sleep_quality=None,  # Not collected from user yet; neuro function will default to 3
+        sleep_quality=sleep_quality,  # NEURO-11
         session_type=session_type,
-        interleaving_bonus=flashcard.interleaving_bonus,
-        interference_penalty=flashcard.interference_penalty,
+        interleaving_bonus=interleaving_bonus,  # NEURO-12
+        interference_penalty=interference_penalty,  # NEURO-13
         time_of_day=session_type,
     )
+
+    # NEURO-15: use the user's configurable neuro-FSRS weights
+    from backend.services.fsrs_neuro import neuro_fsrs_params_from_user
+    params = neuro_fsrs_params_from_user(user)
 
     # Apply neuro-enhanced FSRS
     result = neuro_fsrs_next_interval(
         card=card_state,
         rating=request.rating,
-        similar_count=0,  # TODO: compute similarity with other cards
+        params=params,
+        similar_count=same_topic_count + 1,
         current_hour=current_hour,
     )
 
@@ -162,7 +200,7 @@ async def review_flashcard(
     flashcard.retrievability = result.retrievability
     flashcard.interval_days = result.interval_days
     flashcard.repetitions = result.repetitions
-    flashcard.lapses = result.lapses if hasattr(result, 'lapses') else flashcard.lapses  # neuro function doesn't return lapses yet
+    flashcard.lapses = result.lapses if hasattr(result, 'lapses') else flashcard.lapses
     flashcard.fsrs_state = result.state if hasattr(result, 'state') else "Review"
     flashcard.next_review_date = now + timedelta(days=result.interval_days)
     flashcard.session_type = result.session_type
@@ -179,7 +217,10 @@ async def review_flashcard(
         "new_difficulty": result.difficulty,
         "new_stability": result.stability,
         "state": getattr(result, 'state', "Review"),
-        "next_review": flashcard.next_review_date.isoformat()
+        "next_review": flashcard.next_review_date.isoformat(),
+        "sleep_quality": sleep_quality,
+        "interleaving_bonus": interleaving_bonus,
+        "interference_penalty": interference_penalty,
     }
 
 
