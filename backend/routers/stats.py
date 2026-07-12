@@ -6,8 +6,6 @@ import httpx
 from datetime import datetime, date, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import Optional
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.user import User
@@ -36,7 +34,6 @@ async def get_stats(user_id: int, db: Session = Depends(get_db)):
         Lesson.user_id == user_id,
         Lesson.language == user.target_language
     ).all()
-    completed_lessons = [l for l in all_lessons if l.is_completed]
 
     # Get test history
     test_results = db.query(TestResult).filter(
@@ -167,7 +164,7 @@ async def get_daily_tips(user_id: int, db: Session = Depends(get_db)):
     except httpx.RequestError as e:
         logger.error(f"AI service error generating tips: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error getting daily tips")
         raise HTTPException(status_code=500, detail="Failed to generate tips")
 

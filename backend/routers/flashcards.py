@@ -4,13 +4,11 @@ import json
 import logging
 import os
 import httpx
-from datetime import datetime, date, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
-from typing import Optional
 from sqlalchemy.orm import Session
 from backend.database import get_db
-from backend.models.user import User
 from backend.utils import get_user_or_404
 from backend.models.flashcard import Flashcard
 from backend.schemas.flashcard import (
@@ -278,7 +276,7 @@ async def generate_audio(flashcard_id: int, user_id: int, db: Session = Depends(
     except httpx.RequestError as e:
         logger.error(f"Audio service error: {e}")
         raise HTTPException(status_code=503, detail="Audio service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error generating flashcard audio")
         raise HTTPException(status_code=500, detail="Failed to generate audio")
 
@@ -446,9 +444,6 @@ async def bulk_import_flashcards(
 
     if reader.fieldnames is None:
         raise HTTPException(status_code=400, detail="Empty file")
-
-    # Normalise header names (case-insensitive, strip whitespace)
-    fieldnames = {f.strip().lower() for f in reader.fieldnames}
 
     # Collect all words for duplicate check
     rows = list(reader)

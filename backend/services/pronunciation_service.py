@@ -122,7 +122,6 @@ def _normalize(text: str) -> str:
 
 def _compare_words(trans_words: list, target_words: list) -> list:
     matcher = difflib.SequenceMatcher(None, target_words, trans_words)
-    result = []
     target_covered = {}
 
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():

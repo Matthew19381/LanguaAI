@@ -71,8 +71,8 @@ backups/
 .dockerignore
 
 # Playwright artifacts
-frontend/{,
-frontend/{,-
+frontend/test-results/
+frontend/playwright-report/
 frontend/e2e/error-context.md
 frontend/test-results/
 test-results/

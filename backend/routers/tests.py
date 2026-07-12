@@ -10,7 +10,6 @@ from backend.models.user import User
 from backend.utils import get_user_or_404
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
-from backend.models.study_plan import StudyPlan
 from backend.schemas.test import SubmitTestRequest
 from backend.services.test_generator import (
     get_or_create_daily_test,
@@ -61,7 +60,7 @@ async def get_daily_test(user_id: int, db: Session = Depends(get_db)):
     except httpx.RequestError as e:
         logger.error(f"AI service error getting daily test: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error getting daily test")
         raise HTTPException(status_code=500, detail="Failed to load daily test")
 
@@ -95,7 +94,7 @@ async def submit_test_answers(
         raise HTTPException(status_code=503, detail="AI service unavailable")
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error submitting test")
         raise HTTPException(status_code=500, detail="Failed to submit test")
 
@@ -142,7 +141,7 @@ async def get_errors_test(user_id: int, db: Session = Depends(get_db)):
     except httpx.RequestError as e:
         logger.error(f"AI service error generating errors test: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error generating errors test")
         raise HTTPException(status_code=500, detail="Failed to generate error test")
 
@@ -174,7 +173,7 @@ async def get_weekly_test(
         raise HTTPException(status_code=503, detail="AI service unavailable")
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error getting weekly test")
         raise HTTPException(status_code=500, detail="Failed to load weekly test")
 
@@ -185,8 +184,6 @@ async def get_history(
     limit: Optional[int] = 20,
     db: Session = Depends(get_db)
 ):
-    user = get_user_or_404(db, user_id)
-
     history = get_test_history(user_id, db, limit)
 
     # Calculate stats

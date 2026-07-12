@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime, date, timezone
+from datetime import datetime, timezone
 from backend.database import Base
 
 
@@ -39,10 +39,5 @@ class Flashcard(Base):
     # Neuro: motor/embodied learning
     gesture_anchor = Column(String, nullable=True)   # emoji/code for gestural anchor (e.g., "🤲" for "ch")
     spatial_anchor = Column(String, nullable=True)   # "x,y,room" for Mind Palace
-    # Neuro-FSRS extensions
-    sleep_quality = Column(Integer, nullable=True)   # 1-5, user-reported
-    session_type = Column(String, nullable=True)     # "evening" | "morning" | "day"
-    interleaving_bonus = Column(Float, default=0.0)  # from interleaved sessions
-    interference_penalty = Column(Float, default=0.0) # from similar items
 
     user = relationship("User", back_populates="flashcards")

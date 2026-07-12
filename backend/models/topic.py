@@ -5,9 +5,9 @@ with SM-2 spaced repetition per topic.
 Topic = a grammar/vocabulary theme (e.g. "Perfekt", "Konjunktiv II")
 TopicItem = a lesson, test, or exercise linked to a topic
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, Float, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Text, DateTime, Float, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import enum
 from backend.database import Base
 

@@ -3,14 +3,13 @@ import logging
 import uuid
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Optional, List
+from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from backend.database import get_db
 from backend.models.user import User
 from backend.utils import get_user_or_404
 from backend.models.test_result import TestResult
-from backend.models.lesson import Lesson
 from backend.models.conversation_session import ConversationSession
 from backend.schemas.conversation import (
     StartConversationRequest,
@@ -109,7 +108,7 @@ async def start_conversation(
     except httpx.RequestError as e:
         logger.error(f"AI service error starting conversation: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error starting conversation")
         raise HTTPException(status_code=500, detail="Failed to start conversation")
 
@@ -130,7 +129,6 @@ async def send_message(request: MessageRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Not authorized to access this session")
 
     language = conv_session.language
-    native_language = conv_session.native_language
     cefr_level = conv_session.cefr_level
     system_prompt = conv_session.system_prompt
     scenario = json.loads(conv_session.scenario)
@@ -180,7 +178,7 @@ Response should be 1-3 sentences in {language}."""
     except httpx.RequestError as e:
         logger.error(f"AI service error in conversation: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error generating conversation response")
         raise HTTPException(status_code=500, detail="Failed to generate response")
 
@@ -254,7 +252,7 @@ async def analyze_session(
     except httpx.RequestError as e:
         logger.error(f"AI service error analyzing conversation: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error analyzing conversation")
         raise HTTPException(status_code=500, detail="Failed to analyze conversation")
 
@@ -290,7 +288,7 @@ async def ask_question(
     except httpx.RequestError as e:
         logger.error(f"AI service error answering question: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error answering question")
         raise HTTPException(status_code=500, detail="Failed to answer question")
 
@@ -317,7 +315,7 @@ async def translate_word(request: TranslateRequest, db: Session = Depends(get_db
     except httpx.RequestError as e:
         logger.error(f"AI service error in translation: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected translation error")
         raise HTTPException(status_code=500, detail="Translation failed")
 
@@ -366,6 +364,6 @@ async def analyze_pasted_text(
     except httpx.RequestError as e:
         logger.error(f"AI service error analyzing pasted text: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error analyzing pasted text")
         raise HTTPException(status_code=500, detail="Failed to analyze text")

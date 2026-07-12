@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:15-alpine
+    container_name: linguaai_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lingua_ai
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
   backend:
     build:
       context: .
@@ -8,7 +21,7 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - DATABASE_URL=sqlite:///./lingua_ai.db
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/lingua_ai
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - AI_PROVIDER=${AI_PROVIDER:-openrouter}
@@ -16,17 +29,18 @@ services:
       - FRONTEND_URL=http://localhost:5173
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
     volumes:
-      - lingua_ai_db:/app/backend
       - lingua_ai_audio:/app/backend/audio
       - lingua_ai_exports:/app/backend/exports
+    depends_on:
+      - db
     restart: unless-stopped
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-      args:
-        VITE_API_URL: http://localhost:8001
+    args:
+      VITE_API_URL: http://localhost:8001
     ports:
       - "5173:5173"
     depends_on:
@@ -48,14 +62,13 @@ services:
           sleep 86400
         done
     volumes:
-      - lingua_ai_db:/app/backend:ro
       - lingua_ai_backups:/app/backups
-    restart: unless-stopped
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
-  lingua_ai_db:
   lingua_ai_audio:
   lingua_ai_exports:
   lingua_ai_backups:
+  pgdata:
