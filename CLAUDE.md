@@ -20,11 +20,13 @@ uvicorn backend.main:app --reload --port 8001
 npm run dev
 ```
 
-Frontend dev server runs on `:5173` and proxies `/api/v1` to `http://localhost:8001` (configured in `frontend/vite.config.js`), so all API calls use relative paths like `/api/v1/...`.
+Frontend dev server runs on `:5173` and proxies `/api` and `/audio` to `http://localhost:8001` (configured in `frontend/vite.config.js`), so all API calls use relative paths like `/api/...`.
 
 ## Environment
 
-Copy `backend/.env.example` → `backend/.env` and set `GEMINI_API_KEY`. The SQLite database (`lingua_ai.db`) is created automatically in `backend/` on first startup via `Base.metadata.create_all()` in `main.py`'s lifespan handler.
+Copy `backend/.env.example` → `backend/.env`. The default AI provider is **OpenRouter** (`AI_PROVIDER=openrouter` in `backend/config.py`), so set **`OPENROUTER_API_KEY`**. To use the direct Gemini API instead, set `AI_PROVIDER=gemini` and **`GEMINI_API_KEY`**. The SQLite database (`lingua_ai.db`) is created automatically in `backend/` on first startup via `Base.metadata.create_all()` in `main.py`'s lifespan handler.
+
+Model selection is centralized in `backend/services/model_router.py` (curated OpenRouter + Gemini catalog, tiered `free`/`cheap`/`best`). The active tier is `AI_MODEL_TIER` (default `cheap`); `gemini_service` resolves the default model from `model_router` — never hardcode a model id.
 
 **When adding a new SQLAlchemy model**: import it inside the lifespan block in `main.py` (alongside the existing `achievement` import) so it registers with `Base` before `create_all` runs.
 

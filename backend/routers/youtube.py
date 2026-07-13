@@ -7,7 +7,7 @@ from backend.database import get_db
 from backend.utils import get_user_or_404
 from backend.models.lesson import Lesson
 from backend.config import settings
-from backend.services.gemini_service import generate_json
+from backend.services.gemini_service import generate_json, with_model
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -44,6 +44,7 @@ def _extract_lesson_context(lesson: Lesson) -> dict:
     return {"topic": topic, "title": title, "vocab": vocab_words}
 
 
+@with_model("news")
 async def _suggest_queries(
     language: str,
     cefr_level: str,

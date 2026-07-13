@@ -203,6 +203,24 @@ czy backend wstał; proces w tle w GA ginie między krokami → Playwright łąc
 
 ---
 
+## 🤖 Model router — podłączenie do OpenRouter (2026-07-13)
+
+Rozpiska modeli (dobrana per-zadanie dla najlepszego generowania) **istnieje**: `backend/services/model_router.py` (katalog 50+ modeli OpenRouter w tierach `free`/`cheap`/`best` + mapowanie `task → model`). Domyślny provider to **OpenRouter** (`config.py: AI_PROVIDER="openrouter"`), zgodnie z wolą użytkownika.
+
+**Błąd (wykryty audytem):** `gemini_service` hardkodował `_OPENROUTER_DEFAULT_MODEL = "google/gemini-2.0-flash-exp:free"` — słaby darmowy model, omijający `model_router`. 3 ścieżki wołały `generate_json/text` bez `@with_model`, więc spadały na ten `:free`.
+
+**Naprawa:**
+- `gemini_service.py`: `_OPENROUTER_DEFAULT_MODEL` → `_default_openrouter_model()` pobierająca z `model_router._tier_default_openrouter(tier)` (cheap → `deepseek/deepseek-v3.2-non-thinking`).
+- `routers/settings.py` (`ui-translations`), `voice_chat.py` (2 endpointy), `youtube.py` (`_suggest_queries`) → dodano `@with_model(...)` (lesson / conversation / news).
+- `CLAUDE.md`: poprawiono Environment (OpenRouter zamiast GEMINI_API_KEY domyślnie) + sekcja o `model_router`; poprawiono proxy `/api` (nie `/api/v1`).
+
+**Weryfikacja:**
+- `_default_openrouter_model()` → `deepseek/deepseek-v3.2-non-thinking` (brak `:free`) ✓
+- pytest: **285 passed** (nowy test `TestDefaultModelResolution` blokuje regresję `:free`) ✓
+- Brak cyklu importu (gemini_service ↔ model_router) ✓
+
+---
+
 ## 📊 Priorytetowa macierz wdrożenia
 
 || Feature                              | Wysiłek | Wpływ neuronaukowy | Specyfika niemiecka | Zależności                     |

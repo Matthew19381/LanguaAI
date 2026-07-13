@@ -12,7 +12,7 @@ from backend.models.lesson import Lesson
 from backend.models.flashcard import Flashcard
 from backend.models.test_result import TestResult
 from backend.schemas.voice_chat import VoiceChatMessageRequest
-from backend.services.gemini_service import generate_text
+from backend.services.gemini_service import generate_text, with_model
 from backend.services import audio_service
 from datetime import datetime, date, timezone
 import json
@@ -140,6 +140,7 @@ Dziękuję za pomoc!
 
 
 @router.post("/api/v1/voice-chat/conversation/voice")
+@with_model("conversation")
 async def voice_chat_voice_conversation(request: VoiceChatMessageRequest):
     """
     Endpoint głosowej rozmowy przez OpenRouter.
@@ -182,6 +183,7 @@ async def voice_chat_voice_conversation(request: VoiceChatMessageRequest):
 
 
 @router.post("/api/v1/voice-chat/conversation/text")
+@with_model("conversation")
 async def voice_chat_text_conversation(request: VoiceChatMessageRequest):
     """
     Rozmowa tekstowa przez OpenRouter (bez audio).

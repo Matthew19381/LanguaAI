@@ -295,3 +295,15 @@ class TestParseJsonResponse:
     def test_parse_json_strip_whitespace(self):
         result = _parse_json_response('  {"c": 3}  ')
         assert result["c"] == 3
+
+
+class TestDefaultModelResolution:
+    def test_default_openrouter_model_uses_router_tier_not_free(self):
+        """Regression: default model must come from model_router's tier default,
+        never the old hardcoded 'google/gemini-2.0-flash-exp:free'."""
+        from backend.services.gemini_service import _default_openrouter_model
+        model = _default_openrouter_model()
+        assert isinstance(model, str) and model
+        assert ":free" not in model, "default model resolves to a free tier - router ignored"
+        # cheap tier default per model_router._tier_default_openrouter
+        assert model == "deepseek/deepseek-v3.2-non-thinking"

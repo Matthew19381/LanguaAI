@@ -9,7 +9,12 @@ logger = logging.getLogger(__name__)
 
 # OpenRouter settings
 _OPENROUTER_URL = f"{settings.OPENROUTER_BASE_URL}/chat/completions"
-_OPENROUTER_DEFAULT_MODEL = "google/gemini-2.0-flash-exp:free"
+# Default model is resolved from model_router's tier default (not hardcoded :free),
+# so the curated catalog in model_router.py is always respected.
+def _default_openrouter_model() -> str:
+    from backend.services.model_router import _tier_default_openrouter
+    tier = getattr(settings, "AI_MODEL_TIER", "cheap") or "cheap"
+    return _tier_default_openrouter(tier)
 
 # Gemini Direct API settings
 _GEMINI_BASE_URL = settings.GEMINI_BASE_URL
@@ -157,7 +162,7 @@ async def _generate_text_gemini(prompt: str, model: str = None) -> str:
 async def _generate_text_openrouter(prompt: str, model: str = None) -> str:
     """Generate text using OpenRouter API."""
     if model is None:
-        model = _model_override.get() or _OPENROUTER_DEFAULT_MODEL
+        model = _model_override.get() or _default_openrouter_model()
     url = _get_openrouter_url()
     headers = _get_openrouter_headers()
     payload = _build_openrouter_payload(prompt, model)
@@ -189,7 +194,7 @@ async def _generate_json_gemini(prompt: str, model: str = None) -> dict:
 async def _generate_json_openrouter(prompt: str, model: str = None) -> dict:
     """Generate JSON using OpenRouter API."""
     if model is None:
-        model = _model_override.get() or _OPENROUTER_DEFAULT_MODEL
+        model = _model_override.get() or _default_openrouter_model()
     full_prompt = prompt + "\n\nRespond ONLY with valid JSON, no markdown, no code blocks."
     url = _get_openrouter_url()
     headers = _get_openrouter_headers()

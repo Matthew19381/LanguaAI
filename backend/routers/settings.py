@@ -2,6 +2,7 @@
 import logging
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
+from backend.services.gemini_service import generate_json, with_model
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -158,8 +159,8 @@ _UI_EN = {
 
 
 @router.get("/api/settings/ui-translations")
+@with_model("lesson")
 async def get_ui_translations(language: str):
-    from backend.services.gemini_service import generate_json
     prompt = f"""Translate these UI strings from English to {language}.
 Return a JSON object with identical keys and translated values. No extra text.
 {json.dumps(_UI_EN, ensure_ascii=False)}"""
