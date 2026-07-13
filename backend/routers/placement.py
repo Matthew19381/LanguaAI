@@ -2,7 +2,6 @@ import json
 import logging
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Optional
 from backend.schemas.placement import (
     StartPlacementRequest,
     SubmitPlacementRequest,
@@ -15,7 +14,6 @@ from backend.models.user import User
 from backend.utils import get_user_or_404
 from backend.models.test_result import TestResult
 from backend.models.study_plan import StudyPlan
-from backend.models.flashcard import Flashcard
 from backend.models.lesson import Lesson
 from backend.services.lesson_generator import (
     generate_placement_test,
@@ -73,7 +71,7 @@ async def start_placement(
     except httpx.RequestError as e:
         logger.error(f"AI service error in placement test: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error in placement test")
         raise HTTPException(status_code=500, detail="Internal server error")
 
@@ -172,7 +170,7 @@ async def submit_placement(
     except httpx.RequestError as e:
         logger.error(f"AI service error in placement submit: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error in placement submit")
         raise HTTPException(status_code=500, detail="Internal server error")
 
@@ -212,7 +210,7 @@ async def create_user(
     except ValueError as e:
         logger.error(f"Validation error creating user: {e}")
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception(f"Unexpected error creating user")
         raise HTTPException(status_code=500, detail="Internal server error")
 

@@ -186,7 +186,7 @@ async def gdrive_auth():
             "auth_url": None,
             "error": "gdrive_credentials.json not found. Download OAuth2 credentials from Google Cloud Console and save as backend/gdrive_credentials.json"
         }
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error in GDrive auth")
         return {"authorized": False, "auth_url": None, "error": "Failed to get authorization URL"}
 
@@ -194,14 +194,13 @@ async def gdrive_auth():
 @router.get("/api/settings/gdrive/callback")
 async def gdrive_callback(code: str):
     """Handle Google Drive OAuth2 callback, save token, and redirect to frontend."""
-    from fastapi.responses import RedirectResponse
     try:
         from backend.services.google_drive_service import save_token_from_code
         success = save_token_from_code(code)
         if success:
             return RedirectResponse(url="/?gdrive=success", status_code=302)
         return RedirectResponse(url="/?gdrive=error", status_code=302)
-    except Exception as e:
+    except Exception:
         logger.exception("GDrive callback error")
         return RedirectResponse(url="/?gdrive=error", status_code=302)
 

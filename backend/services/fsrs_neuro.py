@@ -6,7 +6,6 @@ Extends standard FSRS with neuroscience parameters for optimal language learning
 import math
 from dataclasses import dataclass
 from typing import Optional
-from datetime import datetime, timezone, timedelta
 
 
 @dataclass

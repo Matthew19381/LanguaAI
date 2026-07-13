@@ -6,8 +6,6 @@ Usage:
     python -m backend.services.backup_service --list   # List backups
     python -m backend.services.backup_service --restore <path>  # Restore from backup
 """
-import os
-import sys
 import shutil
 import logging
 from datetime import datetime, timedelta

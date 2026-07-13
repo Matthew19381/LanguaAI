@@ -20,10 +20,6 @@ async def generate_daily_lesson(
 ) -> dict:
     """Generate a full daily lesson with all sections."""
     # Import here to avoid circular dependencies
-    from backend.services.lesson_generator.placement_test import generate_placement_test
-    from backend.services.lesson_generator.study_plan import generate_study_plan
-    from backend.services.lesson_generator.daily_test import generate_daily_test
-    from backend.services.lesson_generator.weekly_test import generate_weekly_test
 
     # Generate core lesson
     prompt = f"""

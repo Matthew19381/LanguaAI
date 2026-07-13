@@ -1,7 +1,6 @@
 """Pydantic schemas for test router."""
 from pydantic import BaseModel
 from typing import Optional, List
-import json
 
 
 class SubmitTestRequest(BaseModel):

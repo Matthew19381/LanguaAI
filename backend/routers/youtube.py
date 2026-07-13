@@ -4,7 +4,6 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from backend.database import get_db
-from backend.models.user import User
 from backend.utils import get_user_or_404
 from backend.models.lesson import Lesson
 from backend.config import settings
@@ -227,6 +226,6 @@ async def search_videos(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("YouTube search error")
         raise HTTPException(status_code=500, detail="Failed to search YouTube videos")

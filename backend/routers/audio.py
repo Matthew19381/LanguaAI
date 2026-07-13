@@ -31,7 +31,7 @@ async def text_to_speech(request: TTSRequest):
         except httpx.RequestError as e:
             logger.error(f"TTS service error: {e}")
             raise HTTPException(status_code=503, detail="TTS service unavailable")
-        except Exception as e:
+        except Exception:
             logger.exception("Unexpected error generating TTS")
             raise HTTPException(status_code=500, detail="Audio generation failed")
 

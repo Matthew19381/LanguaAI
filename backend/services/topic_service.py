@@ -2,15 +2,13 @@
 Topic Service — topic extraction from lesson content, SM-2 spaced repetition,
 and thematic organization of learning materials.
 """
-import json
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from backend.models.topic import Topic, TopicItem, TopicCategory, ItemType
-from backend.services.gemini_service import generate_json, generate_text
+from backend.services.gemini_service import generate_json
 from backend.database import SessionLocal
 
 logger = logging.getLogger(__name__)

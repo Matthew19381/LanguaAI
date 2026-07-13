@@ -7,7 +7,6 @@ import base64
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.database import get_db
-from backend.models.user import User
 from backend.utils import get_user_or_404
 from backend.models.lesson import Lesson
 from backend.models.flashcard import Flashcard

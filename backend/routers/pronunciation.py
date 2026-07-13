@@ -3,7 +3,6 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from backend.database import get_db
-from backend.models.user import User
 from backend.utils import get_user_or_404
 
 try:
@@ -74,7 +73,7 @@ async def get_practice_phrases(user_id: int, db: Session = Depends(get_db)):
     """Return practice phrases from the user's recent lessons."""
     from backend.models.lesson import Lesson
     import json
-    from datetime import datetime, date, timedelta, timezone
+    from datetime import datetime, timedelta, timezone
 
     user = get_user_or_404(db, user_id)
 

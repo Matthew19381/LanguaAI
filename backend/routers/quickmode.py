@@ -1,10 +1,8 @@
-import json
 import logging
-from datetime import datetime, date
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import date
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from backend.database import get_db
-from backend.models.user import User
 from backend.utils import get_user_or_404
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult

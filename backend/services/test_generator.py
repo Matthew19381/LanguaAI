@@ -16,15 +16,13 @@ logger = logging.getLogger(__name__)
 
 async def get_or_create_daily_test(user_id: int, lesson_content: dict, db: Session) -> dict:
     """Get or generate a daily test for a user."""
-    from backend.models.lesson import Lesson
-    from datetime import datetime, date
+    from datetime import date
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise ValueError(f"User {user_id} not found")
 
     # Check if there's already a daily test for today (per language, UTC)
-    from sqlalchemy import func
     today_date = date.today()
     existing_test = db.query(TestResult).filter(
         TestResult.user_id == user_id,
@@ -71,7 +69,6 @@ async def submit_test(
         raise ValueError(f"User {user_id} not found")
 
     # Check for duplicate submission (idempotency)
-    from sqlalchemy import func
     today_date = date.today()
     existing_today = db.query(TestResult).filter(
         TestResult.user_id == user_id,

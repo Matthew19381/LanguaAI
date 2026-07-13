@@ -5,7 +5,6 @@ import httpx
 from datetime import datetime, date, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse
-from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from backend.database import get_db
@@ -18,14 +17,11 @@ from backend.models.flashcard import Flashcard
 from backend.models.topic import Topic
 from backend.schemas.lesson import (
     CompleteLessonRequest,
-    SaveExerciseErrorRequest,
     ExerciseErrorRequest,
     EvaluateProductionRequest,
-    NextLessonRequest,
-    ConceptFlashcardRequest,
 )
 from backend.services.lesson_generator import generate_daily_lesson
-from backend.services.audio_service import generate_vocabulary_audio, generate_full_lesson_audio, generate_lesson_package_audio, AUDIO_DIR
+from backend.services.audio_service import generate_vocabulary_audio, generate_full_lesson_audio, generate_lesson_package_audio
 from backend.services.pdf_service import generate_lesson_pdf, EXPORTS_DIR
 from backend.services.obsidian_service import save_obsidian_md
 from backend.services.gemini_service import generate_json as ai_generate_json, with_model
@@ -340,7 +336,7 @@ async def get_lesson_audio(lesson_id: int, user_id: int, db: Session = Depends(g
     except httpx.RequestError as e:
         logger.error(f"Audio service connection error: {e}")
         raise HTTPException(status_code=503, detail="Audio service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error generating audio")
         raise HTTPException(status_code=500, detail="Failed to generate audio")
 
