@@ -1,14 +1,13 @@
 """Pure unit tests for achievement_service — no HTTP client needed."""
 from datetime import datetime, timezone
-import pytest
+
 from backend.services.achievement_service import (
+    ACHIEVEMENT_DEFS,
     calculate_level_from_xp,
     check_and_award_achievements,
     get_all_achievements_for_user,
     get_unnotified_achievements,
-    ACHIEVEMENT_DEFS,
 )
-
 
 # ---------------------------------------------------------------------------
 # calculate_level_from_xp
@@ -79,7 +78,6 @@ class TestCheckAndAwardAchievements:
 
     def _make_user(self, db, xp=0, streak=0):
         from backend.models.user import User
-        from datetime import datetime
         user = User(
             name="Tester",
             native_language="Polish",
@@ -101,7 +99,6 @@ class TestCheckAndAwardAchievements:
 
     def test_first_lesson_achievement(self, db):
         from backend.models.lesson import Lesson
-        from datetime import datetime
         user = self._make_user(db)
         lesson = Lesson(
             user_id=user.id, day_number=1, title="T", topic="T",
@@ -159,7 +156,6 @@ class TestCheckAndAwardAchievements:
 class TestGetAllAchievements:
     def _make_user(self, db):
         from backend.models.user import User
-        from datetime import datetime
         user = User(
             name="T", native_language="Polish", target_language="German",
             cefr_level="A1", total_xp=0, streak_days=0,
@@ -204,7 +200,6 @@ class TestGetAllAchievements:
 class TestGetUnnotifiedAchievements:
     def _make_user(self, db, xp=100):
         from backend.models.user import User
-        from datetime import datetime
         user = User(
             name="T", native_language="Polish", target_language="German",
             cefr_level="A1", total_xp=xp, streak_days=0,

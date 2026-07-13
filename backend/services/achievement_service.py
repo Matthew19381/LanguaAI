@@ -1,6 +1,8 @@
 import logging
 from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
+
 from backend.models.achievement import Achievement
 
 logger = logging.getLogger(__name__)
@@ -132,9 +134,9 @@ def _get_level_name(level: int) -> str:
 
 def check_and_award_achievements(user, db: Session) -> list:
     """Check which achievements the user has earned and award new ones. Returns list of newly awarded achievements."""
+    from backend.models.flashcard import Flashcard
     from backend.models.lesson import Lesson
     from backend.models.test_result import TestResult
-    from backend.models.flashcard import Flashcard
     from backend.models.topic import Topic
 
     # Fetch data needed for checks (global across all languages — intentional)
@@ -215,7 +217,7 @@ def check_and_award_achievements(user, db: Session) -> list:
     try:
         profiles = _json.loads(user.language_profiles or '{}')
         language_count = len([k for k, v in profiles.items() if v])
-    except (Exception,):
+    except Exception:
         language_count = 1
 
     # Already unlocked
@@ -323,7 +325,7 @@ def check_and_award_achievements(user, db: Session) -> list:
     if newly_awarded:
         try:
             db.commit()
-        except Exception:  # noqa: BLE-001 — intentional: any DB error during concurrent achievement award
+        except Exception:  # intentional: any DB error during concurrent achievement award
             db.rollback()
             # Another concurrent request may have awarded the same achievements
             # Re-query to return only truly new ones

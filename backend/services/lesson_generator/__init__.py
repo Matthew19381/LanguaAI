@@ -9,26 +9,26 @@ Split into sub-modules by domain:
 - tips: daily tips and Q&A
 """
 
-from backend.services.lesson_generator.placement import (
-    generate_placement_test,
-    analyze_placement_results,
-)
-from backend.services.lesson_generator.study_plan import (
-    generate_study_plan,
+from backend.services.lesson_generator.conversation import (
+    analyze_conversation,
+    analyze_pasted_conversation,
+    generate_conversation_scenario,
 )
 from backend.services.lesson_generator.daily_lesson import (
     generate_daily_lesson,
 )
-from backend.services.lesson_generator.tests import (
-    generate_daily_test,
-    analyze_test_errors,
-    generate_weekly_test,
-    generate_errors_test,
+from backend.services.lesson_generator.placement import (
+    analyze_placement_results,
+    generate_placement_test,
 )
-from backend.services.lesson_generator.conversation import (
-    generate_conversation_scenario,
-    analyze_conversation,
-    analyze_pasted_conversation,
+from backend.services.lesson_generator.study_plan import (
+    generate_study_plan,
+)
+from backend.services.lesson_generator.tests import (
+    analyze_test_errors,
+    generate_daily_test,
+    generate_errors_test,
+    generate_weekly_test,
 )
 from backend.services.lesson_generator.tips import (
     answer_language_question,

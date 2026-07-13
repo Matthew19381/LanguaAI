@@ -1,17 +1,34 @@
-import os
 import logging
+import os
 import time
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from threading import Lock
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-from contextlib import asynccontextmanager
+from fastapi.staticfiles import StaticFiles
 
-from backend.database import engine, Base
-from backend.routers import placement, lessons, tests, flashcards, conversation, stats, voice_chat, users
-from backend.routers import quickmode, news, pronunciation, settings, audio, youtube, topics, admin
+from backend.database import Base, engine
+from backend.routers import (
+    admin,
+    audio,
+    conversation,
+    flashcards,
+    lessons,
+    news,
+    placement,
+    pronunciation,
+    quickmode,
+    settings,
+    stats,
+    tests,
+    topics,
+    users,
+    voice_chat,
+    youtube,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -66,7 +83,7 @@ async def lifespan(app: FastAPI):
             conn.commit()
         except (OperationalError, ProgrammingError) as e:
             logger.warning(f"Could not create conversation_sessions table: {e}")
-        for table, sql in _migrations:
+        for _, sql in _migrations:
             try:
                 conn.execute(_sa.text(sql))
                 conn.commit()

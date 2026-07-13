@@ -1,10 +1,5 @@
 """Tests for /api/conversation/* endpoints."""
-from unittest.mock import patch, MagicMock, AsyncMock
-from datetime import datetime
-from backend.models.lesson import Lesson
-from backend.models.test_result import TestResult
-import json
-
+from unittest.mock import patch
 
 MOCK_SCENARIO = {
     "scenario": "Everyday conversation practice",

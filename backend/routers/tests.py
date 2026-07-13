@@ -1,22 +1,24 @@
 import json
 import logging
-import httpx
-from datetime import datetime, date
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import date, datetime
 from typing import Optional
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from backend.database import get_db
-from backend.models.user import User
-from backend.utils import get_user_or_404
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
+from backend.models.user import User
 from backend.schemas.test import SubmitTestRequest
 from backend.services.test_generator import (
     get_or_create_daily_test,
-    submit_test,
     get_or_create_weekly_test,
-    get_test_history
+    get_test_history,
+    submit_test,
 )
+from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -106,8 +108,9 @@ async def get_errors_test(user_id: int, db: Session = Depends(get_db)):
     user = get_user_or_404(db, user_id)
 
     # Get recent errors from test results
-    from backend.models.test_result import TestResult
     import json as _json
+
+    from backend.models.test_result import TestResult
     test_results = db.query(TestResult).filter(
         TestResult.user_id == user_id,
         TestResult.language == user.target_language

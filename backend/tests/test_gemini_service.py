@@ -1,19 +1,14 @@
-import pytest
-import json
-import contextvars
-from unittest.mock import AsyncMock, patch, MagicMock
-from fastapi import HTTPException
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.config import settings
+import pytest
+
 from backend.services.gemini_service import (
-    generate_text,
-    generate_json,
-    with_model,
-    _model_override,
     _get_provider,
-    _call_gemini_api,
-    _call_openrouter_api,
+    _model_override,
     _parse_json_response,
+    generate_json,
+    generate_text,
+    with_model,
 )
 
 
@@ -255,7 +250,6 @@ class TestWithModelDecorator:
 
         @with_model("placement")
         async def dummy_func():
-            from backend.services.model_router import get_model_for_task
             model = _model_override.get()
             return model
 

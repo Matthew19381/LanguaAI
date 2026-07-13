@@ -3,23 +3,25 @@ import io
 import json
 import logging
 import os
+from datetime import datetime, timedelta, timezone
+
 import httpx
-from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+
 from backend.database import get_db
-from backend.utils import get_user_or_404
 from backend.models.flashcard import Flashcard
 from backend.schemas.flashcard import (
-    ReviewFlashcardRequest,
-    AddFlashcardRequest,
     AddFlashcardAIRequest,
+    AddFlashcardRequest,
+    ReviewFlashcardRequest,
 )
 from backend.services.anki_service import generate_anki_deck
 from backend.services.audio_service import generate_flashcard_audio
+from backend.services.fsrs_neuro import NeuroCardState, neuro_fsrs_next_interval
 from backend.services.gemini_service import generate_json, with_model
-from backend.services.fsrs_neuro import neuro_fsrs_next_interval, NeuroCardState
+from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

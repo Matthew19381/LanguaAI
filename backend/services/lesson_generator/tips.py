@@ -1,5 +1,6 @@
 """Daily tips and language Q&A."""
 import logging
+
 from backend.services.gemini_service import generate_json, generate_text, with_model
 
 logger = logging.getLogger(__name__)

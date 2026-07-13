@@ -1,5 +1,5 @@
 """Tests for /api/topics/* endpoints."""
-from backend.models.topic import Topic, TopicItem
+from backend.models.topic import Topic
 
 
 def _create_topic(db, user_id, name="Gramatyka", category="grammar",

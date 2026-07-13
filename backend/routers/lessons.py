@@ -1,33 +1,40 @@
 import json
 import logging
 import os
+from datetime import date, datetime, timedelta, timezone
+
 import httpx
-from datetime import datetime, date, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
 from backend.database import get_db
-from backend.models.user import User
-from backend.utils import get_user_or_404
+from backend.models.flashcard import Flashcard
 from backend.models.lesson import Lesson
 from backend.models.study_plan import StudyPlan
 from backend.models.test_result import TestResult
-from backend.models.flashcard import Flashcard
 from backend.models.topic import Topic
+from backend.models.user import User
 from backend.schemas.lesson import (
     CompleteLessonRequest,
-    ExerciseErrorRequest,
     EvaluateProductionRequest,
+    ExerciseErrorRequest,
 )
-from backend.services.lesson_generator import generate_daily_lesson
-from backend.services.audio_service import generate_vocabulary_audio, generate_full_lesson_audio, generate_lesson_package_audio
-from backend.services.pdf_service import generate_lesson_pdf, EXPORTS_DIR
-from backend.services.obsidian_service import save_obsidian_md
-from backend.services.gemini_service import generate_json as ai_generate_json, with_model
-from backend.services.topic_service import process_lesson_topics_bg
+from backend.services.audio_service import (
+    generate_full_lesson_audio,
+    generate_lesson_package_audio,
+    generate_vocabulary_audio,
+)
 from backend.services.flashcard_service import create_flashcards_from_vocab
+from backend.services.gemini_service import generate_json as ai_generate_json
+from backend.services.gemini_service import with_model
+from backend.services.lesson_generator import generate_daily_lesson
+from backend.services.obsidian_service import save_obsidian_md
+from backend.services.pdf_service import EXPORTS_DIR, generate_lesson_pdf
 from backend.services.streak_service import calculate_streak
+from backend.services.topic_service import process_lesson_topics_bg
+from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
 
@@ -457,9 +464,10 @@ async def download_lesson_audio_package(lesson_id: int, user_id: int, db: Sessio
     """Generate and download a ZIP archive with 3 audio files: Gramatyka, Słownictwo, Dialog.
     Also includes a YouTube search URL for a matched video.
     """
-    import zipfile
     import io
     import urllib.parse
+    import zipfile
+
     from fastapi.responses import StreamingResponse
 
     lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()

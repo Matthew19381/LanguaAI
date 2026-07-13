@@ -4,10 +4,10 @@ Creates timestamped backups of lingua_ai.db in backend/backups/
 and keeps the last 7 daily backups.
 """
 
-import os
-import shutil
 import glob
 import logging
+import os
+import shutil
 from datetime import datetime
 
 logger = logging.getLogger(__name__)

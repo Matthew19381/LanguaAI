@@ -15,12 +15,11 @@ Rating scale (unified 1-4, same as Anki):
 Both flashcards and topics use this same 1-4 scale for consistency.
 """
 import json
-from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fsrs import Scheduler, Card, Rating, State
-
+from fsrs import Card, Rating, Scheduler, State
 
 # ── Module-level Scheduler instance ──────────────────────────────────────────
 _scheduler = Scheduler()

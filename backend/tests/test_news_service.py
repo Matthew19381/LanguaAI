@@ -1,7 +1,8 @@
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.services.news_service import fetch_articles, simplify_article, get_news_for_user
+import pytest
+
+from backend.services.news_service import fetch_articles, get_news_for_user, simplify_article
 
 
 class MockEntry:

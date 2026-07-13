@@ -1,7 +1,6 @@
-import pytest
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from backend.services.anki_service import generate_anki_deck, get_deck_stats
 

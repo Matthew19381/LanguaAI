@@ -1,5 +1,7 @@
 import logging
+
 import feedparser
+
 from backend.services.gemini_service import generate_json
 
 logger = logging.getLogger(__name__)

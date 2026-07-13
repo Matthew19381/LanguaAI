@@ -2,18 +2,20 @@ import csv
 import io
 import json
 import logging
+from datetime import date, datetime, timedelta, timezone
+
 import httpx
-from datetime import datetime, date, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+
 from backend.database import get_db
-from backend.models.user import User
-from backend.utils import get_user_or_404
+from backend.models.flashcard import Flashcard
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
-from backend.models.flashcard import Flashcard
+from backend.models.user import User
 from backend.services.lesson_generator import generate_daily_tips
+from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

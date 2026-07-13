@@ -1,5 +1,4 @@
 """Tests for /api/v1/users/* neuro-FSRS endpoints (NEURO-11/14/15/16)."""
-import json
 
 
 def _post_sleep(client, uid, quality=4, date=None):

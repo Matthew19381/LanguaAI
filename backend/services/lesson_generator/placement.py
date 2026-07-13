@@ -1,5 +1,6 @@
 """Placement test generation and analysis."""
 import logging
+
 from backend.services.gemini_service import generate_json, with_model
 
 logger = logging.getLogger(__name__)

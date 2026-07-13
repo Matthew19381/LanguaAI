@@ -1,7 +1,9 @@
 ﻿import json
 import logging
+
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
+
 from backend.services.gemini_service import generate_json, with_model
 
 logger = logging.getLogger(__name__)

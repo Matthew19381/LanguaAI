@@ -11,7 +11,6 @@ Domyślny tier ustawia się przez settings.AI_MODEL_TIER (domyślnie "cheap").
 
 from backend.config import settings
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # OPENROUTER MODEL CATALOG (May 2026)
 # Format: "model_id"  # context | category | tier | notes

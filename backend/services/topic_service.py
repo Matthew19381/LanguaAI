@@ -4,12 +4,13 @@ and thematic organization of learning materials.
 """
 import logging
 from datetime import datetime, timezone
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 
-from backend.models.topic import Topic, TopicItem, TopicCategory, ItemType
-from backend.services.gemini_service import generate_json
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from backend.database import SessionLocal
+from backend.models.topic import ItemType, Topic, TopicCategory, TopicItem
+from backend.services.gemini_service import generate_json
 
 logger = logging.getLogger(__name__)
 

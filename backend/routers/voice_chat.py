@@ -2,20 +2,22 @@
 Voice Chat Router — konwersacja przez OpenRouter + generator promptów.
 Prompt zawiera: co użytkownik dzisiaj robił, problemy, słownictwo.
 """
-import logging
 import base64
+import json
+import logging
+from datetime import date, datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from backend.database import get_db
-from backend.utils import get_user_or_404
-from backend.models.lesson import Lesson
 from backend.models.flashcard import Flashcard
+from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
 from backend.schemas.voice_chat import VoiceChatMessageRequest
-from backend.services.gemini_service import generate_text, with_model
 from backend.services import audio_service
-from datetime import datetime, date, timezone
-import json
+from backend.services.gemini_service import generate_text, with_model
+from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

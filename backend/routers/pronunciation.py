@@ -1,12 +1,14 @@
 import logging
+
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
+
 from backend.database import get_db
 from backend.utils import get_user_or_404
 
 try:
-    from backend.services.pronunciation_service import transcribe_audio, score_pronunciation
+    from backend.services.pronunciation_service import score_pronunciation, transcribe_audio
     PRONUNCIATION_AVAILABLE = True
 except (ImportError, OSError):
     PRONUNCIATION_AVAILABLE = False
@@ -71,9 +73,10 @@ async def analyze_pronunciation(
 @router.get("/api/pronunciation/phrases/{user_id}")
 async def get_practice_phrases(user_id: int, db: Session = Depends(get_db)):
     """Return practice phrases from the user's recent lessons."""
-    from backend.models.lesson import Lesson
     import json
     from datetime import datetime, timedelta, timezone
+
+    from backend.models.lesson import Lesson
 
     user = get_user_or_404(db, user_id)
 

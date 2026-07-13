@@ -1,5 +1,4 @@
 """Unit tests for the neuro-FSRS scheduler (backend/services/fsrs_neuro.py)."""
-from backend.services import fsrs_neuro
 from backend.services.fsrs_neuro import (
     NeuroCardState,
     NeuroFSRSParams,

@@ -1,5 +1,6 @@
-import os
 import logging
+import os
+
 from fpdf import FPDF
 
 logger = logging.getLogger(__name__)

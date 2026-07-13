@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, date, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 # Ensure LinguaAI/ is in the path so backend.* imports work
@@ -25,9 +25,9 @@ from sqlalchemy.orm import sessionmaker
 env_path = Path(__file__).parent / ".env"
 load_dotenv(env_path)
 
-from backend.models.user import User
-from backend.models.lesson import Lesson
 from backend.models.flashcard import Flashcard
+from backend.models.lesson import Lesson
+from backend.models.user import User
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)

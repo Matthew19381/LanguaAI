@@ -1,32 +1,34 @@
 import json
 import logging
 import uuid
+from datetime import datetime, timezone
+from typing import Optional
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Optional
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+
+from backend.config import settings
 from backend.database import get_db
-from backend.models.user import User
-from backend.utils import get_user_or_404
-from backend.models.test_result import TestResult
 from backend.models.conversation_session import ConversationSession
+from backend.models.test_result import TestResult
+from backend.models.user import User
 from backend.schemas.conversation import (
-    StartConversationRequest,
-    MessageRequest,
-    AnalyzeRequest,
-    QuestionRequest,
     AnalyzePastedRequest,
+    AnalyzeRequest,
+    MessageRequest,
+    QuestionRequest,
+    StartConversationRequest,
     TranslateRequest,
 )
+from backend.services.gemini_service import generate_text, with_model
 from backend.services.lesson_generator import (
-    generate_conversation_scenario,
     analyze_conversation,
     analyze_pasted_conversation,
-    answer_language_question
+    answer_language_question,
+    generate_conversation_scenario,
 )
-from backend.services.gemini_service import generate_text, with_model
-from backend.config import settings
+from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

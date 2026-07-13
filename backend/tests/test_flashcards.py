@@ -1,6 +1,5 @@
 """Tests for /api/flashcards/* endpoints (no AI calls needed)."""
-from datetime import datetime, timedelta, timezone
-
+from datetime import datetime, timedelta
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -161,7 +160,6 @@ def test_review_returns_next_review_date(client, sample_user):
     next_review = datetime.fromisoformat(data["next_review"])
     assert next_review is not None
     # next_review should be within a reasonable range (not more than 1 year out)
-    from datetime import timedelta
     now = datetime.now(next_review.tzinfo or None)
     assert next_review < now + timedelta(days=365)
 

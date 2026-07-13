@@ -221,6 +221,24 @@ Rozpiska modeli (dobrana per-zadanie dla najlepszego generowania) **istnieje**: 
 
 ---
 
+## 🧹 Lint cleanup — ruff w pełni czysty (2026-07-13)
+
+`ruff check backend/` wcześniej zgłaszał setki błędów (ANN ×120, E501 ×115, B008 ×71, UP, E7xx, W, F401/811/841). Większość to styl, nie błędy.
+
+**Zakres (Opcja 1 — bezpieczna):** naprawiono realne/bezpieczne, resztę zignorowano w configu z uzasadnieniem.
+
+**Zmiany:**
+- `pyproject.toml [tool.ruff]`: dodano do `ignore`: `ANN` (brak adnotacji — projekt nie wymusza, ~120 sygnatur), `B008` (FastAPI `Depends()` to standard), `E501` (limit 120 intencjonalny), `E402` (alembic env), `E701` (FastAPI one-liners), `B904`/`E741`/`B017` (styl/niskie ryzyko), `UP`/`E712`/`E711`/`W`/`F541` (styl; **autofix na UP/E zepsuł test logiczny — dlatego tylko ignore, nie --fix**). `per-file-ignores` dla testów: `ANN` + `F841`.
+- Usunięto 2 nieprawidłowe `# noqa: BLE-001` (ruff nie ma takiego kodu) w `achievement_service.py` / `test_generator.py`.
+- `ruff --fix` tylko na **F401/F811/F841/I** (usunięcie martwego kodu + sort importów, zero mutacji logiki) — 136 plików wyczyszczonych.
+- Ręcznie: `main.py` `for table, sql` → `for _, sql` (B007); `achievement_service.py` `except (Exception,):` → `except Exception:` (B013).
+
+**Weryfikacja:**
+- `ruff check backend/` → **All checks passed!** ✓
+- pytest: **285 passed** (po cofnięciu ryzykownych --fix: UP042 `timezone`→`UTC` zepsuł `test_unnotified_returned_once` — przywrócono) ✓
+
+---
+
 ## 📊 Priorytetowa macierz wdrożenia
 
 || Feature                              | Wysiłek | Wpływ neuronaukowy | Specyfika niemiecka | Zależności                     |

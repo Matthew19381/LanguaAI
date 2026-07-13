@@ -1,6 +1,7 @@
 """Pydantic schemas for lesson router."""
+from typing import List, Optional
+
 from pydantic import BaseModel
-from typing import Optional, List
 
 
 class CompleteLessonRequest(BaseModel):

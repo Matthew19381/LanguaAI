@@ -1,7 +1,6 @@
 """Tests for /api/placement/* endpoints."""
 from unittest.mock import AsyncMock, patch
 
-
 # ---------------------------------------------------------------------------
 # POST /api/placement/create-user
 # ---------------------------------------------------------------------------

@@ -1,15 +1,13 @@
 import json
 import logging
 from datetime import date
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+
 from backend.models.test_result import TestResult
 from backend.models.user import User
-from backend.services.lesson_generator import (
-    generate_daily_test,
-    generate_weekly_test,
-    analyze_test_errors
-)
+from backend.services.lesson_generator import analyze_test_errors, generate_daily_test, generate_weekly_test
 
 logger = logging.getLogger(__name__)
 

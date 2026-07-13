@@ -1,8 +1,7 @@
 """Tests for /api/lessons/* endpoints."""
 import json
-from unittest.mock import AsyncMock, patch
 from datetime import datetime
-
+from unittest.mock import AsyncMock, patch
 
 MOCK_LESSON_CONTENT = {
     "vocabulary": [{"word": "Hund", "translation": "dog", "example": "Der Hund läuft."}],

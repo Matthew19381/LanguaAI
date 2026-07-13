@@ -14,10 +14,9 @@ os.environ.setdefault("ADMIN_API_KEY", "test-key")
 os.environ["TESTING"] = "1"
 
 import pytest
-
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
 
 TEST_DATABASE_URL = "sqlite:///./test_language_tutor.db"
 
@@ -54,13 +53,13 @@ def clean_tables(create_tables):
     db = TestingSessionLocal()
     try:
         from backend.models.achievement import Achievement
+        from backend.models.conversation_session import ConversationSession
         from backend.models.flashcard import Flashcard
-        from backend.models.test_result import TestResult
         from backend.models.lesson import Lesson
         from backend.models.study_plan import StudyPlan
-        from backend.models.user import User
-        from backend.models.conversation_session import ConversationSession
+        from backend.models.test_result import TestResult
         from backend.models.topic import Topic, TopicItem
+        from backend.models.user import User
         # Delete in FK-safe order (children first)
         for model in [TopicItem, Topic, ConversationSession, Achievement, Flashcard, TestResult, Lesson, StudyPlan, User]:
             db.query(model).delete()

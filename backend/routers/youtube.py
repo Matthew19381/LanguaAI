@@ -1,13 +1,15 @@
 import json
 import logging
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from backend.database import get_db
-from backend.utils import get_user_or_404
-from backend.models.lesson import Lesson
+
 from backend.config import settings
+from backend.database import get_db
+from backend.models.lesson import Lesson
 from backend.services.gemini_service import generate_json, with_model
+from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

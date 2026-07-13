@@ -1,26 +1,24 @@
 import json
 import logging
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from backend.config import settings
+from backend.database import get_db
+from backend.models.lesson import Lesson
+from backend.models.study_plan import StudyPlan
+from backend.models.test_result import TestResult
+from backend.models.user import User
 from backend.schemas.placement import (
+    CreateUserRequest,
     StartPlacementRequest,
     SubmitPlacementRequest,
-    CreateUserRequest,
     UpdateLanguageRequest,
 )
-from sqlalchemy.orm import Session
-from backend.database import get_db
-from backend.models.user import User
+from backend.services.lesson_generator import analyze_placement_results, generate_placement_test, generate_study_plan
 from backend.utils import get_user_or_404
-from backend.models.test_result import TestResult
-from backend.models.study_plan import StudyPlan
-from backend.models.lesson import Lesson
-from backend.services.lesson_generator import (
-    generate_placement_test,
-    analyze_placement_results,
-    generate_study_plan
-)
-from backend.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

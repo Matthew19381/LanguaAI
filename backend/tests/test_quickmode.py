@@ -1,9 +1,7 @@
 """Tests for /api/quickmode/* endpoint."""
 import json
-from datetime import datetime, date
+from datetime import datetime
 
-from sqlalchemy.orm import Session
-from backend.models.user import User
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
 

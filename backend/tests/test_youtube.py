@@ -1,9 +1,9 @@
 """Tests for /api/youtube/* endpoint."""
-from unittest.mock import patch, MagicMock
 import json
 from datetime import datetime
-from backend.models.lesson import Lesson
+from unittest.mock import patch
 
+from backend.models.lesson import Lesson
 
 MOCK_VIDEOS = [
     {

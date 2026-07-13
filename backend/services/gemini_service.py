@@ -1,8 +1,10 @@
-import json
-import logging
-import httpx
 import contextvars
 import functools
+import json
+import logging
+
+import httpx
+
 from backend.config import settings
 
 logger = logging.getLogger(__name__)

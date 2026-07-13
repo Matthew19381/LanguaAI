@@ -1,6 +1,5 @@
 """Tests for /api/news/* endpoint."""
 from unittest.mock import AsyncMock, patch
-from datetime import datetime
 
 MOCK_ARTICLES = [
     {
@@ -52,8 +51,8 @@ def test_news_user_not_found(client):
 def test_news_returns_cached(client, sample_user):
     """News returns cached result on second call."""
     uid = sample_user["user_id"]
+
     import backend.routers.news as news_module
-    from time import time as time_module
 
     # Clear cache before test
     news_module._news_cache.clear()

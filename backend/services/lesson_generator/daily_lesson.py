@@ -2,7 +2,9 @@
 Daily lesson content generation.
 """
 import logging
+
 from sqlalchemy.orm import Session
+
 from backend.services.gemini_service import generate_json, with_model
 
 logger = logging.getLogger(__name__)

@@ -1,12 +1,13 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 
 from backend.services.pronunciation_service import (
-    transcribe_audio,
-    score_pronunciation,
-    _normalize,
     _compare_words,
-    _generate_feedback
+    _generate_feedback,
+    _normalize,
+    score_pronunciation,
+    transcribe_audio,
 )
 
 

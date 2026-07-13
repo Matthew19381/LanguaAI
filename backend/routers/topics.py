@@ -8,10 +8,11 @@ GET  /api/topics/{user_id}/stats        — aggregate statistics
 GET  /api/topics/detail/{topic_id}      — single topic with items
 POST /api/topics/{topic_id}/review      — submit FSRS review (rating 1-4)
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.topic import Topic, TopicItem

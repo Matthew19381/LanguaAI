@@ -1,9 +1,9 @@
 """Tests for /api/tests/* endpoints."""
 import json
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch, MagicMock
-import backend.services.achievement_service
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import backend.services.achievement_service
 
 MOCK_TEST_DATA = {
     "success": True,
@@ -185,9 +185,10 @@ def test_submit_test(client, sample_user):
 def test_errors_test_handles_non_dict_entries(client, sample_user, db):
     """Regression: error list may contain non-dict entries (e.g. plain strings
     from the AI service). The old code did `err.get(...)` on a str -> 500."""
-    from backend.models.test_result import TestResult
     import json as _json
     from datetime import datetime, timezone
+
+    from backend.models.test_result import TestResult
 
     result = TestResult(
         user_id=sample_user["user_id"],

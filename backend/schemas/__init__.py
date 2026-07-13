@@ -1,36 +1,36 @@
 """Pydantic schemas for request/response validation."""
 from backend.schemas.conversation import (
-    StartConversationRequest,
-    MessageRequest,
-    AnalyzeRequest,
-    QuestionRequest,
     AnalyzePastedRequest,
+    AnalyzeRequest,
+    MessageRequest,
+    QuestionRequest,
+    StartConversationRequest,
     TranslateRequest,
+)
+from backend.schemas.flashcard import (
+    AddFlashcardAIRequest,
+    AddFlashcardRequest,
+    ReviewFlashcardRequest,
 )
 from backend.schemas.lesson import (
     CompleteLessonRequest,
-    SaveExerciseErrorRequest,
-    ExerciseErrorRequest,
-    EvaluateProductionRequest,
-    NextLessonRequest,
     ConceptFlashcardRequest,
+    EvaluateProductionRequest,
+    ExerciseErrorRequest,
+    NextLessonRequest,
+    SaveExerciseErrorRequest,
 )
-from backend.schemas.test import (
-    SubmitTestRequest,
-)
-from backend.schemas.flashcard import (
-    AddFlashcardRequest,
-    ReviewFlashcardRequest,
-    AddFlashcardAIRequest,
+from backend.schemas.placement import (
+    CreateUserRequest,
+    StartPlacementRequest,
+    SubmitPlacementRequest,
+    UpdateLanguageRequest,
 )
 from backend.schemas.pronunciation import (
     AnalyzePronunciationRequest,
 )
-from backend.schemas.placement import (
-    StartPlacementRequest,
-    SubmitPlacementRequest,
-    CreateUserRequest,
-    UpdateLanguageRequest,
+from backend.schemas.test import (
+    SubmitTestRequest,
 )
 from backend.schemas.voice_chat import (
     VoiceChatMessageRequest,

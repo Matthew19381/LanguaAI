@@ -1,5 +1,5 @@
 """Tests for /api/settings/* endpoints."""
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
 
 def test_ui_translations_returns_english_for_english(client):

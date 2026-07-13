@@ -1,10 +1,10 @@
 """Tests for /api/pronunciation/* endpoints."""
 import json
 from datetime import datetime
-from unittest.mock import patch, MagicMock
 from io import BytesIO
-from backend.models.lesson import Lesson
+from unittest.mock import patch
 
+from backend.models.lesson import Lesson
 
 MOCK_TRANSCRIPT = "Hallo, wie geht es dir?"
 MOCK_SCORE = {

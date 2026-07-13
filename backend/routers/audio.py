@@ -1,10 +1,12 @@
 import hashlib
 import logging
 import os
+
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from backend.services.audio_service import generate_audio, AUDIO_DIR
+
+from backend.services.audio_service import AUDIO_DIR, generate_audio
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

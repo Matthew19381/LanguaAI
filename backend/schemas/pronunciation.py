@@ -1,6 +1,7 @@
 """Pydantic schemas for pronunciation router."""
-from pydantic import BaseModel
 from typing import Optional
+
+from pydantic import BaseModel
 
 
 class AnalyzePronunciationRequest(BaseModel):

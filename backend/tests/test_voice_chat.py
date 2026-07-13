@@ -1,8 +1,9 @@
 """Tests for /api/voice-chat/* endpoints."""
-from unittest.mock import patch, MagicMock, AsyncMock
-from datetime import datetime
-from backend.models.lesson import Lesson
 import json
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from backend.models.lesson import Lesson
 
 
 def test_voice_chat_prompt_basic(client, sample_user):

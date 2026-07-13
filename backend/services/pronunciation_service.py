@@ -1,7 +1,7 @@
+import difflib
 import logging
 import os
 import tempfile
-import difflib
 import threading
 
 logger = logging.getLogger(__name__)

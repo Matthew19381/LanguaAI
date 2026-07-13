@@ -1,6 +1,7 @@
 """Pydantic schemas for flashcard router."""
-from pydantic import BaseModel, Field
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class ReviewFlashcardRequest(BaseModel):

@@ -1,6 +1,7 @@
 """Shared utility functions for backend routers."""
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+
 from backend.models.user import User
 
 

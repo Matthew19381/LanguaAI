@@ -1,7 +1,9 @@
 """Streak calculation service."""
 from datetime import date, datetime
-from sqlalchemy.orm import Session
+
 from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from backend.models.lesson import Lesson
 
 

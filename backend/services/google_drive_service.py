@@ -61,6 +61,7 @@ def save_token_from_code(code: str) -> bool:
 def _get_credentials():
     """Load saved credentials from token file."""
     import json
+
     from google.oauth2.credentials import Credentials
 
     if not os.path.exists(TOKEN_FILE):

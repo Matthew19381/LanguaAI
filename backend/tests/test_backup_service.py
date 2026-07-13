@@ -1,19 +1,14 @@
 """Tests for backup_service — database backup, listing, retention, and restore."""
-import os
-import tempfile
-import shutil
-from pathlib import Path
 from datetime import datetime, timedelta
-from unittest.mock import patch
 
 import pytest
 
 from backend.services.backup_service import (
-    create_backup,
+    RETENTION_DAYS,
     cleanup_old_backups,
+    create_backup,
     list_backups,
     restore_backup,
-    RETENTION_DAYS,
 )
 
 

@@ -1,7 +1,6 @@
 """Tests for /api/stats/* and /api/tips/* endpoints."""
 from unittest.mock import AsyncMock, patch
 
-
 # ---------------------------------------------------------------------------
 # GET /api/stats/{user_id}
 # ---------------------------------------------------------------------------

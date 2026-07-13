@@ -1,9 +1,8 @@
-import pytest
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from backend.services.pdf_service import generate_lesson_pdf, _safe
+from backend.services.pdf_service import _safe, generate_lesson_pdf
 
 
 class TestSafeFunction:

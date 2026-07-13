@@ -1,6 +1,7 @@
-import genanki
-import os
 import logging
+import os
+
+import genanki
 
 logger = logging.getLogger(__name__)
 

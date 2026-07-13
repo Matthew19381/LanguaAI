@@ -1,5 +1,5 @@
 """Tests for /api/audio/* endpoint."""
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 
 def test_tts_basic(client, sample_user):

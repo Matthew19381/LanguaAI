@@ -4,9 +4,11 @@ Conversation Session model — persistent storage for AI conversation sessions.
 Replaces the in-memory dict in routers/conversation.py so sessions survive
 server restarts and work correctly with multiple workers.
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
+
 from backend.database import Base
 
 
