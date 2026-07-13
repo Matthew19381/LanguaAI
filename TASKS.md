@@ -171,6 +171,38 @@ Wynik: **2 błędy logiczne naprawione, 3 obserwacje (niski priorytet)**.
 
 ---
 
+## 🔧 Naprawa CI — E2E Tests (Playwright) fail przy "Start backend" (2026-07-13)
+
+**Symptom:** GitHub Actions job `e2e-tests` failował w kroku "Start backend".
+
+**Root cause (główny):** `requirements.txt` zawierał **tylko `alembic==1.13.1`**
+(brak fastapi/uvicorn/sqlalchemy/pytest). CI robiło `pip install -r requirements.txt`,
+więc `python -m uvicorn backend.main:app` rzucało `ModuleNotFoundError: No module named 'uvicorn'`.
+Pełne zależności były poprawnie w `pyproject.toml`, ale CI go nie używało.
+
+**Drugi błąd:** hard-pinned `==` w wygenerowanym requirements (skopiowane z pyproject)
+powodowało `ResolutionImpossible` (konflikt `google-genai==1.56.0` vs `httpx==0.27.2`).
+
+**Trzeci (słabość kroku):** `python -m uvicorn ... &` + `sleep 3` bez sprawdzenia
+czy backend wstał; proces w tle w GA ginie między krokami → Playwright łączył z martwym backendem.
+
+**Naprawa:**
+- `requirements.txt`: wypełniony pełnymi zależnościami z `pyproject.toml`, ale z `>=`
+  (instalowalne, brak konfliktów — zweryfikowane w czystym venv).
+- `ci.yml`: zamieniono `pip install -r requirements.txt` → `pip install -e .`
+  (instaluje z `pyproject.toml`, źródło prawdy, elastyczne wersje).
+- `ci.yml`: połączono "Start backend" + "Run E2E" w **jeden step**; backend startuje w tle
+  i przetrwa; dodano **health-check loop** (curl `/api/health`, do 30s) z głośnym failem
+  jeśli nie wstanie. Playwright nadal sam zarządza frontendem (`webServer: npm run dev`).
+
+**Weryfikacja:**
+- `requirements.txt` instalowalny w czystym venv; `uvicorn/fastapi/sqlalchemy/pytest/fsrs` importowalne.
+- `ci.yml` YAML poprawny (yaml.safe_load).
+- Backend lokalnie wstaje: `/docs` → 200, `/api/health` → `{"status":"healthy"}`.
+- Backend pytest: 284 passed (repo bez zmian w kodzie).
+
+---
+
 ## 📊 Priorytetowa macierz wdrożenia
 
 || Feature                              | Wysiłek | Wpływ neuronaukowy | Specyfika niemiecka | Zależności                     |
