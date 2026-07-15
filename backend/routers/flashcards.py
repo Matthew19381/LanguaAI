@@ -17,6 +17,7 @@ from backend.schemas.flashcard import (
     AddFlashcardRequest,
     ReviewFlashcardRequest,
 )
+from backend.services.achievement_service import check_and_award_achievements
 from backend.services.anki_service import generate_anki_deck
 from backend.services.audio_service import generate_flashcard_audio
 from backend.services.fsrs_neuro import NeuroCardState, neuro_fsrs_next_interval
@@ -210,6 +211,9 @@ async def review_flashcard(
 
     db.commit()
 
+    # Check achievements after flashcard review (e.g. flashcards_review_50)
+    new_achievements = check_and_award_achievements(user, db)
+
     return {
         "success": True,
         "flashcard_id": flashcard_id,
@@ -221,6 +225,7 @@ async def review_flashcard(
         "sleep_quality": sleep_quality,
         "interleaving_bonus": interleaving_bonus,
         "interference_penalty": interference_penalty,
+        "new_achievements": new_achievements,
     }
 
 

@@ -156,13 +156,15 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
 
     # Generate new lesson
     lesson_content = await generate_daily_lesson(
+        user_id=user_id,
+        target_language=user.target_language,
+        native_language=user.native_language,
+        cefr_level=user.cefr_level,
+        recent_topics=recent_topics,
         day_number=day_number,
+        db=db,
         study_plan_data=study_plan_data,
         user_errors=user_errors,
-        cefr_level=user.cefr_level,
-        language=user.target_language,
-        native_language=user.native_language,
-        recent_topics=recent_topics,
         user_vocabulary=user_vocabulary,
         weak_topics=weak_topics,
         strong_topics=strong_topics,

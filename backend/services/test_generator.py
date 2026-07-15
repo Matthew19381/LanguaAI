@@ -115,7 +115,7 @@ async def submit_test(
 
     try:
         db.commit()
-    except Exception:  # noqa: BLE-001 — intentional: any DB error during concurrent test submission
+    except Exception:  # intentional: any DB error during concurrent test submission
         # Handle race condition: unique constraint violation means another request
         # already submitted — rollback and return the existing result
         db.rollback()

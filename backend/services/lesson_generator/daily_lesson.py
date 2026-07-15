@@ -1,6 +1,5 @@
-"""
-Daily lesson content generation.
-"""
+"""\nDaily lesson content generation.\n"""
+import json
 import logging
 
 from sqlalchemy.orm import Session
@@ -19,15 +18,36 @@ async def generate_daily_lesson(
     recent_topics: list[str],
     day_number: int,
     db: Session,
+    study_plan_data: dict = None,
+    user_errors: list = None,
+    user_vocabulary: list[str] = None,
+    weak_topics: list[str] = None,
+    strong_topics: list[str] = None,
 ) -> dict:
     """Generate a full daily lesson with all sections."""
     # Import here to avoid circular dependencies
+
+    # ── RAG context: personalize the lesson from the user's data ──
+    rag_context = ""
+    if user_vocabulary:
+        rag_context += f"\n- Known vocabulary (use for i+1 / reinforcement): {', '.join(user_vocabulary[:30])}"
+    if weak_topics:
+        rag_context += f"\n- Weak topics (spend extra time reinforcing): {', '.join(weak_topics)}"
+    if strong_topics:
+        rag_context += f"\n- Strong topics (can interleave at higher difficulty): {', '.join(strong_topics)}"
+    if user_errors:
+        rag_context += f"\n- Recent mistakes to address gently: {json.dumps(user_errors[:5], ensure_ascii=False)}"
+    if study_plan_data:
+        plan_str = study_plan_data.get("focus") or study_plan_data.get("summary") or ""
+        if plan_str:
+            rag_context += f"\n- Study plan guidance: {plan_str}"
 
     # Generate core lesson
     prompt = f"""
     You are an expert language teacher creating a daily lesson for a {native_language} speaker learning {target_language} at {cefr_level} level.
     The student has recently studied: {', '.join(recent_topics) if recent_topics else 'none yet'}.
     This is day {day_number} of their personalized study plan.
+{rag_context}
 
     Create a comprehensive lesson with the following sections:
     1. Warm-up (2-3 min): Quick review of previous day's material
@@ -108,7 +128,7 @@ async def generate_daily_lesson(
                 lesson[section] = {} if section not in ["vocabulary", "exercises", "speaking_practice"] else []
 
         # Add interleaved review and output forcing sections (will be filled by other functions)
-        lesson["interleaved_review"] = []
+        lesson["interleaved_review"] = _build_interleaved_review(recent_topics)
         lesson["output_forcing"] = {
             "instruction": "Przeczytaj 5 zdań poniżej, zakryj je i spróbuj odtworzyć z pamięci. To trudne ćwiczenie na pamięć długotrwałą.",
             "text": "Hallo, ich heiße Max und ich komme aus Polen. In meiner Freizeit lerne ich Deutsch und treffe meine Freunde. Die Universität ist groß und ich studiere dort seit zwei Jahren. Meine Familie wohnt in Warschau i wir besuchen uns oft am Wochenende. Deutsch zu lernen macht viel Spaß und ich habe schon viele neue Freunde gefunden."
@@ -217,3 +237,22 @@ Return JSON:
             "questions": [{"question": "Was lernt die Person?", "answer": "Deutsch"}],
             "cefr_level": cefr_level
         }
+
+
+def _build_interleaved_review(recent_topics: list[str] | None) -> list:
+    """Build a 'Mixed Review' section from the user's recent lesson topics.
+
+    Implements spaced-interleaving (Carpenter et al. 2012): revisiting prior
+    topics alongside new material strengthens long-term retention more than
+    blocked practice. Returns 2-3 lightweight recall prompts.
+    """
+    if not recent_topics:
+        return []
+    prompts = []
+    for topic in recent_topics[:3]:
+        prompts.append({
+            "topic": topic,
+            "prompt": f"Przypomnij sobie 3 słowa lub zwroty z tematu: {topic}",
+            "type": "recall",
+        })
+    return prompts

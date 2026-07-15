@@ -21,6 +21,7 @@ from backend.schemas.conversation import (
     StartConversationRequest,
     TranslateRequest,
 )
+from backend.services.achievement_service import check_and_award_achievements
 from backend.services.gemini_service import generate_text, with_model
 from backend.services.lesson_generator import (
     analyze_conversation,
@@ -243,6 +244,10 @@ async def analyze_session(
                 db.commit()
                 analysis["xp_earned"] = xp
 
+                # Check achievements after conversation XP award
+                newly_awarded = check_and_award_achievements(user, db)
+                analysis["new_achievements"] = newly_awarded
+
         # Delete session after all DB operations succeeded
         db.delete(conv_session)
         db.commit()
@@ -360,6 +365,8 @@ async def analyze_pasted_text(
         db.commit()
 
         analysis["xp_earned"] = xp
+        # Check achievements after pasted-text analysis XP award
+        analysis["new_achievements"] = check_and_award_achievements(user, db)
         return {"success": True, **analysis}
     except HTTPException:
         raise

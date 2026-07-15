@@ -361,3 +361,91 @@ Po zakończeniu tego cyklu podstawowe funkcje neuronaukowe będą dostępne i pr
 - [x] Dodaj test jednostkowy potwierdzający, że pole `isImportant` pojawia się w odpowiedzi GET/POST `/api/flashcards/*`.  
 - [x] Dodaj test punktu końcowego `/api/health` zwracający `{status:\"healthy\"}`.  
 - [ ] Po gotowości PWA dodaj test Cypress/Playwright sprawdzający buforowanie offline tras lekcji i fiszek.
+
+---
+
+## 🔬 AUDYT KOMPLEKSOWY (2026-07-15)
+
+_Polecenie: przeczytaj wszystkie pliki → audyt logiczny → audyt kodu → zgodność z badaniami o nauce języka → dokumentacja. Przeczytano rdzeń: `main.py`, `config.py`, `achievement_service.py`, `fsrs_service.py`, `fsrs_neuro.py`, `streak_service.py`, `daily_lesson.py`, `test_generator.py`, `flashcard_service.py`, `lessons.py`, `flashcards.py`, `topics.py`, `topic_service.py`, `models/topic.py`, `placement.py`, `conversation.py`, `stats.py`, `tests.py`, `gemini_service.py`, `client.js`._
+
+### 📋 Plan
+1. Przeczytaj wszystkie pliki (backend rdzeń + frontend client) — ✅
+2. Audyt logiczny (XP/level, FSRS, achievements, flow lekcji, prefixy) — ✅ poniżej
+3. Audyt kodu (architektura, duplikacje, bezpieczeństwo, błędy) — ✅ poniżej
+4. Zgodność z badaniami naukowymi (SLA, i+1, interleaving, retrieval, output) — ✅ poniżej
+5. Dokumentacja funkcji + wpływ na naukę — ✅ sekcja osobna
+6. Naprawa krytycznych błędów (achievements, interleaved_review) — ✅ commited
+7. Commit + push — ✅
+
+---
+
+### 🧠 Audyt logiczny
+
+#### ✅ Działa poprawnie
+- **Krzywa XP/level** (`achievement_service.calculate_level_from_xp`): `(n-1)² × 20`, 50 poziomów — monotoniczna, poprawna. `progress_percent` clampowany 0–100.
+- **FSRS dla topics** (`models/topic.py` → `fsrs_service.apply_fsrs`): używa prawdziwej lib `fsrs` (v6), `Card.from_json`/`review_card`. Poprawne mapowanie rating 1–4 → `Rating`.
+- **Streak** (`streak_service.calculate_streak`): liczy kolejne dni z ukończoną lekcją, obsługuje `streak_freezes` (mostek 1 dnia = 1 freeze). Logika `gap==2 + freeze` → `+2` dni OK.
+- **Idempotencja testów** (`test_generator.submit_test`): blokuje podwójne zgłoszenie tego samego dnia (UNIQUE/date check + rollback na race). XP `score×0.5` max 50 — zgodne z CLAUDE.md.
+- **Przypisywanie tematów** (`topic_service`): dedup przez `func.lower(name)`, `assign_item_to_topic` duplicate-safe.
+- **Prefixy API**: `users`=`/api/v1/users`, `topics`=`/api/topics`, reszta `/api/*` (nie `/api/v1`). Niespójne, ale frontend (`client.js` baseURL `/api`) jest zgodny ze wszystkimi — więc **nie łamie** niczego w praktyce (tylko estetyka/maintenance).
+
+#### 🔴 BŁĘDY KRYTYCZNE (naprawione w tym commicie)
+1. **Achievements są w większości nieosiągalne.** `check_and_award_achievements()` wołane TYLKO w `lessons.py:308` (complete) i `tests.py:88` (submit test). Endpoints przyznające XP — `conversation.py` (XP za rozmowę + analizę tekstu), `news.py`, `pronunciation.py`, `flashcards.py` (review), `placement.py` — **NIE** wołają `check_and_award_achievements`. Skutek: achievements `first_conversation`, `conversations_*`, `first_pronunciation`, `pronunciation_*`, `first_news`, `news_*`, `first_topic`, `topics_*`, `second/third_language`, `flashcards_review_*`, `first_error_review`, `errors_reviewed_50`, `sleep_tracker`, `neuro_tuned` **nigdy się nie odblokowują** (bo `get_stats` tylko czyta tabelę `achievements`, nie wylicza). **Naprawa:** dodano wywołanie `check_and_award_achievements` w `conversation.py` (analyze + analyze-text) i `flashcards.py` (review). Dla `news`/`pronunciation`/topic dodano w odpowiednich routerach (patrz commity).
+2. **`interleaved_review` zawsze puste.** `daily_lesson.py:111` hardkoduje `lesson["interleaved_review"] = []`. CLAUDE.md obiecuje, że `generate_daily_lesson(recent_topics=...)` produkuje sekcję "Mixed Review" z poprzednich tematów — ale kod ignoruje `recent_topics` i zwraca `[]`. Frontend renderuje pustą sekcję. **Naprawa:** `generate_daily_lesson` teraz buduje `interleaved_review` z `recent_topics` (2–3 pytania/przypomnienia) gdy `recent_topics` podane.
+3. **KRYTYCZNY: niezgodność sygnatur `generate_daily_lesson`.** `lessons.py` wołał `generate_daily_lesson(language=..., study_plan_data=..., user_errors=..., user_vocabulary=..., weak_topics=..., strong_topics=...)` ale sygnatura w `daily_lesson.py` przyjmowała tylko `(user_id, target_language, native_language, cefr_level, recent_topics, day_number, db)`. Na żywo `GET /api/lessons/today/{id}` rzucało `TypeError` (nieznane kwargs) — generowanie lekcji było całkowicie zablokowane. Testy tego NIE łapały (mockują `generate_daily_lesson`). **Naprawa:** rozszerzono sygnaturę `generate_daily_lesson` o opcjonalne parametry RAG (`study_plan_data`, `user_errors`, `user_vocabulary`, `weak_topics`, `strong_topics`) i wpleciono je w prompt (lepsza personalizacja); w `lessons.py` poprawiono `language=` → `target_language=` + dodano `user_id`/`db`.
+
+#### 🟡 BŁĘDY MNIEJSZE (do rozważenia)
+- `stats.py:240-243` (CSV export): `streak` nadpisywany per-lekcja, `lesson.completed_at` może być `None` → `AttributeError` przy braku daty. Używa własnej heurystyki zamiast `calculate_streak`.
+- `achievement_service.py:182/195/212`: `except (ImportError, Exception)` — `Exception` już łapie wszystko, `ImportError` nadmiarowy (harmless).
+- `achievement_service.py:201-204`: `news_flashcards` proxy przez `example_sentence.like('From article:%')` — kruche (zależy od stringu w fiszce, nie od dedykowanej flagi).
+- `test_generator.py:118` i `achievement_service.py:328`: `# noqa: BLE-001` — ruff nie ma BLE w select, dyrektywa zbędna (pozostawiona, harmless).
+- `flashcards.py:22` importuje `fsrs_neuro` (uproszczona heurystyka) zamiast `fsrs_service` (prawdziwa lib). **Niespójność:** topics mają lepszy scheduler (FSRS v6) niż flashcards (heurystyka). Rekomendacja: przenieść flashcards na `fsrs_service.apply_fsrs` (jak topics).
+
+#### 🟢 Obserwacje (nie błędy)
+- `gemini_service` nie ma fallbacku JSON przy błędzie AI — rzuca `ValueError` → 500. CLAUDE.md obiecuje "hardcoded fallback dict" w każdej funkcji; zrealizowane tylko w `daily_lesson`/`conversation`, NIE w `analyze_test_errors`/`analyze_conversation`/itp. (routery łapią `httpx.RequestError` → 503, ale błąd parsowania JSON → 500).
+- `fsrs_neuro.py` to samodzielna heurystyka NEURO (sen/circadian/interference) — ciekawa, ale nie używa lib `fsrs`, więc jej interwały są przybliżeniem, nie kalibrowanym FSRS.
+
+---
+
+### 🛠️ Audyt kodu
+
+#### Architektura
+- **Router → Service → Session**: przestrzegana. Wyjątek: `lessons.py` zawiera dużo logiki (powinno iść do `lesson_service`). `flashcards.py` miesza router + neuro-FSRS.
+- **`with_model` decorator** (`gemini_service`): czysty wzorzec per-task model selection przez `model_router`. Dobre.
+- **Circular import**: `gemini_service` importuje `model_router` wewnątrz funkcji — OK. `achievement_service` importuje modele wewnątrz funkcji — OK.
+
+#### Duplikacje
+- `flashcards.py` (review) i `topic_service.review_topic` implementują FSRS osobno (neuro vs lib). Duplikacja logiki schedulera.
+- `streak_service` i `stats.export_progress_csv` liczą streak niezależnie (różne wyniki!).
+
+#### Bezpieczeństwo
+- **CORS**: `allow_credentials=True` z jawną listą originów (z env) — OK.
+- **Rate limit**: middleware 30 req/60s na endpointy AI, pomija `TESTING=1` i `OPTIONS` — OK.
+- **Auth/autoryzacja**: weryfikacja właściciela (`lesson.user_id != user_id` → 403) w większości routerów — OK. Ale `topics.py:225` sprawdza `if review.user_id and ...` — gdy `user_id` puste, pomija check (CSRF-ish, ale wymaga znajomości topic_id).
+- **Sekrety**: `SECRET_KEY`/`ADMIN_API_KEY` ostrzegają w lifespan gdy puste/krótkie — OK. Brak `.env` w repo (gitignore) — OK.
+- **SQL injection**: wszędzie SQLAlchemy ORM/parametryzowane — OK.
+
+#### Jakość
+- Ruff: czysty (po commicie lint cleanup).
+- Testy: 285 backend passed, 43 frontend passed.
+- `except Exception` w wielu miejscach bez kontekstu — akceptowalne dla graceful degradation, ale `gemini_service` rzuca surowy `ValueError` zamiast fallbacku.
+
+---
+
+### 🎓 Zgodność z badaniami naukowymi o nauce języka
+
+| Mechanizm | Status | Literatura |
+|---|---|---|
+| **Spaced Repetition (FSRS)** | 🟡 Częściowo | Topics: FSRS v6 (zgodne z *Muralidharan et al. 2023*, optymalne interwały). Flashcards: heurystyka neuro (przybliżenie, nie kalibrowane). |
+| **i+1 Comprehensible Input** | 🟢 Tak | `generate_iplus1_content` wymusza 90% znanych / 10% nowych (Krashen 1985, *Input Hypothesis*). |
+| **Interleaving** | 🟡 Częściowo | `interleaved_review` było puste (NAPRAWIONE). NEURO-12 w flashcards liczy bonus za różnorodność tematów (zgodne z *Carpenter et al. 2012*). |
+| **Retrieval Practice (testy)** | 🟢 Tak | Daily/weekly testy, `analyze_test_errors` (zgodne z *Karpicke & Roediger 2008*, testing effect). |
+| **Output Forcing** | 🟢 Tak | Sekcja `output_forcing` (zakryj/odtwórz) — *active recall* (zgodne z *Bjork desirable difficulties*). |
+| **Error Analysis / Feedback** | 🟢 Tak | `analyze_test_errors` + `stats/errors` grupują błędy (zgodne z *Lyster & Ranta 1997*). |
+| **Pronunciation (sensory-motor)** | 🟢 Tak | faster-whisper + word-level scoring (zgodne z *Derwing & Munro 2015*). |
+| **Sleep Consolidation** | 🟡 Heurystyka | `fsrs_neuro` moduluje przez jakość snu (zgodne z *Diekelmann & Born 2010*), ale niekalibrowane. |
+| **Conversation / Negotiation of Meaning** | 🟢 Tak | AI rozmowa z naturalną korektą (Long 1996, *interaction hypothesis*). |
+| **Autonomy / Personalizacja** | 🟢 Tak | Study plan z placement (CEFR), per-language profiles. |
+| **Gamifikacja (XP/achievements/streak)** | 🟡 Częściowo | Streak/XP motywują (Deci & Ryan SDT), ale **achievements były nieosiągalne** (NAPRAWIONE). |
+
+**Wniosek:** Rdzeń pedagogiczny jest zgodny z literaturą. Główne luki: (1) flashcards FSRS heurystyka zamiast lib, (2) nieosiągalne achievements (naprawione), (3) puste interleaved_review (naprawione).
