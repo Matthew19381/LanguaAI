@@ -171,17 +171,17 @@ async def _generate_text_openrouter(prompt: str, model: str = None) -> str:
     return await _call_openrouter_api(url, payload, headers, timeout=60.0)
 
 
-async def generate_json(prompt: str, model: str = None) -> dict:
+async def generate_json(prompt: str, model: str = None, fallback: dict = None) -> dict:
     """Generate JSON using configured AI provider."""
     provider = _get_provider()
 
     if provider == "gemini":
-        return await _generate_json_gemini(prompt, model)
+        return await _generate_json_gemini(prompt, model, fallback)
     else:
-        return await _generate_json_openrouter(prompt, model)
+        return await _generate_json_openrouter(prompt, model, fallback)
 
 
-async def _generate_json_gemini(prompt: str, model: str = None) -> dict:
+async def _generate_json_gemini(prompt: str, model: str = None, fallback: dict = None) -> dict:
     """Generate JSON using Gemini Direct API."""
     if model is None:
         model = _model_override.get() or _GEMINI_DEFAULT_MODEL
@@ -190,10 +190,10 @@ async def _generate_json_gemini(prompt: str, model: str = None) -> dict:
     headers = _get_gemini_headers()
     payload = _build_gemini_payload(full_prompt)
     text = await _call_gemini_api(url, payload, headers, timeout=120.0)
-    return _parse_json_response(text)
+    return _parse_json_response(text, fallback)
 
 
-async def _generate_json_openrouter(prompt: str, model: str = None) -> dict:
+async def _generate_json_openrouter(prompt: str, model: str = None, fallback: dict = None) -> dict:
     """Generate JSON using OpenRouter API."""
     if model is None:
         model = _model_override.get() or _default_openrouter_model()
@@ -202,7 +202,7 @@ async def _generate_json_openrouter(prompt: str, model: str = None) -> dict:
     headers = _get_openrouter_headers()
     payload = _build_openrouter_payload(full_prompt, model)
     text = await _call_openrouter_api(url, payload, headers, timeout=120.0)
-    return _parse_json_response(text)
+    return _parse_json_response(text, fallback)
 
 
 def _parse_json_response(text: str, fallback: dict | None = None) -> dict:

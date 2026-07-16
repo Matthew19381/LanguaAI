@@ -15,6 +15,7 @@ from backend.models.flashcard import Flashcard
 from backend.schemas.flashcard import (
     AddFlashcardAIRequest,
     AddFlashcardRequest,
+    GenerateFromTopicRequest,
     ReviewFlashcardRequest,
 )
 from backend.services.achievement_service import check_and_award_achievements
@@ -491,14 +492,15 @@ async def bulk_import_flashcards(
 
 # ── Topic-based flashcard generation ─────────────────────────────────────
 
-@router.post("/api/flashcards/generate-from-topic")
+@router.post("/api/flashcards/{user_id}/generate-from-topic")
 async def generate_flashcards_from_topic(
     user_id: int,
-    topic_id: int,
-    count: int = 10,
+    request: GenerateFromTopicRequest,
     db: Session = Depends(get_db),
 ):
     """Generate flashcard previews from a topic (not saved to DB yet)."""
+    topic_id = request.topic_id
+    count = request.count
     user = get_user_or_404(db, user_id)
     from backend.models.topic import Topic, TopicItem
 

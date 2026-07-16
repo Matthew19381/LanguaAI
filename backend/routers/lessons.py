@@ -508,8 +508,12 @@ async def download_lesson_audio_package(lesson_id: int, user_id: int, db: Sessio
         zf.writestr("video_link.txt", f"Wyszukaj film na YouTube:\n{yt_url}\n")
 
     zip_buffer.seek(0)
+    # ASCII-safe filename (HTTP headers must be latin-1; Polish chars like ł/ń break it)
+    _pl_map = str.maketrans({"ą": "a", "ć": "c", "ę": "e", "ł": "l", "ń": "n", "ó": "o", "ś": "s", "ż": "z", "ź": "z",
+                              "Ą": "A", "Ć": "C", "Ę": "E", "Ł": "L", "Ń": "N", "Ó": "O", "Ś": "S", "Ż": "Z", "Ź": "Z"})
     safe_title = "".join(c if c.isalnum() or c in " _-" else "_" for c in (lesson.title or "lesson"))[:30]
-    zip_name = f"Lekcja_{lesson.day_number:02d}_{safe_title}.zip"
+    raw_zip_name = f"Lekcja_{lesson.day_number:02d}_{safe_title}.zip"
+    zip_name = raw_zip_name.translate(_pl_map)
 
     return StreamingResponse(
         zip_buffer,
@@ -750,13 +754,23 @@ async def record_exercise_error(
 @router.delete("/api/lessons/reset-today/{user_id}")
 async def reset_today_lesson(user_id: int, db: Session = Depends(get_db)):
     """Delete today's lesson so it gets regenerated on next visit."""
+    from backend.models.flashcard import Flashcard
     user = get_user_or_404(db, user_id)
     today_start = datetime.combine(date.today(), datetime.min.time())
-    deleted = db.query(Lesson).filter(
+    lessons_to_delete = db.query(Lesson).filter(
         Lesson.user_id == user_id,
         Lesson.language == user.target_language,
         Lesson.created_at >= today_start
-    ).delete()
+    ).all()
+    lesson_ids = [l.id for l in lessons_to_delete]
+    # Remove child flashcards first (FK constraint, no ON DELETE CASCADE in SQLite)
+    if lesson_ids:
+        db.query(Flashcard).filter(Flashcard.lesson_id.in_(lesson_ids)).delete(
+            synchronize_session=False
+        )
+    deleted = db.query(Lesson).filter(Lesson.id.in_(lesson_ids)).delete(
+        synchronize_session=False
+    ) if lesson_ids else 0
     db.commit()
     return {"success": True, "deleted": deleted}
 

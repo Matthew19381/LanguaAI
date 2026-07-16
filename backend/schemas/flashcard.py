@@ -22,3 +22,8 @@ class AddFlashcardAIRequest(BaseModel):
 class ConceptFlashcardRequest(BaseModel):
     lesson_id: int
     concepts: list
+
+
+class GenerateFromTopicRequest(BaseModel):
+    topic_id: int
+    count: int = 10
