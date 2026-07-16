@@ -58,6 +58,8 @@ async def lifespan(app: FastAPI):
     _migrations = [
         ("users", "ALTER TABLE users ADD COLUMN language_profiles TEXT DEFAULT '{}'"),
         ("users", "ALTER TABLE users ADD COLUMN streak_freezes INTEGER DEFAULT 2"),
+        ("users", "ALTER TABLE users ADD COLUMN sleep_data TEXT DEFAULT '{}'"),
+        ("users", "ALTER TABLE users ADD COLUMN neuro_weights TEXT DEFAULT '{\"sleep_modulator_weight\": 0.15, \"time_of_day_weight\": 0.1, \"interleaving_bonus_weight\": 0.05, \"interference_penalty_weight\": 0.1}'"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_id INTEGER"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_day INTEGER"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_topic TEXT"),
