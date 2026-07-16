@@ -422,13 +422,15 @@ async def export_lesson_obsidian(
                 plan_data = json.loads(study_plan.plan_data)
                 try:
                     future_content = await generate_daily_lesson(
+                        user_id=lesson.user_id,
                         day_number=future_day,
                         study_plan_data=plan_data,
                         user_errors=[],
                         cefr_level=user.cefr_level,
-                        language=user.target_language,
+                        target_language=user.target_language,
                         native_language=user.native_language,
-                        recent_topics=[lesson.topic]
+                        recent_topics=[lesson.topic],
+                        db=db,
                     )
                     lesson_data = {
                         "title": future_content.get("title", f"Dzień {future_day}"),
@@ -649,16 +651,18 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
 
     # Generate lesson
     lesson_content = await generate_daily_lesson(
+        user_id=user_id,
         day_number=next_day,
         study_plan_data=study_plan_data,
         user_errors=user_errors + exercise_errors,
         cefr_level=user.cefr_level,
-        language=user.target_language,
+        target_language=user.target_language,
         native_language=user.native_language,
         recent_topics=recent_topics,
         user_vocabulary=next_vocab,
         weak_topics=next_weak,
         strong_topics=next_strong,
+        db=db,
     )
 
     # Save lesson to DB

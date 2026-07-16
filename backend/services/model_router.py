@@ -126,15 +126,15 @@ def _get_openrouter_model(task: str, fallback: str = None, tier: str = "cheap") 
             "multimodal":    "google/gemma-4-26b-a4b-it:free",
         },
         "cheap": {
-            "placement":     "mistralai/mistral-small-3.1-8b",
-            "pronunciation": "amazon/nova-micro-v1",
+            "placement":     "deepseek/deepseek-v3.2",
+            "pronunciation": "google/gemini-2.5-flash",
             "lesson":        "deepseek/deepseek-v3.2",
-            "conversation":  "minimax/minimax-m2.7",
+            "conversation":  "deepseek/deepseek-v3.2",
             "news":          "google/gemini-2.5-flash",
-            "test":          "deepseek/deepseek-v3.2-non-thinking",
+            "test":          "deepseek/deepseek-v3.2",
             "code":          "qwen/qwen3-coder",
             "reasoning":     "deepseek/deepseek-v3.2",
-            "multimodal":    "meta-llama/llama-4-maverick-17b",
+            "multimodal":    "google/gemini-2.5-flash",
         },
         "best": {
             "placement":     "openai/gpt-5-mini",
@@ -204,7 +204,7 @@ def _tier_default_openrouter(tier: str) -> str:
     """Domyślny fallback model dla danego tieru OpenRouter."""
     return {
         "free":  "meta-llama/llama-3.2-3b-instruct:free",
-        "cheap": "deepseek/deepseek-v3.2-non-thinking",
+        "cheap": "deepseek/deepseek-v3.2",
         "best":  "anthropic/claude-sonnet-4-6",
     }.get(tier, "deepseek/deepseek-v3.2-non-thinking")
 
