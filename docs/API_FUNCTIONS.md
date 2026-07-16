@@ -149,11 +149,11 @@ repetitions/lapses/fsrs_state/next_review_date), `Topic`/`TopicItem` (FSRS per t
 
 ---
 
-## 7. Znane luki (stan 2026-07-15, patrz TASKS.md → AUDYT)
+## 7. Znane luki (stan 2026-07-15 — WSZYSTKIE NAPRAWIONE, patrz TASKS.md → Status napraw luk)
 
 - [NAPRAWIONE] Achievements nieosiągalne (brak `check_and_award_achievements` w conversation/flashcards).
 - [NAPRAWIONE] `interleaved_review` puste.
 - [NAPRAWIONE] Niezgodność sygnatur `generate_daily_lesson` (TypeError na żywo).
-- [DO POPRAWY] `gemini_service` brak fallbacku JSON (500 przy błędzie parsowania).
-- [DO POPRAWY] Flashcards używają `fsrs_neuro` (heurystyka) zamiast `fsrs_service` (lib).
-- [DO POPRAWY] `stats.export_progress_csv` liczy streak niezależnie (może crashować na `None` date).
+- [NAPRAWIONE] `gemini_service` brak fallbacku JSON (dodano `fallback` param).
+- [NAPRAWIONE] Flashcards używały `fsrs_neuro` (heurystyka) → zmigrowano na `fsrs_service` (lib FSRS v6).
+- [NAPRAWIONE] `stats.export_progress_csv` liczyło streak lokalnie → `streak_service.streak_at_date`.

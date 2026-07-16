@@ -63,6 +63,7 @@ async def lifespan(app: FastAPI):
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_topic TEXT"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN gender TEXT"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN isImportant BOOLEAN NOT NULL DEFAULT 0"),
+        ("flashcards", "ALTER TABLE flashcards ADD COLUMN last_review_date TIMESTAMP"),
     ]
     with engine.connect() as conn:
         # Create conversation_sessions table if it doesn't exist

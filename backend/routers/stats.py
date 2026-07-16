@@ -2,7 +2,7 @@ import csv
 import io
 import json
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -201,6 +201,7 @@ async def get_leaderboard_position(user_id: int, db: Session = Depends(get_db)):
 
 @router.get("/api/stats/{user_id}/export-csv")
 async def export_progress_csv(user_id: int, db: Session = Depends(get_db)):
+    from backend.services.streak_service import streak_at_date
     user = get_user_or_404(db, user_id)
 
     lessons = db.query(Lesson).filter(Lesson.user_id == user_id).order_by(Lesson.created_at.asc()).all()
@@ -219,28 +220,16 @@ async def export_progress_csv(user_id: int, db: Session = Depends(get_db)):
     writer = csv.writer(output)
     writer.writerow(["date", "day_number", "lesson_title", "lesson_completed", "test_scores", "xp_total", "streak", "flashcard_count"])
 
-    # Calculate cumulative XP and consecutive streak per lesson
+    # Calculate cumulative XP and per-lesson streak using the shared streak service
     xp = 0
-    streak = 0
-    lesson_dates = sorted(set(l.completed_at.date() for l in lessons if l.completed_at))
-
-    def _consecutive_streak_at(check_date, all_dates):
-        """Count consecutive days ending at check_date."""
-        if check_date not in all_dates:
-            return 0
-        count = 1
-        prev = check_date - timedelta(days=1)
-        while prev in all_dates:
-            count += 1
-            prev -= timedelta(days=1)
-        return count
 
     for lesson in lessons:
         d = lesson.created_at.strftime("%Y-%m-%d")
         if lesson.is_completed:
             xp += 25
-            if lesson.completed_at:
-                streak = _consecutive_streak_at(lesson.completed_at.date(), lesson_dates)
+            lesson_streak = streak_at_date(lessons, lesson.completed_at.date()) if lesson.completed_at else 0
+        else:
+            lesson_streak = 0
         scores = tests_by_date.get(d, [])
         scores_str = ";".join(str(s) for s in scores) if scores else ""
         writer.writerow([
@@ -250,7 +239,7 @@ async def export_progress_csv(user_id: int, db: Session = Depends(get_db)):
             lesson.is_completed,
             scores_str,
             xp,
-            streak,
+            lesson_streak,
             len(flashcards),
         ])
 

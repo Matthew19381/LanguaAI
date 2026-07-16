@@ -31,6 +31,7 @@ class Flashcard(Base):
     lapses = Column(Integer, default=0)              # times forgotten
     fsrs_state = Column(String, default="Learning")  # Learning/Review/Relearning
     next_review_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_review_date = Column(DateTime, nullable=True)  # last FSRS review (needed for interval calc)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_active = Column(Boolean, default=True)
     # ── Neuro-FSRS Extensions ──

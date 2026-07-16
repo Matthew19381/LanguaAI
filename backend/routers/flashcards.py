@@ -3,7 +3,7 @@ import io
 import json
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -20,7 +20,7 @@ from backend.schemas.flashcard import (
 from backend.services.achievement_service import check_and_award_achievements
 from backend.services.anki_service import generate_anki_deck
 from backend.services.audio_service import generate_flashcard_audio
-from backend.services.fsrs_neuro import NeuroCardState, neuro_fsrs_next_interval
+from backend.services.fsrs_service import apply_fsrs as fsrs_apply
 from backend.services.gemini_service import generate_json, with_model
 from backend.utils import get_user_or_404
 
@@ -168,46 +168,34 @@ async def review_flashcard(
     )
     interference_penalty = round(min(0.3, (same_topic_count) / 5.0 * 0.3), 3)
 
-    # Prepare neuro card state from flashcard
-    card_state = NeuroCardState(
+    # Prepare FSRS card state from flashcard (uses the same v6 lib as topics)
+    result = fsrs_apply(
+        rating=request.rating,
         difficulty=flashcard.difficulty,
         stability=flashcard.stability,
-        retrievability=flashcard.retrievability if flashcard.retrievability > 0 else 0.0,
-        interval_days=flashcard.interval_days,
-        repetitions=flashcard.repetitions,
-        sleep_quality=sleep_quality,  # NEURO-11
-        session_type=session_type,
-        interleaving_bonus=interleaving_bonus,  # NEURO-12
-        interference_penalty=interference_penalty,  # NEURO-13
-        time_of_day=session_type,
+        retrievability=flashcard.retrievability if flashcard.retrievability > 0 else None,
+        elapsed_days=0,
+        reps=flashcard.repetitions,
+        lapses=flashcard.lapses or 0,
+        current_state=flashcard.fsrs_state or "Learning",
+        last_review_date=flashcard.last_review_date,
     )
 
-    # NEURO-15: use the user's configurable neuro-FSRS weights
-    from backend.services.fsrs_neuro import neuro_fsrs_params_from_user
-    params = neuro_fsrs_params_from_user(user)
-
-    # Apply neuro-enhanced FSRS
-    result = neuro_fsrs_next_interval(
-        card=card_state,
-        rating=request.rating,
-        params=params,
-        similar_count=same_topic_count + 1,
-        current_hour=current_hour,
-    )
-
-    # Update flashcard with results
+    # Update flashcard with FSRS v6 results
     flashcard.difficulty = result.difficulty
     flashcard.stability = result.stability
     flashcard.retrievability = result.retrievability
-    flashcard.interval_days = result.interval_days
+    flashcard.interval_days = result.interval
     flashcard.repetitions = result.repetitions
-    flashcard.lapses = result.lapses if hasattr(result, 'lapses') else flashcard.lapses
-    flashcard.fsrs_state = result.state if hasattr(result, 'state') else "Review"
-    flashcard.next_review_date = now + timedelta(days=result.interval_days)
-    flashcard.session_type = result.session_type
-    flashcard.sleep_quality = result.sleep_quality
-    flashcard.interleaving_bonus = result.interleaving_bonus
-    flashcard.interference_penalty = result.interference_penalty
+    flashcard.lapses = result.lapses
+    flashcard.fsrs_state = result.state
+    flashcard.next_review_date = result.next_review_date
+    flashcard.last_review_date = now
+    # Preserve neuro telemetry metadata (informational only, not used by FSRS scheduler)
+    flashcard.session_type = session_type
+    flashcard.sleep_quality = sleep_quality
+    flashcard.interleaving_bonus = interleaving_bonus
+    flashcard.interference_penalty = interference_penalty
 
     db.commit()
 
@@ -217,7 +205,7 @@ async def review_flashcard(
     return {
         "success": True,
         "flashcard_id": flashcard_id,
-        "new_interval": result.interval_days,
+        "new_interval": result.interval,
         "new_difficulty": result.difficulty,
         "new_stability": result.stability,
         "state": getattr(result, 'state', "Review"),
@@ -324,12 +312,12 @@ async def add_flashcard(
 
 @with_model("lesson")
 async def _ai_validate_spelling(prompt: str) -> dict:
-    return await generate_json(prompt)
+    return await generate_json(prompt, fallback={})
 
 
 @with_model("lesson")
 async def _ai_generate_flashcard(prompt: str) -> dict:
-    return await generate_json(prompt)
+    return await generate_json(prompt, fallback={})
 
 
 @router.post("/api/flashcards/{user_id}/add-ai")

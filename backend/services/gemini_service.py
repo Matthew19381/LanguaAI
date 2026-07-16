@@ -205,8 +205,12 @@ async def _generate_json_openrouter(prompt: str, model: str = None) -> dict:
     return _parse_json_response(text)
 
 
-def _parse_json_response(text: str) -> dict:
-    """Parse JSON from AI response, stripping markdown fences if present."""
+def _parse_json_response(text: str, fallback: dict | None = None) -> dict:
+    """Parse JSON from AI response, stripping markdown fences if present.
+
+    On parse failure: returns ``fallback`` if provided (graceful degradation
+    per CLAUDE.md), otherwise raises ValueError so the caller can decide.
+    """
     text = text.strip()
 
     # Strip markdown fences if model adds them
@@ -223,5 +227,8 @@ def _parse_json_response(text: str) -> dict:
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
+        if fallback is not None:
+            logger.error(f"JSON decode error (using fallback): {e}. Raw: {text[:200]}")
+            return fallback
         logger.error(f"JSON decode error: {e}. Raw response: {text[:500]}")
         raise ValueError(f"Invalid JSON response from AI: {e}")

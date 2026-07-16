@@ -402,10 +402,21 @@ _Polecenie: przeczytaj wszystkie pliki → audyt logiczny → audyt kodu → zgo
 - `flashcards.py:22` importuje `fsrs_neuro` (uproszczona heurystyka) zamiast `fsrs_service` (prawdziwa lib). **Niespójność:** topics mają lepszy scheduler (FSRS v6) niż flashcards (heurystyka). Rekomendacja: przenieść flashcards na `fsrs_service.apply_fsrs` (jak topics).
 
 #### 🟢 Obserwacje (nie błędy)
-- `gemini_service` nie ma fallbacku JSON przy błędzie AI — rzuca `ValueError` → 500. CLAUDE.md obiecuje "hardcoded fallback dict" w każdej funkcji; zrealizowane tylko w `daily_lesson`/`conversation`, NIE w `analyze_test_errors`/`analyze_conversation`/itp. (routery łapią `httpx.RequestError` → 503, ale błąd parsowania JSON → 500).
-- `fsrs_neuro.py` to samodzielna heurystyka NEURO (sen/circadian/interference) — ciekawa, ale nie używa lib `fsrs`, więc jej interwały są przybliżeniem, nie kalibrowanym FSRS.
+- `gemini_service` — dodano `fallback` param do `generate_json`/`_parse_json_response` (graceful degradation zgodnie z CLAUDE.md). Wszystkie wywołania `generate_json` już były w `try/except` (serwisy/routery), więc 500 nie występowało, ale fallback czyni to explicite (użyty w helperach flashcards jako `fallback={}`).
+- `fsrs_neuro.py` to samodzielna heurystyka NEURO — **od teraz nieużywana w produkcji** (flashcards zmigrowano na `fsrs_service.apply_fsrs` / lib FSRS v6). Plik pozostawiony (testy `test_fsrs_neuro.py`).
 
 ---
+
+### ✅ Status napraw luk (2026-07-15, po audycie)
+- [x] Achievements nieosiągalne → dodano `check_and_award_achievements` w conversation/flashcards
+- [x] `interleaved_review` puste → budowane z `recent_topics`
+- [x] Niezgodność sygnatur `generate_daily_lesson` → rozszerzona sygnatura + RAG
+- [x] `gemini_service` brak fallbacku JSON → `fallback` param w `generate_json`
+- [x] Flashcards `fsrs_neuro` → zmigrowano na `fsrs_service` (FSRS v6), +kolumna `last_review_date` +migracja w `main.py`
+- [x] `stats.export_progress_csv` streak → `streak_service.streak_at_date` (usunięcie duplikacji)
+- [x] `achievement_service` `except (ImportError, Exception)` → `except Exception` (3 miejsca)
+
+**Weryfikacja:** `ruff check backend/` → All checks passed! · `pytest backend/tests/` → 285 passed.
 
 ### 🛠️ Audyt kodu
 

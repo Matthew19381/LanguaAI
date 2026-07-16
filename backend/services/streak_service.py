@@ -57,3 +57,26 @@ def calculate_streak(db: Session, user_id: int, freezes_available: int = 0) -> t
             break
 
     return streak, remaining_freezes
+
+
+def streak_at_date(lessons: list, target_date) -> int:
+    """Count consecutive completed-lesson days ending at ``target_date``.
+
+    Used by CSV export to show the running streak for each historical lesson
+    (instead of re-implementing the heuristic inline in the stats router).
+    """
+    from datetime import timedelta
+
+    completed_dates = sorted({
+        l.completed_at.date()
+        for l in lessons
+        if l.completed_at and l.is_completed
+    })
+    if target_date not in completed_dates:
+        return 0
+    count = 1
+    prev = target_date - timedelta(days=1)
+    while prev in completed_dates:
+        count += 1
+        prev -= timedelta(days=1)
+    return count

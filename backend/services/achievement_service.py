@@ -179,7 +179,7 @@ def check_and_award_achievements(user, db: Session) -> list:
         total_conversations = db.query(ConversationSession).filter(
             ConversationSession.user_id == user.id
         ).count()
-    except (ImportError, Exception):
+    except Exception:
         total_conversations = 0
 
     # Pronunciation count
@@ -192,7 +192,7 @@ def check_and_award_achievements(user, db: Session) -> list:
             PronunciationAttempt.user_id == user.id,
             PronunciationAttempt.score >= 95
         ).count()
-    except (ImportError, Exception):
+    except Exception:
         total_pronunciation = 0
         perfect_pronunciation = 0
 
@@ -209,7 +209,7 @@ def check_and_award_achievements(user, db: Session) -> list:
         errors_reviewed = db.query(ErrorLog).filter(
             ErrorLog.user_id == user.id
         ).count()
-    except (ImportError, Exception):
+    except Exception:
         errors_reviewed = 0
 
     # Language profiles count (from JSON field on User)
