@@ -2,7 +2,7 @@ import csv
 import io
 import json
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -48,7 +48,7 @@ async def get_stats(user_id: int, db: Session = Depends(get_db)):
         Flashcard.is_active == True
     ).all()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     due_flashcards = [f for f in flashcards if f.next_review_date and f.next_review_date <= now]
 
     # Calculate streaks (with freeze support)
@@ -63,15 +63,21 @@ async def get_stats(user_id: int, db: Session = Depends(get_db)):
             try:
                 errors = json.loads(test.errors)
                 for error in errors:
-                    error_type = error.get("type", "unknown")
+                    if isinstance(error, dict):
+                        error_type = error.get("type", "unknown")
+                    else:
+                        error_type = str(error)
                     error_categories[error_type] = error_categories.get(error_type, 0) + 1
                     if error_type not in error_examples:
                         error_examples[error_type] = []
                     if len(error_examples[error_type]) < 3:
-                        example = {
-                            "question": error.get("question", error.get("error", "")),
-                            "correct": error.get("correct_answer", error.get("correction", "")),
-                        }
+                        if isinstance(error, dict):
+                            example = {
+                                "question": error.get("question", error.get("error", "")),
+                                "correct": error.get("correct_answer", error.get("correction", "")),
+                            }
+                        else:
+                            example = {"question": str(error), "correct": ""}
                         if example["question"] and example not in error_examples[error_type]:
                             error_examples[error_type].append(example)
             except (json.JSONDecodeError, TypeError):
