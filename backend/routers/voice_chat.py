@@ -5,7 +5,7 @@ Prompt zawiera: co użytkownik dzisiaj robił, problemy, słownictwo.
 import base64
 import json
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -72,7 +72,10 @@ def generate_voice_chat_prompt(user_id: int, db: Session = Depends(get_db)):
                 try:
                     errs = json.loads(r.errors) if isinstance(r.errors, str) else r.errors
                     for e in errs[:3]:
-                        errors_info += f"- {e.get('type', 'błąd')}: {e.get('explanation', '')}\n"
+                        if isinstance(e, dict):
+                            errors_info += f"- {e.get('type', 'błąd')}: {e.get('explanation', '')}\n"
+                        else:
+                            errors_info += f"- {str(e)}\n"
                 except (json.JSONDecodeError, TypeError):
                     pass
 
@@ -81,7 +84,7 @@ def generate_voice_chat_prompt(user_id: int, db: Session = Depends(get_db)):
         Flashcard.user_id == user_id,
         Flashcard.is_active == True,
         Flashcard.next_review_date != None,
-        Flashcard.next_review_date <= datetime.now(timezone.utc)
+        Flashcard.next_review_date <= datetime.now()
     ).limit(10).all()
 
     flashcard_info = ""
@@ -102,7 +105,7 @@ def generate_voice_chat_prompt(user_id: int, db: Session = Depends(get_db)):
             try:
                 errs = json.loads(test.errors) if isinstance(test.errors, str) else test.errors
                 for e in errs:
-                    t = e.get('type', 'unknown')
+                    t = e.get('type', 'unknown') if isinstance(e, dict) else str(e)
                     error_categories[t] = error_categories.get(t, 0) + 1
             except (json.JSONDecodeError, TypeError):
                 pass
