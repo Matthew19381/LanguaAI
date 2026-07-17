@@ -10,7 +10,12 @@ from sqlalchemy.orm import Session
 
 from backend.config import settings
 from backend.database import get_db
-from backend.services.backup_service import create_backup, list_backups, restore_backup
+from backend.services.backup_service import (
+    BACKUP_DIR,
+    create_backup,
+    list_backups,
+    restore_backup,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -67,7 +72,7 @@ async def admin_restore_backup(
 ):
     """Restore database from a backup file. Requires admin api key. Creates safety backup first."""
     try:
-        restore_backup(backup_filename)
+        restore_backup(str(BACKUP_DIR / backup_filename))
         return {"success": True, "restored_from": backup_filename}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
