@@ -7,6 +7,7 @@ from backend.database import Base
 
 
 class TestResult(Base):
+    __test__ = False  # nazwa pasuje do wzorca pytest — to model DB, nie klasa testowa
     __tablename__ = "test_results"
     __table_args__ = (
         UniqueConstraint('user_id', 'test_type', 'language', 'created_at', name='uq_user_test_type_lang_date'),

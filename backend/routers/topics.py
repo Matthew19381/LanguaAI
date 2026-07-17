@@ -45,7 +45,7 @@ async def list_topics(
     user_id: int,
     language: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
-    sort: Optional[str] = Query("name", regex="^(name|strength|due|items)$"),
+    sort: Optional[str] = Query("name", pattern="^(name|strength|due|items)$"),
     db: Session = Depends(get_db),
 ):
     """List all topics for a user with optional filters."""
