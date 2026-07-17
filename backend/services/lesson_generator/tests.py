@@ -119,7 +119,8 @@ async def analyze_test_errors(
     for q in questions:
         user_ans = answers.get(str(q["id"]), answers.get(q["id"], ""))
         q_type = q.get("type", "unknown")
-        is_correct = _normalize_answer(user_ans, q_type) == _normalize_answer(q["correct"], q_type)
+        correct_ans = q.get("correct") or q.get("correct_answer") or ""
+        is_correct = _normalize_answer(user_ans, q_type) == _normalize_answer(correct_ans, q_type)
         points = q.get("points", 10)
         total_points += points
         if is_correct:
@@ -131,7 +132,7 @@ async def analyze_test_errors(
             letter = opt.split(".")[0].strip()
             opts_map[letter.upper()] = opt
         user_ans_display = opts_map.get(str(user_ans).upper(), user_ans)
-        correct_ans_display = opts_map.get(str(q["correct"]).upper(), q["correct"])
+        correct_ans_display = opts_map.get(str(correct_ans).upper(), correct_ans)
 
         results.append({
             "question_id": q["id"],
