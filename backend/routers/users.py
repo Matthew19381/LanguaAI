@@ -21,13 +21,6 @@ class SleepData(BaseModel):
     date: Optional[str] = None  # ISO date string (YYYY-MM-DD)
 
 
-class NeuroWeights(BaseModel):
-    sleep_modulator_weight: Optional[float] = None
-    time_of_day_weight: Optional[float] = None
-    interleaving_bonus_weight: Optional[float] = None
-    interference_penalty_weight: Optional[float] = None
-
-
 class SleepSyncPayload(BaseModel):
     """Payload from an external sleep sensor (Google Fit / Apple Health)."""
     source: str  # "google_fit" | "apple_health"
@@ -134,81 +127,6 @@ async def get_user_sleep_data(
     except (json.JSONDecodeError, TypeError):
         data = {}
     return {"sleep_data": data}
-
-
-# ── NEURO-15: configurable neuro-FSRS weights ───────────────────────────────
-
-@router.get("/{user_id}/neuro-weights", response_model=dict)
-async def get_neuro_weights(
-    user_id: int,
-    db: Session = Depends(get_db),
-):
-    """Return the user's current neuro-FSRS weights (defaults if unset)."""
-    user = get_user_or_404(db, user_id)
-    try:
-        weights = json.loads(user.neuro_weights) if user.neuro_weights else {}
-    except (json.JSONDecodeError, TypeError):
-        weights = {}
-    return {"neuro_weights": weights}
-
-
-@router.patch("/{user_id}/neuro-weights", response_model=dict)
-async def update_neuro_weights(
-    user_id: int,
-    payload: NeuroWeights,
-    db: Session = Depends(get_db),
-):
-    """Update the user's neuro-FSRS weights. Missing fields keep their current value."""
-    user = get_user_or_404(db, user_id)
-
-    try:
-        weights = json.loads(user.neuro_weights) if user.neuro_weights else {}
-    except (json.JSONDecodeError, TypeError):
-        weights = {}
-
-    bounds = {
-        "sleep_modulator_weight": (0.0, 0.3),
-        "time_of_day_weight": (0.0, 0.2),
-        "interleaving_bonus_weight": (0.0, 0.1),
-        "interference_penalty_weight": (0.0, 0.2),
-    }
-
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        if value is None:
-            continue
-        if key not in bounds:
-            raise HTTPException(status_code=400, detail=f"Unknown weight: {key}")
-        lo, hi = bounds[key]
-        if not lo <= value <= hi:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{key} must be between {lo} and {hi}",
-            )
-        weights[key] = value
-
-    user.neuro_weights = json.dumps(weights)
-    db.commit()
-
-    # NEURO-14: award the 'neuro_tuned' achievement on first weight customisation
-    new_achievement = None
-    from backend.models.achievement import Achievement
-    from backend.services.achievement_service import ACHIEVEMENT_DEFS
-    if "neuro_tuned" in ACHIEVEMENT_DEFS and not db.query(Achievement).filter(
-        Achievement.user_id == user.id,
-        Achievement.achievement_type == "neuro_tuned",
-    ).first():
-        ach = Achievement(
-            user_id=user.id,
-            achievement_type="neuro_tuned",
-            unlocked_at=datetime.now(),
-            notified=False,
-        )
-        db.add(ach)
-        db.commit()
-        title, description, icon = ACHIEVEMENT_DEFS["neuro_tuned"]
-        new_achievement = {"type": "neuro_tuned", "title": title, "description": description, "icon": icon}
-
-    return {"success": True, "neuro_weights": weights, "new_achievement": new_achievement}
 
 
 # ── NEURO-16: sleep-sensor sync (Google Fit / Apple Health) ─────────────────

@@ -148,9 +148,8 @@ async def review_flashcard(
         except (json.JSONDecodeError, TypeError):
             sleep_quality = None
 
-    # ── NEURO-12: interleaving bonus (topic variety among due cards) ──
-    # A diverse due-queue (more distinct lesson topics) strengthens
-    # desirable-difficulties / spacing effect → small bonus per review.
+    # ── NEURO-12: interleaving telemetry (topic variety among due cards) ──
+    # Recorded for analysis only — scheduling is done entirely by FSRS v6.
     due_cards = db.query(Flashcard).filter(
         Flashcard.user_id == user_id,
         Flashcard.language == user.target_language,
@@ -162,8 +161,8 @@ async def review_flashcard(
     # Bonus scales with how many *different* topics are queued alongside this card
     interleaving_bonus = round(min(1.0, len(due_topics) / 10.0), 3)
 
-    # ── NEURO-13: interference penalty (same-topic cards competing) ──
-    # Cards sharing the exact lesson topic compete for the same neural trace.
+    # ── NEURO-13: interference telemetry (same-topic cards in the due queue) ──
+    # Recorded for analysis only — scheduling is done entirely by FSRS v6.
     same_topic_count = sum(
         1 for c in due_cards if c.lesson_topic and c.lesson_topic == flashcard.lesson_topic
     )

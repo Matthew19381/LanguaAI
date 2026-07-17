@@ -1,74 +1,57 @@
-# Neuro‑naukowe funkcje językowe w LinguaAI (Faza 2)
+# Funkcje oparte na nauce o uczeniu się w LinguaAI
+
+> **Zasada projektowa**: każda funkcja wpływająca na naukę musi mieć (a) wsparcie w recenzowanych badaniach, (b) implementację zgodną z tym, co badania faktycznie pokazują. Konkretne stałe liczbowe bez podstawy empirycznej traktujemy jako hipotezy do zweryfikowania na danych — nie jako fakty.
 
 ## Spis treści
-1. [Faza 2A – Optymalizacja snu i pamięci](#faza2a)
-2. [Faza 2B – Motoryczna wymowa](#faza2b)
-3. [Faza 2C – Przeplatanie i pożądane trudności](#faza2c)
-4. [Faza 2C – Embodiment i słownictwo przestrzenne](#faza2c2)
-5. [Powiązania z kodem](#kod)
+1. [Stan faktyczny — co jest zaimplementowane](#stan)
+2. [Podstawy naukowe zaimplementowanych mechanizmów](#nauka)
+3. [Funkcje wycofane i dlaczego](#wycofane)
+4. [Zaplanowane funkcje (backlog, poparte badaniami)](#backlog)
 
 ---
 
-## Faza 2A – Optymalizacja snu i pamięci <a name="faza2a"></a>
+## 1. Stan faktyczny — co jest zaimplementowane <a name="stan"></a>
 
-| ID | Funkcja | Opis | Gdzie zaimplementować |
-|----|---------|------|------------------------|
-| NEURO‑1 | **Harmonogram świadomości snu** | Planowanie powtórek w optymalnych oknach kodowania (wieczór) i odtwarzania (rano) na podstawie jakości snu i pory dnia. | - Backend: dodaj pole `session_type` (wieczór/rano/dzień) do modelu `Lesson`. <br> - Frontend: planuj powiadomienia w odpowiednich oknach. <br> - Opcjonalnie: integracja z wearable API (Google Fit, Apple Health) dla pomiaru jakości snu. |
-| NEURO‑2 | **Generator treści i+1 (zrozumiały input)** | Tworzy tekst, w którym ~90 % słów jest już znanych użytkownikowi, a ~10 % nowych, zgodnie z hipotezą Krashena i kodowaniem predykcyjnym. | - Backend: nowy endpoint `/api/lessons/iplus1/{user_id}` generujący tekst z podświetleniem nowych słów. <br> - Wykorzystuje historię fiszek (`known_words`) oraz ukończone lekcje do kalibracji trudności. <br> - Zwraca: `i_plus_1_text`, `new_words_highlighted`, `cefr_level`. |
-| NEURO‑3 | **Zmienna nagroda (optymalizacja dopaminy)** | Wprowadza nieprzewidywalne bonusy (loot box) oraz dodatkowe XP za trafne przewidywania kontekstu, aby zwiększyć sygnał błędu przewidywania dopaminowego. | - Backend: rozszerz `achievement_service.py` o `surprise_loot` (15 % szans) oraz `prediction_bonus` (+50 % XP za poprawne zgadywanie). <br> - Frontend: animacja skrzyni z łupem, licznik „serii przewidywań”. <br> - Konfiguracja: `target_success_rate: 0.85` (strefa i+1). |
+| Mechanizm | Status | Kod |
+|---|---|---|
+| **Spaced repetition (FSRS v6)** | ✅ Produkcja — scheduler fiszek i tematów to biblioteka `fsrs` v6 (model DSR), bez żadnych dodatkowych mnożników | `backend/services/fsrs_service.py`, `backend/routers/flashcards.py` |
+| **Interleaved review** (Mixed Review w lekcji) | ✅ Produkcja — 2-3 prompty przypominające z ostatnich tematów | `backend/services/lesson_generator/daily_lesson.py` (`_build_interleaved_review`) |
+| **Output forcing** (retrieval practice) | ✅ Produkcja — 5 zdań w języku docelowym generowanych per lekcja z jej słownictwa; czytaj → zakryj → odtwórz | `daily_lesson.py` (sekcja 9 promptu) |
+| **Comprehensible input (i+1)** | ✅ Produkcja — tekst z ≥95% znanego słownictwa + 3-5 nowych słów | `daily_lesson.py` (`generate_iplus1_content`) |
+| **Telemetria kontekstu powtórki** (NEURO-11/12/13) | 📊 Zbieranie danych — `session_type`, `sleep_quality`, `interleaving_bonus`, `interference_penalty` zapisywane przy każdej powtórce. **Nie wpływają na scheduler** — służą przyszłej analizie | `backend/routers/flashcards.py`, `backend/models/flashcard.py` |
+| **Dziennik snu** (NEURO-11/14/16) | 📊 Zbieranie danych — ręczny wpis 1-5 + endpoint synchronizacji z sensorów; osiągnięcie `sleep_tracker` | `backend/routers/users.py` |
 
----
+## 2. Podstawy naukowe zaimplementowanych mechanizmów <a name="nauka"></a>
 
-## Faza 2B – Motoryczna wymowa <a name="faza2b"></a>
+- **FSRS / spaced repetition** — efekt rozłożenia powtórek w czasie to jeden z najlepiej udokumentowanych efektów w badaniach nad pamięcią (Cepeda et al. 2006, meta-analiza). FSRS jest optymalizowany empirycznie na dziesiątkach milionów rzeczywistych powtórek; jego przewaga nad SM-2 jest mierzalna. Dlatego **nie modyfikujemy jego interwałów ręcznymi mnożnikami**.
+- **Retrieval practice (output forcing, mixed review)** — aktywne przypominanie bije ponowne czytanie (testing effect; Roediger & Karpicke 2006). Output w języku obcym dodatkowo ujawnia luki w wiedzy (hipoteza outputu; Swain 1985).
+- **Interleaving** — przeplatanie tematów daje lepszą retencję długoterminową niż praktyka blokowa (Rohrer & Taylor 2007; Kornell & Bjork 2008).
+- **i+1 / pokrycie leksykalne** — do komfortowego rozumienia tekstu potrzeba **95-98% znanych słów** (Hu & Nation 2000; Nation 2006; Schmitt, Jiang & Grabe 2011). Stąd reguła: ≥95% znanego słownictwa, 3-5 nowych słów na 100-150 słów tekstu (~96-97% pokrycia).
+- **Sen a konsolidacja** — sen konsoliduje świeżo nauczone słownictwo (Diekelmann & Born 2010; Stickgold 2005). To uzasadnia *zbieranie* danych o śnie i ewentualne przypomnienia wieczorne/poranne — ale **nie** uzasadnia konkretnych mnożników interwałów, więc żadnych nie stosujemy.
 
-| ID | Funkcja | Opis | Gdzie zaimplementować |
-|----|---------|------|------------------------|
-| NEURO‑4 | **Mechanizm shadowing z opóźnionym odtwarzaniem** | Użytkownik słucha native speech, po określonym opóźnieniu (np. 0,5 s) odtwarza własną wypowiedź, co wzmacnia połączenie percepcyjno‑motoryczne. | - Frontend: odtwarzacz audio z regulowanym opóźnieniem (domyślnie 0,5 s). Tryb „choralny” (jednoczesne odtwarzanie użytkownika i AI). |
-| NEURO‑5 | **Kotwice gestowe dla fonetów niemieckich** | Przypisanie konkretnych gestów do trudnych dźwięków (np. 🤲 dla „ch”, 👉 dla „ü/ö”, 🤏 dla „r” uvularnego, ✋ dla „sch”, 👌 dla „pf/ts”). Gest działa jako wskazówka artikulacyjna, angażując korę ruchową. | - Frontend: karta z podpowiedzią gestu podczas treningu wymowy. <br> - Backend: przechowuj pole `gesture_anchor` przy fiszce/frazie. |
-| NEURO‑6 | **Wizualizacja artykulacji (3D)** | Pokazuje animację języka, podniebienia i warg podczas artykulacji dźwięków niemieckich, wspierając naukę poprzez zwrotny wzrok. | - Frontend: model 3D w Three.js/WebGL w sekcji wymowy, włączany przełącznikiem „Pokaż artykulację”. |
+## 3. Funkcje wycofane i dlaczego <a name="wycofane"></a>
 
----
+| Funkcja | Powód wycofania |
+|---|---|
+| **„Neuro-FSRS" (`fsrs_neuro.py`)** — mnożniki stabilności za sen/porę dnia/interleaving | Usunięty (2026-07). Uproszczona reimplementacja FSRS była matematycznie błędna (stabilność nie rosła w fazie Review; interwał `stability × (rating−1)` bez podstaw), a same mnożniki (±10-12% za samoocenę snu, okno „kortyzolowe" 6-10 ze współczynnikiem 1.1) nie mają wsparcia empirycznego. Efekty pory dnia zależą od chronotypu (synchrony effect) — sztywne okna godzinowe są nieuzasadnione. Produkcja zawsze używała FSRS v6; ten moduł był martwym kodem. |
+| **Endpointy `neuro-weights` (NEURO-15)** + kolumna `users.neuro_weights` | Usunięte — konfigurowały wagi, których nic nie konsumowało. |
+| **Kolumny `gesture_anchor`, `spatial_anchor`** | Usunięte z modelu — nic ich nie zapisywało ani nie czytało. Wrócą razem z implementacją funkcji, które ich potrzebują. |
+| **NEURO-3 „optymalizacja dopaminy" (loot box)** | Wycofane z planu w tej formie. Zmienne wzmocnienie (variable-ratio reinforcement) jest realnym zjawiskiem behawioralnym, ale narracja „dopaminowa" to pop-neuronauka, a mechanika loot boxów budzi zastrzeżenia etyczne (wzorce znane z hazardu). Jeśli wróci — jako zwykła, jawna losowa premia XP, bez pseudonaukowych uzasadnień. |
+| Sfabrykowane liczby w tipach („+200% retencji — Ebbinghaus", „3× lepsza retencja w kontekście — Nation") | Zastąpione twierdzeniami zgodnymi ze źródłami (`backend/notifier.py`). |
 
-## Faza 2C – Przeplatanie i pożądane trudności <a name="faza2c"></a>
+## 4. Zaplanowane funkcje (backlog, poparte badaniami) <a name="backlog"></a>
 
-| ID | Funkcja | Opis | Gdzie zaimplementować |
-|----|---------|------|------------------------|
-| NEURO‑7 | **Mieszacz sesji (interleaving)** | Losowo miesza bloki materiału (słownictwo, gramatyka, wymowa, słuchanie, produkcja) aby zwiększyć interferencję kontekstową i poprawić długoterminowe retenowanie. | - Backend: usługa `session_mixer` tworząca zróżnicowane sekwencje nauki. <br> - Szczególny nacisk na niemieckie struktury proceduralne (der/die/das, pozycja czasownika V2, trenne czasowniki). |
-| NEURO‑8 | **Neuro‑uświadomiony FSRS V2** | Rozszerzenie klasycznego FSRS o czynniki neurobiologiczne: modulację snu, wpływ pory dnia, bonus za interleaving, karę za interferencję. | - Biblioteka: `backend/services/fsrs_neuro.py` (funkcja `neuro_fsrs_next_interval`). <br> - Parametry: `sleep_modulator_weight`, `time_of_day_weight`, `interleaving_bonus_weight`, `interference_penalty_weight`. <br> - Przechowywane pola w modelu `Flashcard`: `session_type`, `sleep_quality`, `interleaving_bonus`, `interference_penalty`. |
+Ponumerowane od SCI-1, w kolejności proponowanej implementacji:
 
----
-
-## Faza 2C – Embodiment i słownictwo przestrzenne <a name="faza2c2"></a>
-
-| ID | Funkcja | Opis | Gdzie zaimplementować |
-|----|---------|------|------------------------|
-| NEURO‑9 | **Pałac pamięci / mapa słownictwa przestrzennego** | Przestrzenna reprezentacja leksyki: pokoje = tematy, obiekty = słowa. Nawiązuje do pamięci episodycznej i nawigacji przestrzennej. | - Frontend: siatka 2D (Canvas/SVG) reprezentująca „Pałac pamięci”. Kliknięcie w pokój pokazuje przypisane słowa z kontekstem. <br> - Backend: przechowuj `spatial_anchor` (x, y, room) przy fiszce. |
-| NEURO‑10 | **Społeczne kodowanie predykcyjne (AI rozmowa)** | Model przewiduje, kiedy użytkownik zakończy wypowiedź; błąd predykcji sygnalizuje możliwość nauki. Agentowie o różnej „osobowości” modelują Teorię Umysłu, zwiększając zaangażowanie społeczne. | - Backend: rozszerz moduł rozmowy głosowej o przewidywanie turn‑taking i adaptacyjne sprzężenie zwrotne. <br> - Frontend: interfejs rozmowy z wizualizacją pewności predykcji AI. |
-
----
-
-## Powiązania z kodem (obecny stan) <a name="kod"></a>
-
-| Plik | Co już zostało zrobione | Co pozostało do zrobienia |
-|------|------------------------|---------------------------|
-| `backend/services/fsrs_neuro.py**` | Pełna implementacja neuro‑FSRS (funkcja `neuro_fsrs_next_interval`, klasy `NeuroFSRSParams`, `NeuroCardState`). | Integracja z endpointem fiszki (już zrobiona w `backend/routers/flashcards.py`). |
-| `backend/models/flashcard.py` | Dodane pola: `session_type`, `sleep_quality`, `interleaving_bonus`, `interference_penalty`. | Brak. |
-| `backend/routers/flashcards.py` | Import i użycie `neuro_fsrs_next_interval` w endpointzie `review_flashcard`. Pobiera `session_type` na podstawie godziny UTC; pozostałe pola neuro pobierane z rekordu fiszki. | Konieczne: rzeczywiste zbieranie `sleep_quality` i `interleaving_bonus`/`interference_penalty` od użytkownika (np. przez UI lub zdrowotne wearables). |
-| `backend/services/lesson_generator/daily_lesson.py` | Zaktualizowany o sekcje `interleaved_review` i `output_forcing` (zgodne z neuro‑FSRS i efektem testu). | Brak. |
-| `backend/services/achievement_service.py` | Dodane osiągnięcia neuro‑naukowe (np. *First Review*, *Night‑Owl Learner*, *Morning Bird*, *Interleaver*, *Sleep‑Consolidator*, serie poprawnych odpowiedzi). | Można dodać dodatkowe odznaki za korzystanie z funkcji shadowing, gestów, czy pałacu pamięci. |
-| `frontend/src/components/…` | Brak jeszcze dedykowanych UI dla neurofunkcji (np. podpowiedzi gestów, wizualizacji 3D, harmonogramu snu). | Do implementacji w kolejnych sprintach zgodnie z harmonogramem MVP. |
+| ID | Funkcja | Podstawa naukowa | Szkic implementacji |
+|----|---------|------------------|---------------------|
+| SCI-1 | **Successive relearning** — słowo liczy się jako „opanowane" dopiero po 3 poprawnych przypomnieniach rozłożonych na ≥2 sesje; do tego czasu wraca w kolejce mimo oceny „Good" | Rawson & Dunlosky (2011): kryterialne ponowne uczenie się daje duże, trwałe zyski retencji | Pole `correct_recall_sessions` na fiszce; status „mastered" sterujący statystykami i doborem słów do i+1 |
+| SCI-2 | **Pretesting** — 3-5 pytań-zgadywanek o nowe słowa *przed* lekcją; błędne odpowiedzi są oczekiwane i nieszkodliwe | Efekt pretestingu: nieudane próby odpowiedzi przed nauką poprawiają późniejsze zapamiętanie (Kornell, Hays & Bjork 2009; Richland et al. 2009) | Sekcja `pretest` w treści lekcji, renderowana przed `vocabulary`; bez kar XP |
+| SCI-3 | **Walidator pokrycia leksykalnego** — po wygenerowaniu tekstu i+1 backend liczy, jaki % tokenów należy do znanego słownictwa; przy <95% regeneruje (max 2 próby) | Hu & Nation (2000), Nation (2006): pokrycie 95-98% to warunek zrozumiałości — warto je *mierzyć*, nie tylko deklarować w promptcie | Funkcja `lexical_coverage(text, known_words)` w `lesson_generator`; prosty tokenizer + porównanie lematów |
+| SCI-4 | **Rozpraszanie podobnych słów** — przy tworzeniu fiszek z lekcji słowa z tej samej kategorii semantycznej (kolory, dni tygodnia, bliskoznaczne) dostają rozsunięte `next_review_date`, zamiast wchodzić do kolejki razem | Interferencja przy uczeniu klastrów semantycznych (Tinkham 1993; Nakata & Suzuki 2019) | Przy batchu nowych fiszek: prompt klasyfikujący kategorie + przesunięcie startowych dat o 1-2 dni wewnątrz klastra |
+| SCI-5 | **Przypomnienia dopasowane do osobistego rytmu** — zamiast sztywnych okien godzinowych: po zebraniu ≥200 powtórek analiza skuteczności per pora dnia (z istniejącej telemetrii `session_type`) i sugestia najlepszej pory nauki dla *tego* użytkownika | Synchrony effect — szczyt sprawności poznawczej zależy od chronotypu (May & Hasher 1998; Goldstein et al. 2007); podejście data-driven zamiast uniwersalnych stałych | Endpoint `GET /stats/{user_id}/best-study-time` liczący accuracy per przedział godzinowy z historii powtórek; wykorzystywany przez notifier |
+| SCI-6 | **Dyktando** — odsłuch zdania TTS (istniejący edge-tts) i zapis ze słuchu, z diffem błędów | Dekodowanie ze słuchu wspiera słuchanie i pisownię (Nation & Newton 2009) | Nowa aktywność w Quick Mode; porównanie tekstu po normalizacji + podświetlenie różnic |
 
 ---
 
-## Proponowany kolejny krok (MVP)
-
-1. **Tydzień 1** – NEURO‑1 (harmonogram snu) + NEURO‑3 (zmienna nagroda).  
-2. **Tydzień 2** – NEURO‑2 (generator i+1) + NEURO‑4 (shadowing).  
-3. **Tydzień 3** – NEURO‑5 (kotwice gestowe) + NEURO‑7 (przeplatanie).  
-4. **Tydzień 4** – NEURO‑8 (neuro‑FSRS) – integracja już częściowo istniejąca; pozostało tylko zbieranie danych neuro od użytkownika i wyświetlanie efektów w UI.  
-
-Po zakończeniu tego cyklu podstawowe funkcje neuronaukowe będą dostępne i przetestowane.
-
---- 
-
-*Uwaga: Niniejszy dokument stanowi źródło prawdy dotyczące zaproponowanych i częściowo zaimplementowanych funkcji neuronawkowych w projekcie LinguaAI. Aktualizuj go po każdym zakończonym etapie pracy.*
+*Ten dokument jest źródłem prawdy o funkcjach „learning science" w LinguaAI. Aktualizuj tabelę statusu po każdej zmianie. Nowe funkcje wpływające na naukę muszą przejść przez sekcję 4 (z cytowaniem źródła) zanim trafią do kodu.*

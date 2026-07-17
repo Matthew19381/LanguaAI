@@ -32,15 +32,20 @@ from backend.models.user import User
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path(__file__).parent / "LinguaAI.db"
+# Database can live in the project root or backend/ (same candidates as backup_service)
+_DB_CANDIDATES = [
+    Path(__file__).parent.parent / "lingua_ai.db",
+    Path(__file__).parent / "lingua_ai.db",
+]
+DB_PATH = next((p for p in _DB_CANDIDATES if p.exists()), _DB_CANDIDATES[0])
 STATE_FILE = Path(__file__).parent / "notifier_state.json"
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 
 STATIC_TIPS = [
-    {"tip": "Spaced repetition increases retention by 200%", "source": "Ebbinghaus (1885)"},
+    {"tip": "Most forgetting happens within the first days — review early, then at growing intervals", "source": "Ebbinghaus (1885)"},
     {"tip": "Reading comprehensible input (i+1) is the core of language acquisition", "source": "Krashen (1982)"},
     {"tip": "Output practice forces you to notice gaps in your knowledge", "source": "Swain (1985)"},
-    {"tip": "Learning words in context triples retention vs word lists", "source": "Nation (2001)"},
+    {"tip": "Meeting a word repeatedly in different contexts deepens how well you know it", "source": "Webb (2007)"},
     {"tip": "Sleep consolidates newly learned vocabulary into long-term memory", "source": "Stickgold (2005)"},
     {"tip": "Interleaved practice outperforms blocked practice for retention", "source": "Kornell & Bjork (2008)"},
     {"tip": "Regular short sessions beat infrequent long sessions", "source": "Cepeda et al. (2006)"},

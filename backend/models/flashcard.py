@@ -34,13 +34,10 @@ class Flashcard(Base):
     last_review_date = Column(DateTime, nullable=True)  # last FSRS review (needed for interval calc)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_active = Column(Boolean, default=True)
-    # ── Neuro-FSRS Extensions ──
+    # ── Review-context telemetry (informational; not used by the FSRS scheduler) ──
     session_type = Column(String, default="day")     # morning, day, evening
     sleep_quality = Column(Integer, nullable=True)   # 1-5 scale
-    interleaving_bonus = Column(Float, default=0.0)  # 0-1
-    interference_penalty = Column(Float, default=0.0) # 0-1
-    # Neuro: motor/embodied learning
-    gesture_anchor = Column(String, nullable=True)   # emoji/code for gestural anchor (e.g., "🤲" for "ch")
-    spatial_anchor = Column(String, nullable=True)   # "x,y,room" for Mind Palace
+    interleaving_bonus = Column(Float, default=0.0)  # 0-1, topic variety in the due queue
+    interference_penalty = Column(Float, default=0.0) # 0-1, same-topic cards competing
 
     user = relationship("User", back_populates="flashcards")

@@ -59,7 +59,6 @@ async def lifespan(app: FastAPI):
         ("users", "ALTER TABLE users ADD COLUMN language_profiles TEXT DEFAULT '{}'"),
         ("users", "ALTER TABLE users ADD COLUMN streak_freezes INTEGER DEFAULT 2"),
         ("users", "ALTER TABLE users ADD COLUMN sleep_data TEXT DEFAULT '{}'"),
-        ("users", "ALTER TABLE users ADD COLUMN neuro_weights TEXT DEFAULT '{\"sleep_modulator_weight\": 0.15, \"time_of_day_weight\": 0.1, \"interleaving_bonus_weight\": 0.05, \"interference_penalty_weight\": 0.1}'"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_id INTEGER"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_day INTEGER"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_topic TEXT"),
@@ -71,8 +70,6 @@ async def lifespan(app: FastAPI):
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN sleep_quality INTEGER"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN interleaving_bonus FLOAT"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN interference_penalty FLOAT"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN gesture_anchor VARCHAR"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN spatial_anchor VARCHAR"),
     ]
     with engine.connect() as conn:
         # Create conversation_sessions table if it doesn't exist

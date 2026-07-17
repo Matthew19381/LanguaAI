@@ -1,4 +1,4 @@
-"""\nDaily lesson content generation.\n"""
+"""Daily lesson content generation."""
 import json
 import logging
 
@@ -58,6 +58,9 @@ async def generate_daily_lesson(
     6. Speaking practice (5-10 min): Prompts for pronunciation and fluency
     7. Writing exercise (5-10 min): Short writing prompt with guidance
     8. Wrap-up (2-3 min): Summary and preview of next day
+    9. Output forcing (retrieval practice): Exactly 5 connected sentences in {target_language} at {cefr_level} level,
+       built mainly from THIS lesson's vocabulary and grammar. The student will read them, cover them,
+       and recall them from memory. Write the instruction in {native_language}.
 
     Make sure the content is engaging, culturally appropriate, and follows CEFR {cefr_level} guidelines.
     Include approximate timings for each section.
@@ -112,6 +115,11 @@ async def generate_daily_lesson(
             "summary": "summary of what was learned",
             "preview": "preview of tomorrow's topic",
             "motivational_message": "encouraging message to continue learning"
+        }},
+        "output_forcing": {{
+            "instruction": "instruction in {native_language}: read the 5 sentences, cover them, recall them from memory",
+            "text": "5 connected sentences in {target_language} using this lesson's vocabulary",
+            "translation": "translation of the 5 sentences into {native_language}"
         }}
     }}
     """
@@ -127,12 +135,14 @@ async def generate_daily_lesson(
             if section not in lesson:
                 lesson[section] = {} if section not in ["vocabulary", "exercises", "speaking_practice"] else []
 
-        # Add interleaved review and output forcing sections (will be filled by other functions)
         lesson["interleaved_review"] = _build_interleaved_review(recent_topics)
-        lesson["output_forcing"] = {
-            "instruction": "Przeczytaj 5 zdań poniżej, zakryj je i spróbuj odtworzyć z pamięci. To trudne ćwiczenie na pamięć długotrwałą.",
-            "text": "Hallo, ich heiße Max und ich komme aus Polen. In meiner Freizeit lerne ich Deutsch und treffe meine Freunde. Die Universität ist groß und ich studiere dort seit zwei Jahren. Meine Familie wohnt in Warschau i wir besuchen uns oft am Wochenende. Deutsch zu lernen macht viel Spaß und ich habe schon viele neue Freunde gefunden."
-        }
+
+        # Output forcing must come from the model (lesson-specific, in the target
+        # language). If missing or malformed, drop the section entirely — the
+        # frontend renders it conditionally, so omission is safe.
+        of = lesson.get("output_forcing")
+        if not (isinstance(of, dict) and of.get("text") and of.get("instruction")):
+            lesson.pop("output_forcing", None)
 
         return lesson
     except Exception as e:
@@ -191,7 +201,7 @@ async def generate_daily_lesson(
             "interleaved_review": [],
             "output_forcing": {
                 "instruction": "Przeczytaj 5 zdań poniżej, zakryj je i spróbuj odtworzyć z pamięci. To trudne ćwiczenie na pamięć długotrwałą.",
-                "text": "Hallo, ich heiße Max und ich komme aus Polen. In meiner Freizeit lerne ich Deutsch und treffe meine Freunde. Die Universität ist groß und ich studiere dort seit zwei Jahren. Meine Familie wohnt in Warschau i wir besuchen uns często am Weekend. Deutsch zu lernen macht viel Spaß und ich habe schon viele neue Freunde gefunden."
+                "text": "Hallo, ich heiße Max und ich komme aus Polen. In meiner Freizeit lerne ich Deutsch und treffe meine Freunde. Die Universität ist groß und ich studiere dort seit zwei Jahren. Meine Familie wohnt in Warschau und wir besuchen uns oft am Wochenende. Deutsch zu lernen macht viel Spaß und ich habe schon viele neue Freunde gefunden."
             }
         }
 
@@ -204,8 +214,11 @@ async def generate_iplus1_content(
     cefr_level: str,
     topic: str = "daily life",
 ) -> dict:
-    """Generate i+1 content: 90% known vocabulary, 10% new words.
-    Based on Predictive Coding / Comprehensible Input (Krashen + Friston).
+    """Generate comprehensible-input text: >=95% known vocabulary, 3-5 new words.
+
+    Lexical-coverage research shows learners need 95-98% known words in a text
+    for adequate comprehension (Hu & Nation 2000; Nation 2006; Schmitt et al.
+    2011). 3-5 new words in a 100-150-word text lands at ~96-97% coverage.
     """
     known_vocab = ", ".join(known_words[:50]) if known_words else "basic greetings, numbers, basic verbs"
 
@@ -213,8 +226,8 @@ async def generate_iplus1_content(
 Topic: {topic}
 
 STRICT RULES:
-- 90% of words MUST be from this KNOWN vocabulary: {known_vocab}
-- Only 10% new words (3-5 max), clearly marked with ** around them
+- At least 95% of the words MUST come from this KNOWN vocabulary (plus their inflected forms and {cefr_level}-level function words): {known_vocab}
+- Introduce exactly 3-5 new words (no more), clearly marked with ** around them
 - Use ONLY grammar appropriate for {cefr_level}
 - Length: 100-150 words
 - Comprehension questions in {native_language}
@@ -242,9 +255,10 @@ Return JSON:
 def _build_interleaved_review(recent_topics: list[str] | None) -> list:
     """Build a 'Mixed Review' section from the user's recent lesson topics.
 
-    Implements spaced-interleaving (Carpenter et al. 2012): revisiting prior
-    topics alongside new material strengthens long-term retention more than
-    blocked practice. Returns 2-3 lightweight recall prompts.
+    Combines two well-documented effects: retrieval practice / testing effect
+    (Roediger & Karpicke 2006) and interleaving of prior topics with new
+    material (Rohrer & Taylor 2007; Kornell & Bjork 2008). Returns 2-3
+    lightweight recall prompts.
     """
     if not recent_topics:
         return []

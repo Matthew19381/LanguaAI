@@ -22,12 +22,6 @@ class User(Base):
     language_profiles = Column(Text, default="{}")
     # JSON: {"last_sleep_quality": 3, "history": [{"date": "2026-07-10", "quality": 4}, ...]}
     sleep_data = Column(Text, default="{}")
-    # JSON: user-adjustable neuro-FSRS weights; defaults mirror NeuroFSRSParams
-    neuro_weights = Column(
-        Text,
-        default='{"sleep_modulator_weight": 0.15, "time_of_day_weight": 0.1, '
-                '"interleaving_bonus_weight": 0.05, "interference_penalty_weight": 0.1}'
-    )
 
     lessons = relationship("Lesson", back_populates="user")
     test_results = relationship("TestResult", back_populates="user")
