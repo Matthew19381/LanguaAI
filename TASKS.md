@@ -74,8 +74,10 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
 - [x] Router `/api/exercises/`: `practice` (bez wycieku odpowiedzi), `answer`, `stats`, `generate-variants`
 - [x] `skill_tag` w schemacie ćwiczeń + `generate_exercise_variants` — nowe warianty dla słabych umiejętności (chroni transfer; Schmidt & Bjork 1992)
 - [x] **Naprawa marnotrawstwa:** pytania testu dnia cache'owane w `lesson.content["daily_test"]`
-- [ ] **Frontend:** strona ćwiczeń korzystająca z banku (`/practice`) — backend gotowy, UI do zrobienia
-- [ ] Auto-wywoływanie `generate-variants` po serii błędów na tej samej umiejętności (dziś endpoint trzeba wywołać jawnie)
+- [x] **Frontend:** strona `/practice` — zadanie po zadaniu, ocena + poprawna odpowiedź + feedback, licznik źródeł zestawu (do powtórki / z innych tematów / nowe), podsumowanie sesji; aktywność „Ćwiczenia do powtórki" w Quick Mode (widoczna tylko gdy coś jest zaległe)
+- [x] Dogenerowanie na słabe punkty: `include_new=true` w `/practice` (top-up przy chudym banku) + przycisk w podsumowaniu sesji. **Wydatek na AI jest zawsze jawny** — bez `include_new` endpoint nigdy nie woła AI (pokryte testem).
+- [x] Słabe umiejętności odświeżane **po** sesji (`GET /stats`), nie z danych sprzed jej rozpoczęcia — inaczej przycisk nie pojawiał się po sesji, która dopiero ujawniła słabość (błąd znaleziony przy weryfikacji w przeglądarce).
+- [ ] Automatyczne (bez klikania) dogenerowanie po serii błędów na tej samej umiejętności — dziś wymaga `include_new` lub przycisku
 
 ### 🧹 Nieaktualne wpisy NEURO (uspójnione 2026-07-18)
 

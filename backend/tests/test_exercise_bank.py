@@ -216,11 +216,67 @@ def test_generate_variants_adds_to_bank(client, db, sample_user):
     assert db.query(Exercise).filter(Exercise.user_id == uid).count() == 1
 
 
+def test_practice_tops_up_with_new_when_requested(client, db, sample_user):
+    """include_new=true fills a thin bank with variants for weak skills."""
+    uid = sample_user["user_id"]
+    create_exercises_from_lesson(db, LESSON, uid, "German", "A2", 1, "Food")
+    db.commit()
+    # Make one skill look weak, and push everything out of the due window
+    future = datetime.now(timezone.utc) + timedelta(days=10)
+    for ex in db.query(Exercise).filter(Exercise.user_id == uid).all():
+        ex.next_review_date = future
+        if ex.skill_tag == "Perfekt with haben":
+            ex.times_seen, ex.times_correct = 4, 1
+    db.commit()
+
+    fake = [{"prompt": "Sie ___ Milch getrunken.", "answer": "hat",
+             "skill_tag": "Perfekt with haben", "exercise_type": "fill-in-the-blank",
+             "instruction": "Uzupełnij", "feedback": "haben + Partizip II"}]
+    with patch("backend.routers.exercises.generate_exercise_variants",
+               AsyncMock(return_value=fake)):
+        r = client.get(f"/api/exercises/{uid}/practice",
+                       params={"size": 5, "topic": "Food", "include_new": "true"})
+
+    assert r.status_code == 200
+    data = r.json()
+    assert data["generated_new"] == 1
+    assert any(e["prompt"] == "Sie ___ Milch getrunken." for e in data["exercises"])
+
+
+def test_practice_without_include_new_never_calls_ai(client, db, sample_user):
+    uid = sample_user["user_id"]
+    create_exercises_from_lesson(db, LESSON, uid, "German", "A2", 1, "Food")
+    db.commit()
+    gen = AsyncMock(return_value=[])
+    with patch("backend.routers.exercises.generate_exercise_variants", gen):
+        r = client.get(f"/api/exercises/{uid}/practice", params={"size": 20})
+    assert r.status_code == 200
+    assert gen.call_count == 0
+    assert r.json()["generated_new"] == 0
+
+
 def test_generate_variants_without_weak_skills_is_noop(client, sample_user):
     uid = sample_user["user_id"]
     r = client.post(f"/api/exercises/{uid}/generate-variants", json={})
     assert r.status_code == 200
     assert r.json()["added"] == 0
+
+
+# ── Quick Mode integration ───────────────────────────────────────────────────
+
+def test_quickmode_lists_practice_when_items_are_due(client, db, sample_user):
+    uid = sample_user["user_id"]
+    r_before = client.get(f"/api/quickmode/{uid}")
+    assert not any(a["id"] == "practice" for a in r_before.json()["activities"])
+
+    create_exercises_from_lesson(db, LESSON, uid, "German", "A2", 1, "Food")
+    db.commit()
+
+    r_after = client.get(f"/api/quickmode/{uid}")
+    practice = [a for a in r_after.json()["activities"] if a["id"] == "practice"]
+    assert len(practice) == 1
+    assert practice[0]["route"] == "/practice"
+    assert "3" in practice[0]["description"]
 
 
 # ── stats ────────────────────────────────────────────────────────────────────

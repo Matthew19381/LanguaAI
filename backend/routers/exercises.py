@@ -22,19 +22,74 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _generate_and_store_variants(db: Session, user, skills: list[str], per_skill: int):
+    """Generate fresh variants for the given skills and persist them in the bank."""
+    existing = db.query(Exercise.prompt).filter(
+        Exercise.user_id == user.id,
+        Exercise.language == user.target_language,
+        Exercise.skill_tag.in_(skills),
+    ).limit(15).all()
+
+    variants = await generate_exercise_variants(
+        skill_tags=skills,
+        target_language=user.target_language,
+        native_language=user.native_language,
+        cefr_level=user.cefr_level,
+        per_skill=per_skill,
+        avoid_prompts=[row[0] for row in existing],
+    )
+
+    added = []
+    for v in variants:
+        ex = Exercise(
+            user_id=user.id,
+            language=user.target_language,
+            cefr_level=user.cefr_level,
+            exercise_type=v.get("exercise_type"),
+            instruction=v.get("instruction"),
+            prompt=v["prompt"],
+            answer=v["answer"],
+            feedback=v.get("feedback"),
+            skill_tag=v.get("skill_tag"),
+            topic=None,
+        )
+        db.add(ex)
+        added.append(ex)
+    if added:
+        db.commit()
+    return added
+
+
 @router.get("/api/exercises/{user_id}/practice")
 async def get_practice_set(
     user_id: int,
     size: int = 10,
     topic: str | None = None,
+    include_new: bool = False,
     db: Session = Depends(get_db),
 ):
-    """Mixed practice set: items due for spaced retrieval + interleaved from other topics."""
+    """Mixed practice set: items due for spaced retrieval + interleaved from other topics.
+
+    With ``include_new=true`` the set is topped up with freshly generated variants
+    for the learner's weak skills when the bank cannot fill it. That is the only
+    branch here that spends an AI call, so it is opt-in.
+    """
     user = get_user_or_404(db, user_id)
     size = max(1, min(size, 50))
     result = build_practice_set(
         db, user_id, user.target_language, size=size, current_topic=topic
     )
+
+    result["generated_new"] = 0
+    missing = size - len(result["exercises"])
+    if include_new and missing > 0 and result["weak_skills"]:
+        added = await _generate_and_store_variants(
+            db, user, result["weak_skills"], per_skill=max(1, min(missing, 3))
+        )
+        if added:
+            result["exercises"].extend(serialize_exercise(e) for e in added[:missing])
+            result["generated_new"] = len(added[:missing])
+
     result["user_id"] = user_id
     result["language"] = user.target_language
     return result
@@ -106,39 +161,9 @@ async def generate_variants(
     if not skills:
         return {"success": True, "added": 0, "skills": [], "message": "No weak skills to target"}
 
-    # Avoid regenerating prompts the learner already has for these skills
-    existing = db.query(Exercise.prompt).filter(
-        Exercise.user_id == user_id,
-        Exercise.language == user.target_language,
-        Exercise.skill_tag.in_(skills),
-    ).limit(15).all()
-
-    variants = await generate_exercise_variants(
-        skill_tags=skills,
-        target_language=user.target_language,
-        native_language=user.native_language,
-        cefr_level=user.cefr_level,
-        per_skill=max(1, min(payload.per_skill, 5)),
-        avoid_prompts=[row[0] for row in existing],
+    added = await _generate_and_store_variants(
+        db, user, skills, per_skill=max(1, min(payload.per_skill, 5))
     )
-
-    added = []
-    for v in variants:
-        ex = Exercise(
-            user_id=user_id,
-            language=user.target_language,
-            cefr_level=user.cefr_level,
-            exercise_type=v.get("exercise_type"),
-            instruction=v.get("instruction"),
-            prompt=v["prompt"],
-            answer=v["answer"],
-            feedback=v.get("feedback"),
-            skill_tag=v.get("skill_tag"),
-            topic=None,
-        )
-        db.add(ex)
-        added.append(ex)
-    db.commit()
 
     return {
         "success": True,

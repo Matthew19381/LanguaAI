@@ -16,6 +16,7 @@ import Videos from './pages/Videos'
 import ErrorReview from './pages/ErrorReview'
 import TopicsPage from './pages/TopicsPage'
 import Dictation from './pages/Dictation'
+import Practice from './pages/Practice'
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
           <Route path="errors" element={<ErrorBoundary><ErrorReview /></ErrorBoundary>} />
           <Route path="topics" element={<ErrorBoundary><TopicsPage /></ErrorBoundary>} />
           <Route path="dictation" element={<ErrorBoundary><Dictation /></ErrorBoundary>} />
+          <Route path="practice" element={<ErrorBoundary><Practice /></ErrorBoundary>} />
         </Route>
         <Route path="/placement" element={<ErrorBoundary><PlacementTest /></ErrorBoundary>} />
       </Routes>

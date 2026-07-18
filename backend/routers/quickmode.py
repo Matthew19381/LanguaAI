@@ -1,12 +1,13 @@
 import logging
 import os
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.models.exercise import Exercise
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
 from backend.services.audio_service import AUDIO_DIR, generate_audio
@@ -115,6 +116,25 @@ async def get_quickmode_plan(user_id: int, db: Session = Depends(get_db)):
         "icon": "Newspaper",
         "completed": False,
     })
+
+    # Exercise bank: spaced + interleaved practice from previously generated items
+    due_exercises = db.query(Exercise).filter(
+        Exercise.user_id == user_id,
+        Exercise.language == user.target_language,
+        Exercise.is_active == True,  # noqa: E712
+        Exercise.next_review_date <= datetime.now(timezone.utc),
+    ).count()
+    if due_exercises:
+        activities.append({
+            "id": "practice",
+            "title": "Ćwiczenia do powtórki",
+            "description": f"{due_exercises} zadań czeka na powtórkę",
+            "estimated_minutes": 5,
+            "priority": 2,
+            "route": "/practice",
+            "icon": "Dumbbell",
+            "completed": False,
+        })
 
     # Dictation (SCI-6): listen and type what you hear
     activities.append({

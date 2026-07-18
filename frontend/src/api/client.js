@@ -197,6 +197,22 @@ export const getQuickMode = (userId) =>
 export const getDictation = (userId, count = 3) =>
   api.get(`/quickmode/dictation/${userId}`, { params: { count } })
 
+// ===== Exercise bank =====
+
+export const getPracticeSet = (userId, { size = 10, topic, includeNew = false } = {}) =>
+  api.get(`/exercises/${userId}/practice`, {
+    params: { size, topic, include_new: includeNew },
+  })
+
+export const answerExercise = (exerciseId, userId, answer, rating) =>
+  api.post(`/exercises/${exerciseId}/answer`, { user_id: userId, answer, rating })
+
+export const getExerciseStats = (userId) =>
+  api.get(`/exercises/${userId}/stats`)
+
+export const generateExerciseVariants = (userId, skills, perSkill = 2) =>
+  api.post(`/exercises/${userId}/generate-variants`, { skills, per_skill: perSkill })
+
 export const checkDictation = (reference, typed) =>
   api.post(`/quickmode/dictation/check`, { reference, typed })
 
