@@ -87,7 +87,9 @@ async def generate_daily_lesson(
        a short guessing instruction in {native_language}, four plausible {native_language} options
        (exactly one correct), and the correct answer. The words MUST be a subset of the Vocabulary words.
     1. Warm-up (2-3 min): Quick review of previous day's material
-    2. Vocabulary introduction (10-15 min): 10-15 new words with translations, example sentences, and audio cues
+    2. Vocabulary introduction (10-15 min): 10-15 new words with translations, example sentences, audio cues,
+       and a short semantic "category" label per word (e.g. "colours", "food", "motion verbs") so related
+       words can be spaced apart during review to reduce interference (Tinkham 1993).
     3. Grammar explanation (10-15 min): One key grammar point with clear examples
     4. Practice exercises (15-20 min): Mix of filling gaps, translation, and sentence creation
     5. Cultural note (2-3 min): Interesting cultural fact related to the language
@@ -118,7 +120,8 @@ async def generate_daily_lesson(
             "word": "target language word",
             "translation": "native language translation",
             "example_sentence": "sentence in target language",
-            "audio_cue": "description of when to play audio"
+            "audio_cue": "description of when to play audio",
+            "category": "short semantic group label, e.g. colours / food / motion verbs"
         }}],
         "grammar": {{
             "topic": "grammar topic name",

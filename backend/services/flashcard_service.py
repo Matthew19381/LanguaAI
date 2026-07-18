@@ -1,10 +1,38 @@
 """Flashcard-related helper functions extracted from routers."""
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from backend.models.flashcard import Flashcard
+
+# ── SCI-4: semantic spacing of related new words (Tinkham 1993) ──────────────
+# Semantically related words learned together interfere with each other. When a
+# batch of new cards contains several words of the same category, spread their
+# first review across separate days instead of queueing them all at once.
+SEMANTIC_STAGGER_MAX_DAYS = 3
+
+
+def assign_cluster_offsets(categories: list[str]) -> list[int]:
+    """Return a first-review day offset for each new card given its semantic
+    category. Cards sharing a category are spread 0, 1, 2, … days apart (capped
+    at SEMANTIC_STAGGER_MAX_DAYS); blank/unknown categories get offset 0.
+
+    Tinkham (1993); Nakata & Suzuki (2019): spacing semantically related items
+    reduces cross-item interference during initial learning.
+    """
+    seen: dict[str, int] = {}
+    offsets: list[int] = []
+    for cat in categories:
+        key = (cat or "").strip().lower()
+        if not key:
+            offsets.append(0)
+            continue
+        n = seen.get(key, 0)
+        offsets.append(min(n, SEMANTIC_STAGGER_MAX_DAYS))
+        seen[key] = n + 1
+    return offsets
+
 
 # ── SCI-1: Successive relearning (Rawson & Dunlosky 2011) ────────────────────
 # A card is "mastered" only after this many correct recalls on distinct days.
@@ -62,18 +90,30 @@ def create_flashcards_from_vocab(
     else:
         existing_words = set()
 
+    # Collect the cards to create (dedup against DB and within this batch)
+    to_create = []
+    seen_batch = set()
     for item in vocabulary:
         word = item.get("word", "")
         translation = item.get("translation", "")
-        if word and translation and word not in existing_words:
-            db.add(Flashcard(
-                user_id=user_id,
-                word=word,
-                translation=translation,
-                example_sentence=item.get("example", ""),
-                language=target_language,
-                cefr_level=cefr_level,
-                lesson_id=lesson_id,
-                lesson_day=day_number,
-                lesson_topic=topic,
-            ))
+        if word and translation and word not in existing_words and word not in seen_batch:
+            to_create.append(item)
+            seen_batch.add(word)
+
+    # SCI-4: stagger first-review dates so same-category words don't all land
+    # in the queue together.
+    offsets = assign_cluster_offsets([it.get("category", "") for it in to_create])
+    now = datetime.now(timezone.utc)
+    for item, offset in zip(to_create, offsets, strict=True):
+        db.add(Flashcard(
+            user_id=user_id,
+            word=item.get("word", ""),
+            translation=item.get("translation", ""),
+            example_sentence=item.get("example", "") or item.get("example_sentence", ""),
+            language=target_language,
+            cefr_level=cefr_level,
+            lesson_id=lesson_id,
+            lesson_day=day_number,
+            lesson_topic=topic,
+            next_review_date=now + timedelta(days=offset),
+        ))

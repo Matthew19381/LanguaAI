@@ -47,7 +47,10 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
     - `routers/lessons.py`: **żywy endpoint** `GET /api/lessons/iplus1/{user_id}` (mastered-first known vocab z SCI-1); eksport funkcji z pakietu.
     - Testy: `backend/tests/test_lexical_coverage.py` (10: metryka + pętla regeneracji + endpoint).
     - _Follow-up:_ dedykowane UI czytania i+1 (backend + endpoint gotowe; frontend renderuje już `comprehensible_input`)._
-- [ ] **SCI-4 Rozpraszanie podobnych słów** — słowa z tej samej kategorii semantycznej dostają rozsunięte `next_review_date` zamiast wchodzić do kolejki razem. _Tinkham (1993); Nakata & Suzuki (2019)._ → przy batchu nowych fiszek offset dat wewnątrz klastra.
+- [x] **SCI-4 Rozpraszanie podobnych słów** ✅ — nowe fiszki z tej samej kategorii semantycznej dostają rozsunięte `next_review_date` (0,1,2… dni, cap 3) zamiast wchodzić do kolejki razem. _Tinkham (1993); Nakata & Suzuki (2019)._
+    - `flashcard_service.py`: czysta funkcja `assign_cluster_offsets(categories)` (case-insensitive, blank=0, cap `SEMANTIC_STAGGER_MAX_DAYS=3`); `create_flashcards_from_vocab` staguje daty per klaster + dedup w obrębie batcha + fallback `example_sentence`.
+    - `daily_lesson.py`: pole `category` w słownictwie (prompt + schema JSON) — bez dodatkowego wywołania AI.
+    - Testy: `backend/tests/test_semantic_spacing.py` (7: offsety + integracja z DB + dedup).
 - [ ] **SCI-5 Osobista najlepsza pora nauki** — po ≥200 powtórkach analiza skuteczności per pora dnia z istniejącej telemetrii `session_type`; sugestia zamiast sztywnych okien godzinowych. _May & Hasher (1998); Goldstein et al. (2007) — synchrony effect._ → `GET /stats/{user_id}/best-study-time`.
 - [ ] **SCI-6 Dyktando** — odsłuch zdania (edge-tts) + zapis ze słuchu, z diffem błędów. _Nation & Newton (2009)._ → nowa aktywność w Quick Mode.
 
