@@ -16,6 +16,8 @@ from backend.services.lesson_generator.conversation import (
 )
 from backend.services.lesson_generator.daily_lesson import (
     generate_daily_lesson,
+    generate_iplus1_content,
+    lexical_coverage,
 )
 from backend.services.lesson_generator.placement import (
     analyze_placement_results,
@@ -40,6 +42,8 @@ __all__ = [
     "analyze_placement_results",
     "generate_study_plan",
     "generate_daily_lesson",
+    "generate_iplus1_content",
+    "lexical_coverage",
     "generate_daily_test",
     "analyze_test_errors",
     "generate_weekly_test",

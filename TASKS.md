@@ -42,7 +42,11 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
     - `frontend/src/pages/DailyLesson.jsx`: komponenty `PretestCard`/`PretestItem` renderowane przed słownictwem; ujawnienie poprawnej odpowiedzi po wyborze, bez oceny.
     - `frontend/src/i18n/translations.js`: klucze `lesson.pretest*` (PL+EN).
     - Testy: `backend/tests/test_pretest.py` (6 testów sanitizer). Frontend build + 43 testy OK.
-- [ ] **SCI-3 Walidator pokrycia leksykalnego** — po wygenerowaniu tekstu i+1 backend liczy % znanych tokenów; przy <95% regeneruje (max 2 próby). _Hu & Nation (2000); Nation (2006)._ → `lexical_coverage(text, known_words)` w `lesson_generator`.
+- [x] **SCI-3 Walidator pokrycia leksykalnego** ✅ — po wygenerowaniu tekstu i+1 backend mierzy pokrycie i regeneruje (1 próba + max 2 regeneracje) gdy <95%; zwraca najlepszą próbę. _Hu & Nation (2000); Nation (2006)._
+    - `daily_lesson.py`: `lexical_coverage(text, known_words)` — pokrycie liczone z markerów `**nowe**` (słowo znane omyłkowo oznaczone jako nowe nie jest karane); stałe `COVERAGE_TARGET=0.95`, `COVERAGE_MAX_REGENERATIONS=2`. Pętla w `generate_iplus1_content` z zaostrzającym się promptem; wynik zawiera `lexical_coverage` i `coverage_attempts`.
+    - `routers/lessons.py`: **żywy endpoint** `GET /api/lessons/iplus1/{user_id}` (mastered-first known vocab z SCI-1); eksport funkcji z pakietu.
+    - Testy: `backend/tests/test_lexical_coverage.py` (10: metryka + pętla regeneracji + endpoint).
+    - _Follow-up:_ dedykowane UI czytania i+1 (backend + endpoint gotowe; frontend renderuje już `comprehensible_input`)._
 - [ ] **SCI-4 Rozpraszanie podobnych słów** — słowa z tej samej kategorii semantycznej dostają rozsunięte `next_review_date` zamiast wchodzić do kolejki razem. _Tinkham (1993); Nakata & Suzuki (2019)._ → przy batchu nowych fiszek offset dat wewnątrz klastra.
 - [ ] **SCI-5 Osobista najlepsza pora nauki** — po ≥200 powtórkach analiza skuteczności per pora dnia z istniejącej telemetrii `session_type`; sugestia zamiast sztywnych okien godzinowych. _May & Hasher (1998); Goldstein et al. (2007) — synchrony effect._ → `GET /stats/{user_id}/best-study-time`.
 - [ ] **SCI-6 Dyktando** — odsłuch zdania (edge-tts) + zapis ze słuchu, z diffem błędów. _Nation & Newton (2009)._ → nowa aktywność w Quick Mode.

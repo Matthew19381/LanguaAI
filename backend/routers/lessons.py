@@ -29,7 +29,10 @@ from backend.services.audio_service import (
 from backend.services.flashcard_service import create_flashcards_from_vocab
 from backend.services.gemini_service import generate_json as ai_generate_json
 from backend.services.gemini_service import with_model
-from backend.services.lesson_generator import generate_daily_lesson
+from backend.services.lesson_generator import (
+    generate_daily_lesson,
+    generate_iplus1_content,
+)
 from backend.services.obsidian_service import save_obsidian_md
 from backend.services.pdf_service import EXPORTS_DIR, generate_lesson_pdf
 from backend.services.streak_service import calculate_streak
@@ -247,6 +250,36 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
         "cefr_level": lesson.cefr_level,
         "created_at": lesson.created_at.isoformat()
     }
+
+
+@router.get("/api/lessons/iplus1/{user_id}")
+async def get_iplus1_reading(
+    user_id: int,
+    topic: str = "daily life",
+    db: Session = Depends(get_db),
+):
+    """SCI-3: generate a comprehensible-input (i+1) reading text and report its
+    measured lexical coverage. Uses the learner's mastered words first (SCI-1)
+    as the 'known' vocabulary; the generator regenerates if coverage < 95%.
+    """
+    user = get_user_or_404(db, user_id)
+
+    # Known vocabulary — mastered words first (most reliable "known" input)
+    rows = db.query(Flashcard.word).filter(
+        Flashcard.user_id == user_id,
+        Flashcard.language == user.target_language,
+        Flashcard.is_active == True,
+    ).order_by(Flashcard.is_mastered.desc(), Flashcard.created_at.desc()).limit(50).all()
+    known_words = [r[0] for r in rows]
+
+    result = await generate_iplus1_content(
+        known_words=known_words,
+        target_language=user.target_language,
+        native_language=user.native_language,
+        cefr_level=user.cefr_level,
+        topic=topic,
+    )
+    return result
 
 
 @router.get("/api/lessons/{lesson_id}")

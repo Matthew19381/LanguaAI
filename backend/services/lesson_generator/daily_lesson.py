@@ -1,12 +1,43 @@
 """Daily lesson content generation."""
 import json
 import logging
+import re
 
 from sqlalchemy.orm import Session
 
 from backend.services.gemini_service import generate_json, with_model
 
 logger = logging.getLogger(__name__)
+
+# ── SCI-3: lexical-coverage validation for i+1 comprehensible input ──────────
+# Nation (2006); Hu & Nation (2000): learners need 95-98% known-word coverage to
+# comprehend a text. We operationalize coverage from the text's own **new-word**
+# markers (the "+1"): everything not marked new is assumed known.
+COVERAGE_TARGET = 0.95
+COVERAGE_MAX_REGENERATIONS = 2  # 1 initial attempt + up to 2 regenerations
+_TOKEN_RE = re.compile(r"\w+", re.UNICODE)
+_NEW_WORD_RE = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
+
+
+def lexical_coverage(text: str, known_words: list[str] | None = None) -> float:
+    """Estimate the fraction of word tokens in an i+1 text that are already known.
+
+    New words are the tokens the text explicitly wraps in ``**...**``; a marked
+    word that already appears in ``known_words`` is not counted as new (the model
+    over-marked it). Returns coverage in [0, 1]; 0.0 for empty text.
+    """
+    if not text:
+        return 0.0
+    total = len(_TOKEN_RE.findall(text))
+    if total == 0:
+        return 0.0
+    known = {w.strip().lower() for w in (known_words or []) if w and w.strip()}
+    new_tokens = 0
+    for phrase in _NEW_WORD_RE.findall(text):
+        for tok in _TOKEN_RE.findall(phrase):
+            if tok.lower() not in known:
+                new_tokens += 1
+    return max(0.0, (total - new_tokens) / total)
 
 
 @with_model("lesson")
@@ -243,7 +274,7 @@ async def generate_iplus1_content(
     """
     known_vocab = ", ".join(known_words[:50]) if known_words else "basic greetings, numbers, basic verbs"
 
-    prompt = f"""Generate a {target_language} text for a {native_language} speaker at {cefr_level}.
+    base_prompt = f"""Generate a {target_language} text for a {native_language} speaker at {cefr_level}.
 Topic: {topic}
 
 STRICT RULES:
@@ -261,16 +292,48 @@ Return JSON:
     "cefr_level": "{cefr_level}"
 }}"""
 
-    try:
-        return await generate_json(prompt)
-    except Exception as e:
-        logger.error(f"Error generating i+1 content: {e}")
-        return {
-            "text": f"Hallo! Ich lerne {target_language}. Das ist gut.",
-            "new_words": ["lernen", "gut"],
-            "questions": [{"question": "Was lernt die Person?", "answer": "Deutsch"}],
-            "cefr_level": cefr_level
-        }
+    # SCI-3: generate, measure lexical coverage, and regenerate (with a stricter
+    # nudge) if the text introduces too many new words. Keep the best attempt.
+    best = None
+    for attempt in range(1 + COVERAGE_MAX_REGENERATIONS):
+        prompt = base_prompt
+        if attempt > 0:
+            prompt += (
+                f"\n\nYour previous text had too many unfamiliar words "
+                f"(below {int(COVERAGE_TARGET * 100)}% known-word coverage). "
+                f"Rewrite it using MORE of the known vocabulary and NO MORE than "
+                f"3-5 new words total."
+            )
+        try:
+            result = await generate_json(prompt)
+        except Exception as e:
+            logger.error(f"Error generating i+1 content (attempt {attempt + 1}): {e}")
+            continue
+
+        coverage = lexical_coverage(result.get("text", ""), known_words)
+        result["lexical_coverage"] = round(coverage, 3)
+        result["coverage_attempts"] = attempt + 1
+        if best is None or coverage > best.get("lexical_coverage", 0):
+            best = result
+        if coverage >= COVERAGE_TARGET:
+            return result
+
+    if best is not None:
+        logger.warning(
+            "i+1 coverage stayed below target (%.2f) after %d attempts",
+            best.get("lexical_coverage", 0), best.get("coverage_attempts", 0),
+        )
+        return best
+
+    # Total failure (every attempt raised) → safe fallback
+    return {
+        "text": f"Hallo! Ich lerne {target_language}. Das ist gut.",
+        "new_words": ["lernen", "gut"],
+        "questions": [{"question": "Was lernt die Person?", "answer": "Deutsch"}],
+        "cefr_level": cefr_level,
+        "lexical_coverage": 1.0,
+        "coverage_attempts": 0,
+    }
 
 
 def _sanitize_pretest(pretest, vocabulary) -> list:
