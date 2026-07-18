@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Outlet } from 'react-router-dom'
 import NavBar from './NavBar'
 import NotificationManager from './NotificationManager'
+import OfflineBanner from './OfflineBanner'
 import { getUserId, getStats, askQuestion, translateWord, addFlashcard } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
 import { useDarkMode } from '../hooks/useDarkMode'
@@ -120,6 +121,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen dark:bg-gray-950 bg-gray-50 transition-colors duration-200">
+      <OfflineBanner />
       <NavBar dailyTabs={dailyTabs} dark={dark} onToggleDark={toggleDark} />
       <NotificationManager />
       <main className="flex-1">

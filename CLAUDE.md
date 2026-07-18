@@ -102,7 +102,7 @@ Every function in every service that calls Gemini has a hardcoded fallback dict/
 | Level curve | `(n-1)² × 20` XP, 50 levels | `services/achievement_service.py` |
 | Gemini model | `gemini-2.0-flash` | `services/gemini_service.py` |
 | Whisper model | `tiny` (~75 MB, CPU, int8) | `services/pronunciation_service.py` |
-| API timeout (frontend) | 120 s | `api/client.js` (baseURL: `/api/v1`) |
+| API timeout (frontend) | 120 s | `api/client.js` (baseURL: `/api` — routery montują pełne ścieżki `/api/...`; wyjątek: `users` pod `/api/v1/users`) |
 | Backend port | `8001` (unified standard) | `start.bat`, `docker-compose.yml` |
 
 ## Git — Mandatory Push Policy

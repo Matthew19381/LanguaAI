@@ -79,6 +79,18 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
 - [x] Słabe umiejętności odświeżane **po** sesji (`GET /stats`), nie z danych sprzed jej rozpoczęcia — inaczej przycisk nie pojawiał się po sesji, która dopiero ujawniła słabość (błąd znaleziony przy weryfikacji w przeglądarce).
 - [ ] Automatyczne (bez klikania) dogenerowanie po serii błędów na tej samej umiejętności — dziś wymaga `include_new` lub przycisku
 
+### 📱 PWA / mobilka (2026-07-18) — ZROBIONE
+
+- [x] `vite-plugin-pwa` + service worker (`registerType: autoUpdate`), manifest standalone ze skrótami do `/practice`, `/flashcards`, `/lesson`
+- [x] Ikony PNG 192/512 + maskable + apple-touch-icon (wygenerowane z `logo.svg`, `frontend/public/icons/`) + meta iOS w `index.html`
+- [x] Cache offline (`workbox.runtimeCaching`): ćwiczenia, lekcje, fiszki, staty (StaleWhileRevalidate) oraz `/audio/*` (CacheFirst, 30 dni)
+- [x] `OfflineBanner` — informuje, że dane są z cache i że **zapis wymaga sieci**
+- [x] `host: true` w dev + nowa sekcja `preview` z proxy (build też sięga do API)
+- [x] **Zweryfikowane na żywo:** przy wyłączonym backendzie `/practice` renderuje komplet zadań z cache (200 z SW)
+- [ ] **Web Push (VAPID)** — powiadomienia o powtórkach; wymaga endpointu subskrypcji + workera
+- [ ] **Offline dla zapisów** (Background Sync): kolejkowanie `POST /answer` i `complete` — dziś offline działa tylko do odczytu
+- [ ] **HTTPS**: SW/instalacja PWA nie działają pod `http://<ip>:5173`. Do pełnego PWA na telefonie potrzebne wdrożenie w chmurze lub tunel HTTPS
+
 ### 🧹 Nieaktualne wpisy NEURO (uspójnione 2026-07-18)
 
 - **NEURO-15** (konfigurowalne wagi) — oznaczone wyżej jako ✅, ale **usunięte**: endpointy `neuro-weights`, kolumna `users.neuro_weights` i osiągnięcie `neuro_tuned` konfigurowały martwy kod.

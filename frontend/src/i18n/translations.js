@@ -146,6 +146,7 @@
     'practice.generateFailed': 'Błąd generowania. Spróbuj później.',
     'practice.emptyBank': 'Twój bank ćwiczeń jest pusty. Wygeneruj lekcję — jej ćwiczenia trafią tutaj i będą wracać w powtórkach.',
     'practice.goToLesson': 'Przejdź do lekcji',
+    'offline.banner': 'Jesteś offline — widzisz zapisane dane. Zapisywanie odpowiedzi wymaga połączenia.',
     'stats.loadingTips': 'Ĺadowanie wskazĂłwek...',
     'stats.noTips': 'Brak wskazĂłwek',
 
@@ -584,6 +585,7 @@
     'practice.generateFailed': 'Generation failed. Try again later.',
     'practice.emptyBank': 'Your exercise bank is empty. Generate a lesson — its exercises land here and come back for review.',
     'practice.goToLesson': 'Go to lesson',
+    'offline.banner': 'You are offline — showing saved data. Submitting answers needs a connection.',
     'stats.loadingTips': 'Loading tips...',
     'stats.noTips': 'No tips available',
 

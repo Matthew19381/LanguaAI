@@ -201,7 +201,64 @@ In your CI/CD pipeline or startup script, retrieve the secret and export it as a
 
 ---
 
-## 3. Mobile / PWA Strategy
+## 3. Mobile / PWA — STAN: ZAIMPLEMENTOWANE (2026-07-18)
+
+> Sekcje 3.1–3.4 poniżej to oryginalny plan. Poniższa ramka opisuje, co **faktycznie działa** w repo.
+
+### Co jest gotowe
+
+| Element | Stan | Gdzie |
+|---|---|---|
+| `vite-plugin-pwa` + service worker | ✅ | `frontend/vite.config.js` |
+| Manifest (standalone, ikony 192/512 + maskable, skróty) | ✅ | generowany do `dist/manifest.webmanifest` |
+| Ikony PNG (192/512, maskable, apple-touch-icon) | ✅ | `frontend/public/icons/` |
+| Meta iOS (apple-touch-icon, standalone, theme-color) | ✅ | `frontend/index.html` |
+| Cache offline: ćwiczenia, lekcje, fiszki, staty, audio | ✅ | `workbox.runtimeCaching` |
+| Baner „jesteś offline" | ✅ | `frontend/src/components/OfflineBanner.jsx` |
+| Web Push (VAPID) | ❌ nie zrobione | patrz 3.2 |
+| Capacitor / sklepy | ❌ niepotrzebne dziś | patrz 3.3 |
+
+**Zweryfikowane na żywo:** po zatrzymaniu backendu `GET /api/exercises/{id}/practice`
+nadal zwraca 200 z cache i strona `/practice` renderuje komplet zadań.
+
+### ⚠️ Ograniczenie: offline działa do *odczytu*
+
+Service worker cache'uje odpowiedzi GET. **Zapis wymaga sieci** — odpowiadanie na
+ćwiczenia (`POST /answer`), kończenie lekcji, generowanie treści. Offline zobaczysz
+materiał, ale postęp się nie zapisze. Kolejkowanie zapisów (Background Sync) to
+osobne zadanie w `TASKS.md`.
+
+### Jak ćwiczyć na telefonie — dziś, bez chmury
+
+Telefon i komputer w tej samej sieci Wi-Fi:
+
+1. **Backend na wszystkich interfejsach** (z katalogu głównego projektu):
+   ```bash
+   uvicorn backend.main:app --host 0.0.0.0 --port 8001
+   ```
+2. **Frontend** — `host: true` jest już ustawione w `vite.config.js`:
+   ```bash
+   cd frontend && npm run dev        # albo: npm run build && npm run preview
+   ```
+3. **Adres IP komputera**: `ipconfig` → „IPv4 Address" (np. `192.168.0.12`).
+4. Na telefonie otwórz `http://192.168.0.12:5173` (dev) lub `:4173` (preview).
+5. **Zainstaluj**: Android/Chrome → menu → „Dodaj do ekranu głównego";
+   iOS/Safari → Udostępnij → „Dodaj do ekranu głównego".
+
+> **Uwaga o service workerze:** przeglądarki rejestrują SW tylko na HTTPS albo
+> `localhost`. Pod adresem IP po HTTP (`http://192.168.0.12:5173`) aplikacja
+> zadziała normalnie, ale **bez trybu offline i bez instalacji jako PWA**.
+> Pełne PWA wymaga HTTPS — czyli wdrożenia w chmurze (sekcja 2) albo tunelu
+> (np. `cloudflared tunnel`, ngrok), który daje adres HTTPS.
+
+### Zapory (Windows)
+
+Przy pierwszym uruchomieniu Windows zapyta o dostęp do sieci dla Pythona/Node —
+trzeba zezwolić dla sieci **prywatnej**, inaczej telefon się nie połączy.
+
+---
+
+## 3-plan. Mobile / PWA Strategy (oryginalny plan)
 
 The frontend already works as a SPA built in React + Vite and served as static files. It already behaves as a **Progressive Web App (PWA)** – users can “Add to Home Screen” on Android/iOS and receive an icon, full‑screen mode, and basic asset caching. To obtain a truly mobile‑friendly experience we recommend the following incremental steps.
 
