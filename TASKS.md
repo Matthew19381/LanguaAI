@@ -88,7 +88,15 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
 - [x] `host: true` w dev + nowa sekcja `preview` z proxy (build też sięga do API)
 - [x] **Zweryfikowane na żywo:** przy wyłączonym backendzie `/practice` renderuje komplet zadań z cache (200 z SW)
 - [ ] **Web Push (VAPID)** — powiadomienia o powtórkach; wymaga endpointu subskrypcji + workera
-- [ ] **Offline dla zapisów** (Background Sync): kolejkowanie `POST /answer` i `complete` — dziś offline działa tylko do odczytu
+- [x] **Offline dla zapisów — ĆWICZENIA** ✅ (2026-07-18): pakiet zadań na urządzeniu + ocena lokalna + kolejka odpowiedzi + synchronizacja po powrocie sieci
+    - `GET /api/exercises/{id}/offline-pack` — zadania **z odpowiedziami** (osobny endpoint, żeby różnica wobec `/practice` była jawna; `/practice` nadal ich nie zwraca)
+    - `POST /answer` przyjmuje `client_event_id` (idempotencja przez tabelę `sync_events`) i `answered_at` (harmonogram FSRS liczony od momentu odpowiedzi; zegar z przyszłości jest przycinany)
+    - `frontend/src/utils/offlineQueue.js`: pakiet w localStorage, outbox z UUID, `syncQueue` (błędy sieci → retry, odrzucenia 4xx → usuwane, żeby nie blokowały kolejki)
+    - **Ocena lokalna wiernie odwzorowuje `grade_answer`** — JS `\w` jest ASCII-only, więc użyto `\p{L}\p{N}` (inaczej „schön" oceniałoby się inaczej na urządzeniu niż na serwerze). Te same przypadki testowe po obu stronach.
+    - UI: znaczniki „Tryb offline" / „Do wysłania: N", komunikat po synchronizacji, przycisk pobrania pakietu
+    - **Zweryfikowane end-to-end:** przy wyłączonym backendzie 3 odpowiedzi ocenione lokalnie (2/3) i zakolejkowane; po restarcie liczniki wzrosły dokładnie o 1, `correct` tylko przy poprawnych; ponowne odtworzenie tego samego zdarzenia → `duplicate: true`, bez zmiany licznika
+- [ ] Offline dla **fiszek** i ukończenia lekcji (ten sam wzorzec: pakiet + `client_event_id`)
+- [ ] Prawdziwy Background Sync API (dziś synchronizacja odpala się przy zdarzeniu `online` i przy wejściu na ekran — wystarcza, ale nie działa gdy aplikacja jest zamknięta)
 - [ ] **HTTPS**: SW/instalacja PWA nie działają pod `http://<ip>:5173`. Do pełnego PWA na telefonie potrzebne wdrożenie w chmurze lub tunel HTTPS
 
 ### 🧹 Nieaktualne wpisy NEURO (uspójnione 2026-07-18)

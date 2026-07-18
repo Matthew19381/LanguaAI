@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
     # Startup: create database tables and required directories
     logger.info("Creating database tables...")
     # Import all models so SQLAlchemy registers them before create_all
-    from backend.models import achievement, user, lesson, test_result, study_plan, flashcard, topic, conversation_session, exercise  # noqa
+    from backend.models import achievement, user, lesson, test_result, study_plan, flashcard, topic, conversation_session, exercise, sync_event  # noqa
     Base.metadata.create_all(bind=engine)
 
     _sa = __import__('sqlalchemy')

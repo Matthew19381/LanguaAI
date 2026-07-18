@@ -207,6 +207,18 @@ export const getPracticeSet = (userId, { size = 10, topic, includeNew = false } 
 export const answerExercise = (exerciseId, userId, answer, rating) =>
   api.post(`/exercises/${exerciseId}/answer`, { user_id: userId, answer, rating })
 
+export const getOfflinePack = (userId, size = 40) =>
+  api.get(`/exercises/${userId}/offline-pack`, { params: { size } })
+
+// Replay of an answer recorded while offline (idempotent server-side)
+export const replayAnswer = (event) =>
+  api.post(`/exercises/${event.exercise_id}/answer`, {
+    user_id: event.user_id,
+    answer: event.answer,
+    client_event_id: event.client_event_id,
+    answered_at: event.answered_at,
+  })
+
 export const getExerciseStats = (userId) =>
   api.get(`/exercises/${userId}/stats`)
 

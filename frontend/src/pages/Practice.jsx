@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Dumbbell, Check, X, ArrowRight, Sparkles, Loader2, Shuffle, RotateCcw,
+  CloudOff, UploadCloud,
 } from 'lucide-react'
 import {
   getUserId, getPracticeSet, answerExercise, generateExerciseVariants, getExerciseStats,
+  getOfflinePack, replayAnswer,
 } from '../api/client'
+import {
+  savePack, loadPack, gradeLocally, enqueueAnswer, queueSize, syncQueue,
+} from '../utils/offlineQueue'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
 
@@ -21,46 +26,122 @@ export default function Practice() {
   const [score, setScore] = useState({ correct: 0, total: 0 })
   const [generating, setGenerating] = useState(false)
   const [genMsg, setGenMsg] = useState('')
-  // Weak skills recomputed after the session — the ones loaded with the set
-  // predate the mistakes the learner just made.
   const [weakSkills, setWeakSkills] = useState([])
+  // Offline state
+  const [offlineMode, setOfflineMode] = useState(false)
+  const [pending, setPending] = useState(queueSize())
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState('')
   const navigate = useNavigate()
   const userId = getUserId()
   const { t } = useLanguage()
 
-  const load = (includeNew = false) => {
+  /** Build a practice set out of the locally stored pack. */
+  const setFromPack = useCallback(() => {
+    const pack = loadPack()
+    if (!pack?.exercises?.length) return null
+    const now = Date.now()
+    const due = pack.exercises.filter(
+      e => !e.next_review_date || new Date(e.next_review_date).getTime() <= now
+    )
+    const chosen = (due.length ? due : pack.exercises).slice(0, SET_SIZE)
+    return {
+      exercises: chosen,
+      due_count: due.length,
+      interleaved_count: 0,
+      generated_new: 0,
+      weak_skills: [],
+      offline: true,
+    }
+  }, [])
+
+  const load = useCallback((includeNew = false) => {
     setLoading(true)
+    const reset = (data, offline) => {
+      setSet(data)
+      setOfflineMode(offline)
+      setIndex(0)
+      setTyped('')
+      setResult(null)
+      setScore({ correct: 0, total: 0 })
+      setWeakSkills(data?.weak_skills || [])
+    }
+
     return getPracticeSet(userId, { size: SET_SIZE, includeNew })
       .then(data => {
-        setSet(data)
-        setIndex(0)
-        setTyped('')
-        setResult(null)
-        setScore({ correct: 0, total: 0 })
-        setWeakSkills(data.weak_skills || [])
+        reset(data, false)
+        // Keep an up-to-date pack around for the next time there is no network
+        getOfflinePack(userId).then(savePack).catch(() => {})
       })
-      .catch(() => setSet(null))
+      .catch(() => {
+        const fallback = setFromPack()
+        if (fallback) reset(fallback, true)
+        else setSet(null)
+      })
       .finally(() => setLoading(false))
-  }
+  }, [userId, setFromPack])
+
+  /** Replay everything queued while offline. */
+  const runSync = useCallback(async () => {
+    if (queueSize() === 0) return
+    setSyncing(true)
+    try {
+      const { synced, failed } = await syncQueue(replayAnswer)
+      setPending(queueSize())
+      if (synced > 0) setSyncMsg(t('practice.synced').replace('{n}', synced))
+      if (failed > 0) setSyncMsg(t('practice.syncPartial').replace('{n}', failed))
+    } finally {
+      setSyncing(false)
+    }
+  }, [t])
 
   useEffect(() => {
     if (!userId) { navigate('/placement'); return }
     load()
+    runSync()
+    const onOnline = () => { runSync() }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
   }, [userId])
 
   const exercises = set?.exercises || []
   const current = exercises[index]
   const finished = exercises.length > 0 && index >= exercises.length
 
+  /** Grade on the device and queue the answer for the next sync. */
+  const answerOffline = (exercise, answerText) => {
+    const expected = exercise.answer
+    if (expected == null) return null // pack lacks the answer — cannot grade here
+    const correct = gradeLocally(expected, answerText)
+    enqueueAnswer({ exerciseId: exercise.id, userId, answer: answerText, correct })
+    setPending(queueSize())
+    return {
+      correct,
+      expected_answer: expected,
+      feedback: exercise.feedback,
+      skill_tag: exercise.skill_tag,
+      interval_days: null,
+      queued: true,
+    }
+  }
+
   const handleCheck = async () => {
     if (!typed.trim() || !current) return
     setChecking(true)
     try {
-      const r = await answerExercise(current.id, userId, typed)
+      let r
+      if (!navigator.onLine) {
+        r = answerOffline(current, typed)
+      } else {
+        try {
+          r = await answerExercise(current.id, userId, typed)
+        } catch {
+          // Network died mid-session — fall back to local grading
+          r = answerOffline(current, typed)
+        }
+      }
       setResult(r)
-      setScore(s => ({ correct: s.correct + (r.correct ? 1 : 0), total: s.total + 1 }))
-    } catch {
-      setResult(null)
+      if (r) setScore(s => ({ correct: s.correct + (r.correct ? 1 : 0), total: s.total + 1 }))
     } finally {
       setChecking(false)
     }
@@ -71,9 +152,7 @@ export default function Practice() {
     setResult(null)
     const upcoming = index + 1
     setIndex(upcoming)
-    // Session just ended — refresh weak skills so the suggestion reflects the
-    // mistakes made in THIS session, not the state before it started.
-    if (upcoming >= exercises.length) {
+    if (upcoming >= exercises.length && navigator.onLine) {
       getExerciseStats(userId)
         .then(s => setWeakSkills(s.weak_skills || []))
         .catch(() => {})
@@ -94,9 +173,17 @@ export default function Practice() {
     }
   }
 
+  const handleDownloadPack = async () => {
+    try {
+      const pack = await getOfflinePack(userId)
+      setGenMsg(savePack(pack) ? t('practice.packSaved').replace('{n}', pack.exercises.length) : t('practice.packFailed'))
+    } catch {
+      setGenMsg(t('practice.packFailed'))
+    }
+  }
+
   if (loading) return <PageLoader />
 
-  // Empty bank — exercises are filled by generating lessons
   if (!set || exercises.length === 0) {
     return (
       <div className="max-w-2xl mx-auto p-4">
@@ -109,12 +196,6 @@ export default function Practice() {
             <button className="btn-primary" onClick={() => navigate('/lesson')}>
               {t('practice.goToLesson')}
             </button>
-            {weakSkills.length > 0 && (
-              <button className="btn-secondary flex items-center gap-2" onClick={handleGenerate} disabled={generating}>
-                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {t('practice.generateForWeak')}
-              </button>
-            )}
           </div>
           {genMsg && <p className="text-sm text-gray-400 mt-3">{genMsg}</p>}
         </div>
@@ -129,8 +210,7 @@ export default function Practice() {
       </h1>
       <p className="text-gray-400 text-sm mb-4">{t('practice.subtitle')}</p>
 
-      {/* Where this set came from */}
-      <div className="flex flex-wrap gap-2 mb-4 text-xs">
+      <div className="flex flex-wrap gap-2 mb-4 text-xs items-center">
         <span className="px-2.5 py-1 rounded-lg bg-indigo-900/40 text-indigo-200">
           {t('practice.due')}: {set.due_count}
         </span>
@@ -144,7 +224,19 @@ export default function Practice() {
             {t('practice.new')}: {set.generated_new}
           </span>
         )}
+        {offlineMode && (
+          <span className="px-2.5 py-1 rounded-lg bg-amber-900/40 text-amber-200 flex items-center gap-1">
+            <CloudOff className="w-3 h-3" /> {t('practice.offlineMode')}
+          </span>
+        )}
+        {pending > 0 && (
+          <span className="px-2.5 py-1 rounded-lg bg-sky-900/40 text-sky-200 flex items-center gap-1">
+            {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <UploadCloud className="w-3 h-3" />}
+            {t('practice.pending').replace('{n}', pending)}
+          </span>
+        )}
       </div>
+      {syncMsg && <p className="text-xs text-gray-400 -mt-2 mb-3">{syncMsg}</p>}
 
       {finished ? (
         <div className="card text-center">
@@ -152,6 +244,9 @@ export default function Practice() {
           <p className="text-emerald-300 font-semibold">
             {t('practice.done')} {score.correct}/{score.total}
           </p>
+          {pending > 0 && (
+            <p className="text-xs text-sky-300 mt-2">{t('practice.willSync').replace('{n}', pending)}</p>
+          )}
           {weakSkills.length > 0 && (
             <div className="mt-4">
               <p className="text-sm text-gray-400 mb-2">
@@ -160,7 +255,7 @@ export default function Practice() {
               <button
                 className="btn-secondary flex items-center gap-2 mx-auto"
                 onClick={handleGenerate}
-                disabled={generating}
+                disabled={generating || offlineMode}
               >
                 {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {t('practice.generateForWeak')}
@@ -172,8 +267,8 @@ export default function Practice() {
             <button className="btn-primary flex items-center gap-2" onClick={() => load()}>
               <RotateCcw className="w-4 h-4" /> {t('practice.again')}
             </button>
-            <button className="btn-secondary" onClick={() => navigate('/quickmode')}>
-              {t('practice.backToQuick')}
+            <button className="btn-secondary" onClick={handleDownloadPack} disabled={offlineMode}>
+              {t('practice.downloadPack')}
             </button>
           </div>
         </div>
@@ -228,7 +323,9 @@ export default function Practice() {
                 <p className="text-sm text-gray-400 mb-3">{result.feedback}</p>
               )}
               <p className="text-xs text-gray-500 mb-3">
-                {t('practice.nextReview')}: {result.interval_days} {t('practice.days')}
+                {result.queued
+                  ? t('practice.queued')
+                  : `${t('practice.nextReview')}: ${result.interval_days} ${t('practice.days')}`}
               </p>
               <button onClick={next} className="btn-primary w-full flex items-center justify-center gap-2">
                 {t('practice.next')} <ArrowRight className="w-4 h-4" />

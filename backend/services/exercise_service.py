@@ -209,9 +209,18 @@ def grade_answer(expected: str, given: str) -> bool:
     return bool(norm(expected)) and norm(expected) == norm(given)
 
 
-def review_exercise(db: Session, exercise: Exercise, rating: int) -> dict:
-    """Apply FSRS to an exercise review and update exposure counters."""
-    now = datetime.now(timezone.utc)
+def review_exercise(
+    db: Session,
+    exercise: Exercise,
+    rating: int,
+    now: datetime | None = None,
+) -> dict:
+    """Apply FSRS to an exercise review and update exposure counters.
+
+    ``now`` lets a replayed offline answer be scheduled from the moment the
+    learner actually answered rather than from when the device reconnected.
+    """
+    now = now or datetime.now(timezone.utc)
     result = apply_fsrs(
         rating=rating,
         difficulty=exercise.difficulty,

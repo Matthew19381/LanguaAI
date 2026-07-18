@@ -3,18 +3,36 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.exercise import Exercise
+from backend.models.sync_event import SyncEvent
 from backend.schemas.exercise import AnswerExerciseRequest, GenerateVariantsRequest
 from backend.services.exercise_service import (
+    VARIANT_AFTER_TIMES_SEEN,
     build_practice_set,
     find_weak_skills,
     grade_answer,
     review_exercise,
     serialize_exercise,
 )
+
+
+def _parse_occurred_at(raw: str | None) -> datetime:
+    """Parse a client timestamp, falling back to now. Never trusts the future."""
+    now = datetime.now(timezone.utc)
+    if not raw:
+        return now
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return now
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    # A device clock running ahead must not push reviews into the future
+    return min(parsed, now)
 from backend.services.lesson_generator import generate_exercise_variants
 from backend.utils import get_user_or_404
 
@@ -95,6 +113,38 @@ async def get_practice_set(
     return result
 
 
+@router.get("/api/exercises/{user_id}/offline-pack")
+async def get_offline_pack(user_id: int, size: int = 40, db: Session = Depends(get_db)):
+    """Exercises to practise without a network — **including their answers**.
+
+    The regular /practice payload withholds answers so they cannot be read off
+    the wire. Offline practice has to grade on the device, so this endpoint
+    deliberately ships answers and feedback. It is opt-in and separate precisely
+    so the distinction stays visible.
+    """
+    user = get_user_or_404(db, user_id)
+    size = max(1, min(size, 200))
+
+    rows = db.query(Exercise).filter(
+        Exercise.user_id == user_id,
+        Exercise.language == user.target_language,
+        Exercise.is_active == True,  # noqa: E712
+    ).order_by(Exercise.next_review_date.asc()).limit(size).all()
+
+    return {
+        "user_id": user_id,
+        "language": user.target_language,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "exercises": [
+            {
+                **serialize_exercise(ex, include_answer=True),
+                "next_review_date": ex.next_review_date.isoformat() if ex.next_review_date else None,
+            }
+            for ex in rows
+        ],
+    }
+
+
 @router.get("/api/exercises/{user_id}/stats")
 async def get_exercise_stats(user_id: int, db: Session = Depends(get_db)):
     """Bank size, how many are due, and which skills look weak."""
@@ -133,17 +183,51 @@ async def answer_exercise(
     correct = grade_answer(exercise.answer, request.answer)
     rating = request.rating if request.rating in (1, 2, 3, 4) else (3 if correct else 1)
 
-    scheduling = review_exercise(db, exercise, rating)
-    db.commit()
-
-    return {
+    base = {
         "success": True,
         "correct": correct,
         "expected_answer": exercise.answer,
         "feedback": exercise.feedback,
         "skill_tag": exercise.skill_tag,
-        **scheduling,
     }
+
+    # ── Offline replay: the same queued answer must never count twice ──
+    if request.client_event_id:
+        already = db.query(SyncEvent).filter(
+            SyncEvent.client_event_id == request.client_event_id
+        ).first()
+        if already:
+            return {
+                **base,
+                "duplicate": True,
+                "times_seen": exercise.times_seen,
+                "times_correct": exercise.times_correct,
+                "interval_days": exercise.interval_days,
+                "state": exercise.fsrs_state,
+                "next_review": exercise.next_review_date.isoformat() if exercise.next_review_date else None,
+                "needs_variant": (exercise.times_seen or 0) >= VARIANT_AFTER_TIMES_SEEN,
+            }
+
+    occurred_at = _parse_occurred_at(request.answered_at)
+    scheduling = review_exercise(db, exercise, rating, now=occurred_at)
+
+    if request.client_event_id:
+        db.add(SyncEvent(
+            client_event_id=request.client_event_id,
+            user_id=request.user_id,
+            kind="exercise_answer",
+            target_id=exercise.id,
+            occurred_at=occurred_at,
+        ))
+
+    try:
+        db.commit()
+    except IntegrityError:
+        # Two replays raced on the same client_event_id — the other one won.
+        db.rollback()
+        return {**base, "duplicate": True}
+
+    return {**base, "duplicate": False, **scheduling}
 
 
 @router.post("/api/exercises/{user_id}/generate-variants")
