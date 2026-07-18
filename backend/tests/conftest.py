@@ -39,6 +39,7 @@ def create_tables():
     from backend.models.study_plan import StudyPlan  # noqa
     from backend.models.conversation_session import ConversationSession  # noqa
     from backend.models.topic import Topic, TopicItem  # noqa
+    from backend.models.exercise import Exercise  # noqa
     from backend.database import Base
 
     Base.metadata.create_all(bind=test_engine)
@@ -54,6 +55,7 @@ def clean_tables(create_tables):
     try:
         from backend.models.achievement import Achievement
         from backend.models.conversation_session import ConversationSession
+        from backend.models.exercise import Exercise
         from backend.models.flashcard import Flashcard
         from backend.models.lesson import Lesson
         from backend.models.study_plan import StudyPlan
@@ -61,7 +63,7 @@ def clean_tables(create_tables):
         from backend.models.topic import Topic, TopicItem
         from backend.models.user import User
         # Delete in FK-safe order (children first)
-        for model in [TopicItem, Topic, ConversationSession, Achievement, Flashcard, TestResult, Lesson, StudyPlan, User]:
+        for model in [TopicItem, Topic, ConversationSession, Achievement, Exercise, Flashcard, TestResult, Lesson, StudyPlan, User]:
             db.query(model).delete()
         db.commit()
     finally:

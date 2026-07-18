@@ -12,8 +12,18 @@ from backend.services.lesson_generator import analyze_test_errors, generate_dail
 logger = logging.getLogger(__name__)
 
 
-async def get_or_create_daily_test(user_id: int, lesson_content: dict, db: Session) -> dict:
-    """Get or generate a daily test for a user."""
+async def get_or_create_daily_test(
+    user_id: int,
+    lesson_content: dict,
+    db: Session,
+    lesson=None,
+) -> dict:
+    """Get or generate a daily test for a user.
+
+    The generated questions are cached inside the lesson's content blob under
+    ``daily_test`` so that reopening the test page does not pay for the same AI
+    generation again. Pass ``lesson`` (the Lesson row) to enable that caching.
+    """
     from datetime import date
 
     user = db.query(User).filter(User.id == user_id).first()
@@ -37,6 +47,18 @@ async def get_or_create_daily_test(user_id: int, lesson_content: dict, db: Sessi
             "questions": json.loads(existing_test.answers) if existing_test.answers else []
         }
 
+    # Reuse the questions generated earlier for this lesson, if any
+    cached = lesson_content.get("daily_test") if isinstance(lesson_content, dict) else None
+    if isinstance(cached, dict) and cached.get("questions"):
+        return {
+            "test_id": None,
+            "already_taken": False,
+            "questions": cached["questions"],
+            "cefr_level": user.cefr_level,
+            "language": user.target_language,
+            "from_cache": True,
+        }
+
     # Generate new test from lesson content
     test_data = await generate_daily_test(
         lesson_content=lesson_content,
@@ -44,13 +66,26 @@ async def get_or_create_daily_test(user_id: int, lesson_content: dict, db: Sessi
         language=user.target_language,
         native_language=user.native_language
     )
+    questions = test_data.get("questions", [])
+
+    # Persist into the lesson blob so the next open is free
+    if lesson is not None and questions:
+        try:
+            content = json.loads(lesson.content) if lesson.content else {}
+            content["daily_test"] = {"questions": questions}
+            lesson.content = json.dumps(content, ensure_ascii=False)
+            db.commit()
+        except Exception as e:  # caching must never break the request
+            logger.warning(f"Could not cache daily test on lesson {getattr(lesson, 'id', '?')}: {e}")
+            db.rollback()
 
     return {
         "test_id": None,
         "already_taken": False,
-        "questions": test_data.get("questions", []),
+        "questions": questions,
         "cefr_level": user.cefr_level,
-        "language": user.target_language
+        "language": user.target_language,
+        "from_cache": False,
     }
 
 

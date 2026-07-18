@@ -1,5 +1,5 @@
 """SCI-5: unit + endpoint tests for data-driven best-study-time (May & Hasher 1998)."""
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from backend.models.test_result import TestResult
 from backend.services.analytics_service import (
@@ -72,9 +72,11 @@ def test_endpoint_recommends_bucket(client, sample_user, db):
     uid = sample_user["user_id"]
     seq = 0
     for _ in range(5):
-        _add_test_result(db, uid, hour=9, score=92.0, seq=seq); seq += 1
+        _add_test_result(db, uid, hour=9, score=92.0, seq=seq)
+        seq += 1
     for _ in range(4):
-        _add_test_result(db, uid, hour=20, score=55.0, seq=seq); seq += 1
+        _add_test_result(db, uid, hour=20, score=55.0, seq=seq)
+        seq += 1
     db.commit()
 
     r = client.get(f"/api/stats/{uid}/best-study-time")

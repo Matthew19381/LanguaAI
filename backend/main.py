@@ -15,6 +15,7 @@ from backend.routers import (
     admin,
     audio,
     conversation,
+    exercises,
     flashcards,
     lessons,
     news,
@@ -49,7 +50,7 @@ async def lifespan(app: FastAPI):
     # Startup: create database tables and required directories
     logger.info("Creating database tables...")
     # Import all models so SQLAlchemy registers them before create_all
-    from backend.models import achievement, user, lesson, test_result, study_plan, flashcard, topic, conversation_session  # noqa
+    from backend.models import achievement, user, lesson, test_result, study_plan, flashcard, topic, conversation_session, exercise  # noqa
     Base.metadata.create_all(bind=engine)
 
     _sa = __import__('sqlalchemy')
@@ -184,6 +185,7 @@ app.include_router(settings.router, tags=["Settings"])
 app.include_router(audio.router, tags=["Audio"])
 app.include_router(youtube.router, tags=["YouTube"])
 app.include_router(voice_chat.router, tags=["Voice-Chat"])
+app.include_router(exercises.router, tags=["Exercises"])
 app.include_router(topics.router, prefix="/api/topics", tags=["Topics"])
 app.include_router(admin.router, tags=["Admin"])
 

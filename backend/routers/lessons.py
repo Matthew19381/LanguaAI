@@ -26,6 +26,7 @@ from backend.services.audio_service import (
     generate_lesson_package_audio,
     generate_vocabulary_audio,
 )
+from backend.services.exercise_service import create_exercises_from_lesson
 from backend.services.flashcard_service import create_flashcards_from_vocab
 from backend.services.gemini_service import generate_json as ai_generate_json
 from backend.services.gemini_service import with_model
@@ -219,6 +220,11 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
         db, lesson_content.get("vocabulary", []),
         user_id, user.target_language, user.cefr_level,
         lesson.id, lesson.day_number, lesson.topic
+    )
+    # Persist exercises into the reusable bank (spaced retrieval + interleaving)
+    create_exercises_from_lesson(
+        db, lesson_content, user_id, user.target_language,
+        user.cefr_level, lesson.id, lesson.topic
     )
     db.commit()
 
@@ -725,6 +731,11 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
         db, lesson_content.get("vocabulary", []),
         user_id, user.target_language, user.cefr_level,
         lesson.id, lesson.day_number, lesson.topic
+    )
+    # Persist exercises into the reusable bank
+    create_exercises_from_lesson(
+        db, lesson_content, user_id, user.target_language,
+        user.cefr_level, lesson.id, lesson.topic
     )
     db.commit()
 

@@ -91,7 +91,9 @@ async def generate_daily_lesson(
        and a short semantic "category" label per word (e.g. "colours", "food", "motion verbs") so related
        words can be spaced apart during review to reduce interference (Tinkham 1993).
     3. Grammar explanation (10-15 min): One key grammar point with clear examples
-    4. Practice exercises (15-20 min): Mix of filling gaps, translation, and sentence creation
+    4. Practice exercises (15-20 min): Mix of filling gaps, translation, and sentence creation.
+       Tag each exercise block with the underlying skill it practises ("skill_tag"), so the same skill
+       can later be re-practised through fresh variants rather than the identical sentence.
     5. Cultural note (2-3 min): Interesting cultural fact related to the language
     6. Speaking practice (5-10 min): Prompts for pronunciation and fluency
     7. Writing exercise (5-10 min): Short writing prompt with guidance
@@ -135,6 +137,7 @@ async def generate_daily_lesson(
         "exercises": [{{
             "type": "fill-in-the-blank|translation|sentence_creation|matching",
             "instruction": "what the student should do",
+            "skill_tag": "the underlying skill being practised, e.g. 'Perfekt with haben' or 'accusative articles'",
             "items": [{{
                 "prompt": "prompt or question",
                 "answer": "correct answer"
@@ -337,6 +340,70 @@ Return JSON:
         "lexical_coverage": 1.0,
         "coverage_attempts": 0,
     }
+
+
+@with_model("lesson")
+async def generate_exercise_variants(
+    skill_tags: list[str],
+    target_language: str,
+    native_language: str,
+    cefr_level: str,
+    per_skill: int = 2,
+    avoid_prompts: list[str] | None = None,
+) -> list[dict]:
+    """Generate fresh exercise variants for skills the learner keeps getting wrong.
+
+    Variability of practice (Schmidt & Bjork 1992): re-practising a skill through
+    *new* surface forms generalizes better than repeating the identical item.
+    """
+    if not skill_tags:
+        return []
+    avoid = "\n".join(f"- {p}" for p in (avoid_prompts or [])[:15])
+    avoid_block = f"\n\nDo NOT reuse these existing prompts:\n{avoid}" if avoid else ""
+
+    prompt = f"""Create practice exercises for a {native_language} speaker learning {target_language} at CEFR {cefr_level}.
+
+Generate {per_skill} NEW exercises for EACH of these skills: {', '.join(skill_tags)}
+
+Each exercise must practise the same underlying skill but with DIFFERENT vocabulary and
+sentence content than typical textbook examples. Keep prompts short and unambiguous with
+exactly one correct answer.{avoid_block}
+
+Return ONLY valid JSON:
+{{"exercises": [{{
+    "skill_tag": "one of the skills listed above, copied exactly",
+    "type": "fill-in-the-blank|translation|sentence_creation",
+    "instruction": "what the student should do, in {native_language}",
+    "prompt": "the question",
+    "answer": "the single correct answer",
+    "feedback": "one-sentence explanation in {native_language}"
+}}]}}"""
+
+    try:
+        data = await generate_json(prompt)
+        raw = data.get("exercises") if isinstance(data, dict) else None
+        if not isinstance(raw, list):
+            return []
+        allowed = {s.strip().lower() for s in skill_tags}
+        clean = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            p = (item.get("prompt") or "").strip()
+            a = (item.get("answer") or "").strip()
+            tag = (item.get("skill_tag") or "").strip()
+            if not p or not a or tag.lower() not in allowed:
+                continue
+            clean.append({
+                "prompt": p, "answer": a, "skill_tag": tag,
+                "exercise_type": item.get("type"),
+                "instruction": item.get("instruction"),
+                "feedback": item.get("feedback"),
+            })
+        return clean
+    except Exception as e:
+        logger.error(f"Error generating exercise variants: {e}")
+        return []
 
 
 def _sanitize_pretest(pretest, vocabulary) -> list:

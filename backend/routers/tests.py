@@ -52,7 +52,7 @@ async def get_daily_test(user_id: int, db: Session = Depends(get_db)):
     lesson_content = json.loads(today_lesson.content)
 
     try:
-        test_data = await get_or_create_daily_test(user_id, lesson_content, db)
+        test_data = await get_or_create_daily_test(user_id, lesson_content, db, lesson=today_lesson)
         return {
             "success": True,
             "lesson_id": today_lesson.id,
