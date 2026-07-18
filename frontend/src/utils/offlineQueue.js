@@ -6,8 +6,12 @@
  * answer carries a UUID so a retried replay cannot count the review twice.
  */
 
-const PACK_KEY = 'offlinePack'
-const QUEUE_KEY = 'offlineQueue'
+const PACK_KEY = 'offlinePack'            // exercises
+const CARD_PACK_KEY = 'offlineCardPack'   // flashcards
+const QUEUE_KEY = 'offlineQueue'          // shared outbox (events carry `kind`)
+
+export const KIND_EXERCISE = 'exercise_answer'
+export const KIND_FLASHCARD = 'flashcard_review'
 
 // ── Local grading ───────────────────────────────────────────────────────────
 // Must mirror grade_answer() in backend/services/exercise_service.py, which does
@@ -50,6 +54,30 @@ export function clearPack() {
   localStorage.removeItem(PACK_KEY)
 }
 
+// ── Flashcard pack ──────────────────────────────────────────────────────────
+
+export function saveCardPack(pack) {
+  try {
+    localStorage.setItem(CARD_PACK_KEY, JSON.stringify(pack))
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function loadCardPack() {
+  try {
+    const raw = localStorage.getItem(CARD_PACK_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+export function clearCardPack() {
+  localStorage.removeItem(CARD_PACK_KEY)
+}
+
 // ── Outbox ──────────────────────────────────────────────────────────────────
 
 function newId() {
@@ -77,6 +105,7 @@ function writeQueue(items) {
 
 export function enqueueAnswer({ exerciseId, userId, answer, correct }) {
   const event = {
+    kind: KIND_EXERCISE,
     client_event_id: newId(),
     exercise_id: exerciseId,
     user_id: userId,
@@ -88,6 +117,26 @@ export function enqueueAnswer({ exerciseId, userId, answer, correct }) {
   return event
 }
 
+export function enqueueFlashcardReview({ flashcardId, userId, rating }) {
+  const event = {
+    kind: KIND_FLASHCARD,
+    client_event_id: newId(),
+    flashcard_id: flashcardId,
+    user_id: userId,
+    rating,
+    reviewed_at: new Date().toISOString(),
+  }
+  writeQueue([...getQueue(), event])
+  return event
+}
+
+/** How many queued events of a given kind (omit for the whole outbox). */
+export function pendingByKind(kind) {
+  const q = getQueue()
+  if (!kind) return q.length
+  return q.filter(e => (e.kind || KIND_EXERCISE) === kind).length
+}
+
 export function queueSize() {
   return getQueue().length
 }
@@ -97,11 +146,13 @@ export function clearQueue() {
 }
 
 /**
- * Replay queued answers. Events that reach the server (including duplicates it
- * rejects) are removed; genuine network failures are kept for the next attempt.
- * Returns { synced, failed }.
+ * Replay every queued event through the handler matching its `kind`.
+ *
+ * `handlers` maps kind → async fn(event). Events that reach the server
+ * (including ones it rejects permanently) are removed; genuine network failures
+ * stay queued for the next attempt. Returns { synced, failed }.
  */
-export async function syncQueue(postAnswer) {
+export async function syncQueue(handlers) {
   const pending = getQueue()
   if (pending.length === 0) return { synced: 0, failed: 0 }
 
@@ -109,14 +160,20 @@ export async function syncQueue(postAnswer) {
   let synced = 0
 
   for (const event of pending) {
+    // Events queued by an older build predate `kind` and were always exercises
+    const handler = handlers[event.kind || KIND_EXERCISE]
+    if (!handler) {
+      // Unknown kind (e.g. downgraded app) — drop it rather than block the queue
+      continue
+    }
     try {
-      await postAnswer(event)
+      await handler(event)
       synced += 1
     } catch (err) {
       const status = err?.response?.status
       if (status && status >= 400 && status < 500) {
-        // The server rejected it permanently (deleted exercise, bad payload) —
-        // retrying forever would block the queue.
+        // Permanently rejected (deleted card, bad payload) — retrying forever
+        // would block everything behind it.
         continue
       }
       remaining.push(event)

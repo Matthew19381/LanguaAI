@@ -6,6 +6,13 @@ from pydantic import BaseModel, Field
 
 class ReviewFlashcardRequest(BaseModel):
     rating: int = Field(ge=1, le=4, description="1=Again, 2=Hard, 3=Good, 4=Easy")
+    # ── Offline replay ──
+    # UUID generated on the device; replaying it is a no-op so a queued review
+    # cannot be counted twice.
+    client_event_id: Optional[str] = None
+    # When the learner actually reviewed the card (ISO 8601), so FSRS schedules
+    # from that moment rather than from the reconnect.
+    reviewed_at: Optional[str] = None
 
 
 class AddFlashcardRequest(BaseModel):

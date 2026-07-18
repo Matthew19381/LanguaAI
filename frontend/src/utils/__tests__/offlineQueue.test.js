@@ -1,8 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   gradeLocally, normalizeAnswer, savePack, loadPack, clearPack,
-  enqueueAnswer, getQueue, queueSize, clearQueue, syncQueue,
+  saveCardPack, loadCardPack, clearCardPack,
+  enqueueAnswer, enqueueFlashcardReview, pendingByKind,
+  getQueue, queueSize, clearQueue, syncQueue,
+  KIND_EXERCISE, KIND_FLASHCARD,
 } from '../offlineQueue'
+
+// Handlers map used by most sync tests
+const handlers = (exercise = vi.fn(), flashcard = vi.fn()) => ({
+  [KIND_EXERCISE]: exercise,
+  [KIND_FLASHCARD]: flashcard,
+})
 
 beforeEach(() => {
   localStorage.clear()
@@ -69,54 +78,103 @@ describe('answer outbox', () => {
   })
 })
 
+describe('flashcard pack and queue', () => {
+  it('round-trips a card pack independently of the exercise pack', () => {
+    savePack({ exercises: [{ id: 1 }] })
+    saveCardPack({ flashcards: [{ id: 9, word: 'Hund', translation: 'dog' }] })
+    expect(loadCardPack().flashcards[0].word).toBe('Hund')
+    expect(loadPack().exercises[0].id).toBe(1) // untouched
+    clearCardPack()
+    expect(loadCardPack()).toBeNull()
+    expect(loadPack()).not.toBeNull()
+  })
+
+  it('queues a self-rated review with its rating and timestamp', () => {
+    const e = enqueueFlashcardReview({ flashcardId: 9, userId: 5, rating: 3 })
+    expect(e.kind).toBe(KIND_FLASHCARD)
+    expect(e.rating).toBe(3)
+    expect(e.reviewed_at).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    expect(getQueue()[0].flashcard_id).toBe(9)
+  })
+
+  it('counts pending events per kind in a shared outbox', () => {
+    enqueueAnswer({ exerciseId: 1, userId: 5, answer: 'a', correct: true })
+    enqueueFlashcardReview({ flashcardId: 9, userId: 5, rating: 4 })
+    enqueueFlashcardReview({ flashcardId: 10, userId: 5, rating: 1 })
+    expect(queueSize()).toBe(3)
+    expect(pendingByKind(KIND_EXERCISE)).toBe(1)
+    expect(pendingByKind(KIND_FLASHCARD)).toBe(2)
+  })
+})
+
 describe('syncQueue', () => {
   it('does nothing on an empty queue', async () => {
     const post = vi.fn()
-    expect(await syncQueue(post)).toEqual({ synced: 0, failed: 0 })
+    expect(await syncQueue(handlers(post))).toEqual({ synced: 0, failed: 0 })
     expect(post).not.toHaveBeenCalled()
   })
 
-  it('sends every queued answer and empties the queue', async () => {
+  it('routes each event to the handler for its kind', async () => {
     enqueueAnswer({ exerciseId: 1, userId: 5, answer: 'a', correct: true })
-    enqueueAnswer({ exerciseId: 2, userId: 5, answer: 'b', correct: false })
-    const post = vi.fn().mockResolvedValue({ duplicate: false })
+    enqueueFlashcardReview({ flashcardId: 9, userId: 5, rating: 3 })
+    const ex = vi.fn().mockResolvedValue({})
+    const fc = vi.fn().mockResolvedValue({})
 
-    const res = await syncQueue(post)
+    const res = await syncQueue(handlers(ex, fc))
 
-    expect(post).toHaveBeenCalledTimes(2)
+    expect(ex).toHaveBeenCalledTimes(1)
+    expect(fc).toHaveBeenCalledTimes(1)
+    expect(fc.mock.calls[0][0].flashcard_id).toBe(9)
     expect(res).toEqual({ synced: 2, failed: 0 })
     expect(queueSize()).toBe(0)
   })
 
-  it('keeps answers queued when the network fails', async () => {
-    enqueueAnswer({ exerciseId: 1, userId: 5, answer: 'a', correct: true })
-    const post = vi.fn().mockRejectedValue(new Error('offline'))
+  it('treats events without a kind as exercise answers (older builds)', async () => {
+    localStorage.setItem('offlineQueue', JSON.stringify([
+      { client_event_id: 'legacy-1', exercise_id: 3, user_id: 5, answer: 'a' },
+    ]))
+    const ex = vi.fn().mockResolvedValue({})
+    await syncQueue(handlers(ex))
+    expect(ex).toHaveBeenCalledTimes(1)
+    expect(queueSize()).toBe(0)
+  })
 
-    const res = await syncQueue(post)
+  it('keeps events queued when the network fails', async () => {
+    enqueueFlashcardReview({ flashcardId: 9, userId: 5, rating: 3 })
+    const fc = vi.fn().mockRejectedValue(new Error('offline'))
+
+    const res = await syncQueue(handlers(vi.fn(), fc))
 
     expect(res).toEqual({ synced: 0, failed: 1 })
     expect(queueSize()).toBe(1) // retried on the next reconnect
   })
 
-  it('drops answers the server rejects permanently', async () => {
-    enqueueAnswer({ exerciseId: 999, userId: 5, answer: 'a', correct: true })
-    const post = vi.fn().mockRejectedValue({ response: { status: 404 } })
+  it('drops events the server rejects permanently', async () => {
+    enqueueFlashcardReview({ flashcardId: 999, userId: 5, rating: 3 })
+    const fc = vi.fn().mockRejectedValue({ response: { status: 404 } })
 
-    const res = await syncQueue(post)
+    const res = await syncQueue(handlers(vi.fn(), fc))
 
-    // A deleted exercise must not block the queue forever
+    // A deleted card must not block the queue forever
     expect(res.failed).toBe(0)
     expect(queueSize()).toBe(0)
   })
 
-  it('retries only the failed answers', async () => {
+  it('drops events of an unknown kind instead of blocking', async () => {
+    localStorage.setItem('offlineQueue', JSON.stringify([{ kind: 'from_the_future' }]))
+    const res = await syncQueue(handlers())
+    expect(res).toEqual({ synced: 0, failed: 0 })
+    expect(queueSize()).toBe(0)
+  })
+
+  it('retries only the failed events', async () => {
     enqueueAnswer({ exerciseId: 1, userId: 5, answer: 'a', correct: true })
     enqueueAnswer({ exerciseId: 2, userId: 5, answer: 'b', correct: true })
-    const post = vi.fn()
+    const ex = vi.fn()
       .mockResolvedValueOnce({ duplicate: false })
       .mockRejectedValueOnce(new Error('network'))
 
-    const res = await syncQueue(post)
+    const res = await syncQueue(handlers(ex))
 
     expect(res).toEqual({ synced: 1, failed: 1 })
     expect(getQueue()).toHaveLength(1)

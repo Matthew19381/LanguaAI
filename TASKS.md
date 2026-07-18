@@ -95,7 +95,14 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
     - **Ocena lokalna wiernie odwzorowuje `grade_answer`** — JS `\w` jest ASCII-only, więc użyto `\p{L}\p{N}` (inaczej „schön" oceniałoby się inaczej na urządzeniu niż na serwerze). Te same przypadki testowe po obu stronach.
     - UI: znaczniki „Tryb offline" / „Do wysłania: N", komunikat po synchronizacji, przycisk pobrania pakietu
     - **Zweryfikowane end-to-end:** przy wyłączonym backendzie 3 odpowiedzi ocenione lokalnie (2/3) i zakolejkowane; po restarcie liczniki wzrosły dokładnie o 1, `correct` tylko przy poprawnych; ponowne odtworzenie tego samego zdarzenia → `duplicate: true`, bez zmiany licznika
-- [ ] Offline dla **fiszek** i ukończenia lekcji (ten sam wzorzec: pakiet + `client_event_id`)
+- [x] **Offline dla FISZEK** ✅ (2026-07-18) — największy wolumen powtórek, więc największy zysk na telefonie
+    - `GET /api/flashcards/{id}/offline-pack` — treść kart + `audio_path` (SW pre-cache'uje wymowę) + harmonogram. Fiszki są samooceniane (1–4), więc **offline nie wymaga żadnej logiki oceniania** — w przeciwieństwie do ćwiczeń nie ma ryzyka rozjazdu z serwerem
+    - `POST /{id}/review` przyjmuje `client_event_id` + `reviewed_at` (idempotencja + harmonogram od momentu powtórki)
+    - `services/sync_service.py`: wspólne `parse_occurred_at` / `already_applied` / `record_event` — ćwiczenia przeniesione na ten sam kod (koniec duplikacji)
+    - `hooks/useOfflineSync.js`: **synchronizacja na poziomie całej aplikacji** (w `OfflineBanner`), więc praca offline wysyła się z dowolnego ekranu; wspólny outbox z polem `kind`
+    - Baner pokazuje też stan „Wysyłanie postępów: N" po powrocie sieci
+    - **Zweryfikowane end-to-end:** przy martwym backendzie 3 karty ocenione offline (Dobra/Jeszcze raz/Dobra) i zakolejkowane; po restarcie kolejka pusta, `reps=1` na każdej karcie, a karta z oceną „Jeszcze raz" ma `lapses=1` (dowód, że ocena przeszła wiernie); ponowne odtworzenie → `duplicate: true`, `reps` bez zmian
+- [ ] Offline dla ukończenia lekcji (ten sam wzorzec)
 - [ ] Prawdziwy Background Sync API (dziś synchronizacja odpala się przy zdarzeniu `online` i przy wejściu na ekran — wystarcza, ale nie działa gdy aplikacja jest zamknięta)
 - [ ] **HTTPS**: SW/instalacja PWA nie działają pod `http://<ip>:5173`. Do pełnego PWA na telefonie potrzebne wdrożenie w chmurze lub tunel HTTPS
 

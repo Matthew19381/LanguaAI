@@ -155,3 +155,80 @@ def test_practice_still_withholds_answers(client, db, sample_user):
 
 def test_offline_pack_user_not_found(client):
     assert client.get("/api/exercises/99999/offline-pack").status_code == 404
+
+
+# ── Flashcards offline ───────────────────────────────────────────────────────
+# Flashcards are self-rated, so there is nothing to grade on the device — only
+# the review itself has to survive the round trip exactly once.
+
+def _card(db, uid, word="Hund"):
+    from backend.models.flashcard import Flashcard
+    c = Flashcard(user_id=uid, word=word, translation="dog",
+                  language="German", cefr_level="A1")
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return c
+
+
+def test_flashcard_offline_pack_has_content_and_schedule(client, db, sample_user):
+    uid = sample_user["user_id"]
+    _card(db, uid)
+    r = client.get(f"/api/flashcards/{uid}/offline-pack")
+    assert r.status_code == 200
+    cards = r.json()["flashcards"]
+    assert len(cards) == 1
+    assert cards[0]["word"] == "Hund" and cards[0]["translation"] == "dog"
+    # audio_path lets the service worker pre-cache pronunciation
+    assert "audio_path" in cards[0]
+    assert "next_review_date" in cards[0]
+
+
+def test_flashcard_offline_pack_user_not_found(client):
+    assert client.get("/api/flashcards/99999/offline-pack").status_code == 404
+
+
+def test_replaying_flashcard_review_counts_once(client, db, sample_user):
+    from backend.models.flashcard import Flashcard
+    uid = sample_user["user_id"]
+    card = _card(db, uid)
+    payload = {"rating": 3, "client_event_id": "fc-evt-1",
+               "reviewed_at": datetime.now(timezone.utc).isoformat()}
+
+    first = client.post(f"/api/flashcards/{card.id}/review", json=payload, params={"user_id": uid})
+    second = client.post(f"/api/flashcards/{card.id}/review", json=payload, params={"user_id": uid})
+
+    assert first.json()["duplicate"] is False
+    assert second.json()["duplicate"] is True
+    db.expire_all()
+    # One review applied, not two
+    assert db.get(Flashcard, card.id).repetitions == 1
+    assert db.query(SyncEvent).filter(SyncEvent.kind == "flashcard_review").count() == 1
+
+
+def test_flashcard_review_without_event_id_unchanged(client, db, sample_user):
+    """Online reviews carry no event id and must behave exactly as before."""
+    uid = sample_user["user_id"]
+    card = _card(db, uid)
+    r = client.post(f"/api/flashcards/{card.id}/review", json={"rating": 3}, params={"user_id": uid})
+    assert r.status_code == 200
+    assert r.json()["duplicate"] is False
+    assert db.query(SyncEvent).count() == 0
+
+
+def test_flashcard_review_uses_offline_timestamp(client, db, sample_user):
+    from backend.models.flashcard import Flashcard
+    uid = sample_user["user_id"]
+    card = _card(db, uid)
+    two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+
+    client.post(f"/api/flashcards/{card.id}/review",
+                json={"rating": 3, "client_event_id": "fc-old",
+                      "reviewed_at": two_days_ago.isoformat()},
+                params={"user_id": uid})
+
+    db.expire_all()
+    last = db.get(Flashcard, card.id).last_review_date
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    assert last < datetime.now(timezone.utc) - timedelta(days=1)

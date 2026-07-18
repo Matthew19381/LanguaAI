@@ -2,11 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Brain, ChevronLeft, ChevronRight, Download, Eye,
-  CheckCircle, AlertCircle, Clock, Plus
+  CheckCircle, AlertCircle, Clock, Plus, CloudOff, UploadCloud
 } from 'lucide-react'
-import { getUserId, getFlashcards, getDueFlashcards, reviewFlashcard, exportAnki, addFlashcard, addFlashcardAI, bulkImportFlashcards } from '../api/client'
+import { getUserId, getFlashcards, getDueFlashcards, reviewFlashcard, exportAnki, addFlashcard, addFlashcardAI, bulkImportFlashcards, getFlashcardOfflinePack } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
+import { useOfflineSync } from '../hooks/useOfflineSync'
+import { saveCardPack, loadCardPack, enqueueFlashcardReview } from '../utils/offlineQueue'
 import PlayButton from '../components/PlayButton'
 
 // German gender colors
@@ -78,9 +80,12 @@ export default function Flashcards() {
   const [dateFilter, setDateFilter] = useState('all') // 'all', 'today', 'week', 'month'
   const [lessonFilter, setLessonFilter] = useState('all') // 'all' or lesson_day number
   const [cefrFilter, setCefrFilter] = useState('all') // 'all', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'
+  const [offlineMode, setOfflineMode] = useState(false)
+  const [packMsg, setPackMsg] = useState('')
   const navigate = useNavigate()
   const userId = getUserId()
   const { t, targetLanguage } = useLanguage()
+  const { pending, refresh: refreshPending } = useOfflineSync()
 
   const [showAddForm, setShowAddForm] = useState(true)
 
@@ -119,8 +124,35 @@ export default function Flashcards() {
       setAllCards(all.flashcards || [])
       setAllTotal(all.total || 0)
       setDueCards(due.due_cards || [])
-    } catch (e) {}
+      setOfflineMode(false)
+      // Keep a pack on the device for the next time there is no network
+      getFlashcardOfflinePack(userId).then(saveCardPack).catch(() => {})
+    } catch (e) {
+      // No network: fall back to the downloaded pack so review still works
+      const pack = loadCardPack()
+      if (pack?.flashcards?.length) {
+        const now = Date.now()
+        const due = pack.flashcards.filter(
+          c => !c.next_review_date || new Date(c.next_review_date).getTime() <= now
+        )
+        setAllCards(pack.flashcards)
+        setAllTotal(pack.flashcards.length)
+        setDueCards(due)
+        setOfflineMode(true)
+      }
+    }
     finally { setLoading(false) }
+  }
+
+  const handleDownloadCardPack = async () => {
+    try {
+      const pack = await getFlashcardOfflinePack(userId)
+      setPackMsg(saveCardPack(pack)
+        ? t('flash.packSaved').replace('{n}', pack.flashcards.length)
+        : t('flash.packFailed'))
+    } catch {
+      setPackMsg(t('flash.packFailed'))
+    }
   }
 
   const filterCards = (cards) => {
@@ -172,14 +204,27 @@ export default function Flashcards() {
   const handleReview = useCallback(async (rating) => {
     const { currentCard: card, currentIndex: idx, displayCards: cards } = stateRef.current
     if (!card) return
-    try {
-      await reviewFlashcard(card.id, rating, userId)
+    const advance = () => {
       setReviewDone(prev => new Set([...prev, card.id]))
       if (idx < cards.length - 1) {
         setIsFlipped(false)
         setCurrentIndex(i => Math.min(i + 1, cards.length - 1))
       }
-    } catch (e) {}
+    }
+    // Offline (or the connection drops mid-session): queue the rating and move
+    // on. Flashcards are self-rated, so nothing needs grading on the device.
+    const queueIt = () => {
+      enqueueFlashcardReview({ flashcardId: card.id, userId, rating })
+      refreshPending()
+      advance()
+    }
+    if (!navigator.onLine) { queueIt(); return }
+    try {
+      await reviewFlashcard(card.id, rating, userId)
+      advance()
+    } catch (e) {
+      queueIt()
+    }
   }, [userId])
 
   // Keyboard navigation: Space/Enter = flip, 1-4 = review rating, ←/→ = prev/next
@@ -291,6 +336,28 @@ export default function Flashcards() {
             <AlertCircle className="w-4 h-4" /> {exportError}
           </span>
         )}
+      </div>
+
+      {/* Offline status + pack download */}
+      <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
+        {offlineMode && (
+          <span className="px-2.5 py-1 rounded-lg bg-amber-900/40 text-amber-200 flex items-center gap-1">
+            <CloudOff className="w-3 h-3" /> {t('flash.offlineMode')}
+          </span>
+        )}
+        {pending > 0 && (
+          <span className="px-2.5 py-1 rounded-lg bg-sky-900/40 text-sky-200 flex items-center gap-1">
+            <UploadCloud className="w-3 h-3" /> {t('practice.pending').replace('{n}', pending)}
+          </span>
+        )}
+        <button
+          onClick={handleDownloadCardPack}
+          disabled={offlineMode}
+          className="px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 disabled:opacity-40 flex items-center gap-1 transition-colors"
+        >
+          <Download className="w-3 h-3" /> {t('flash.downloadPack')}
+        </button>
+        {packMsg && <span className="text-gray-400">{packMsg}</span>}
       </div>
 
       {/* Tabs */}

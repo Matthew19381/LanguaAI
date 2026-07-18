@@ -6,13 +6,12 @@ import {
 } from 'lucide-react'
 import {
   getUserId, getPracticeSet, answerExercise, generateExerciseVariants, getExerciseStats,
-  getOfflinePack, replayAnswer,
+  getOfflinePack,
 } from '../api/client'
-import {
-  savePack, loadPack, gradeLocally, enqueueAnswer, queueSize, syncQueue,
-} from '../utils/offlineQueue'
+import { savePack, loadPack, gradeLocally, enqueueAnswer } from '../utils/offlineQueue'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
+import { useOfflineSync } from '../hooks/useOfflineSync'
 
 const SET_SIZE = 10
 
@@ -29,12 +28,10 @@ export default function Practice() {
   const [weakSkills, setWeakSkills] = useState([])
   // Offline state
   const [offlineMode, setOfflineMode] = useState(false)
-  const [pending, setPending] = useState(queueSize())
-  const [syncing, setSyncing] = useState(false)
-  const [syncMsg, setSyncMsg] = useState('')
   const navigate = useNavigate()
   const userId = getUserId()
   const { t } = useLanguage()
+  const { pending, syncing, lastSynced, refresh: refreshPending } = useOfflineSync()
 
   /** Build a practice set out of the locally stored pack. */
   const setFromPack = useCallback(() => {
@@ -81,27 +78,9 @@ export default function Practice() {
       .finally(() => setLoading(false))
   }, [userId, setFromPack])
 
-  /** Replay everything queued while offline. */
-  const runSync = useCallback(async () => {
-    if (queueSize() === 0) return
-    setSyncing(true)
-    try {
-      const { synced, failed } = await syncQueue(replayAnswer)
-      setPending(queueSize())
-      if (synced > 0) setSyncMsg(t('practice.synced').replace('{n}', synced))
-      if (failed > 0) setSyncMsg(t('practice.syncPartial').replace('{n}', failed))
-    } finally {
-      setSyncing(false)
-    }
-  }, [t])
-
   useEffect(() => {
     if (!userId) { navigate('/placement'); return }
     load()
-    runSync()
-    const onOnline = () => { runSync() }
-    window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
   }, [userId])
 
   const exercises = set?.exercises || []
@@ -114,7 +93,7 @@ export default function Practice() {
     if (expected == null) return null // pack lacks the answer — cannot grade here
     const correct = gradeLocally(expected, answerText)
     enqueueAnswer({ exerciseId: exercise.id, userId, answer: answerText, correct })
-    setPending(queueSize())
+    refreshPending()
     return {
       correct,
       expected_answer: expected,
@@ -236,7 +215,11 @@ export default function Practice() {
           </span>
         )}
       </div>
-      {syncMsg && <p className="text-xs text-gray-400 -mt-2 mb-3">{syncMsg}</p>}
+      {lastSynced > 0 && pending === 0 && (
+        <p className="text-xs text-gray-400 -mt-2 mb-3">
+          {t('practice.synced').replace('{n}', lastSynced)}
+        </p>
+      )}
 
       {finished ? (
         <div className="card text-center">

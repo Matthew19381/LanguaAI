@@ -219,6 +219,17 @@ export const replayAnswer = (event) =>
     answered_at: event.answered_at,
   })
 
+export const getFlashcardOfflinePack = (userId, size = 100) =>
+  api.get(`/flashcards/${userId}/offline-pack`, { params: { size } })
+
+// Replay of a flashcard review recorded while offline (idempotent server-side)
+export const replayFlashcardReview = (event) =>
+  api.post(`/flashcards/${event.flashcard_id}/review`, {
+    rating: event.rating,
+    client_event_id: event.client_event_id,
+    reviewed_at: event.reviewed_at,
+  }, { params: { user_id: event.user_id } })
+
 export const getExerciseStats = (userId) =>
   api.get(`/exercises/${userId}/stats`)
 

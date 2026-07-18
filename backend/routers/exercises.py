@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.exercise import Exercise
-from backend.models.sync_event import SyncEvent
 from backend.schemas.exercise import AnswerExerciseRequest, GenerateVariantsRequest
 from backend.services.exercise_service import (
     VARIANT_AFTER_TIMES_SEEN,
@@ -18,22 +17,8 @@ from backend.services.exercise_service import (
     review_exercise,
     serialize_exercise,
 )
-
-
-def _parse_occurred_at(raw: str | None) -> datetime:
-    """Parse a client timestamp, falling back to now. Never trusts the future."""
-    now = datetime.now(timezone.utc)
-    if not raw:
-        return now
-    try:
-        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
-        return now
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    # A device clock running ahead must not push reviews into the future
-    return min(parsed, now)
 from backend.services.lesson_generator import generate_exercise_variants
+from backend.services.sync_service import already_applied, parse_occurred_at, record_event
 from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
@@ -192,33 +177,22 @@ async def answer_exercise(
     }
 
     # ── Offline replay: the same queued answer must never count twice ──
-    if request.client_event_id:
-        already = db.query(SyncEvent).filter(
-            SyncEvent.client_event_id == request.client_event_id
-        ).first()
-        if already:
-            return {
-                **base,
-                "duplicate": True,
-                "times_seen": exercise.times_seen,
-                "times_correct": exercise.times_correct,
-                "interval_days": exercise.interval_days,
-                "state": exercise.fsrs_state,
-                "next_review": exercise.next_review_date.isoformat() if exercise.next_review_date else None,
-                "needs_variant": (exercise.times_seen or 0) >= VARIANT_AFTER_TIMES_SEEN,
-            }
+    if already_applied(db, request.client_event_id):
+        return {
+            **base,
+            "duplicate": True,
+            "times_seen": exercise.times_seen,
+            "times_correct": exercise.times_correct,
+            "interval_days": exercise.interval_days,
+            "state": exercise.fsrs_state,
+            "next_review": exercise.next_review_date.isoformat() if exercise.next_review_date else None,
+            "needs_variant": (exercise.times_seen or 0) >= VARIANT_AFTER_TIMES_SEEN,
+        }
 
-    occurred_at = _parse_occurred_at(request.answered_at)
+    occurred_at = parse_occurred_at(request.answered_at)
     scheduling = review_exercise(db, exercise, rating, now=occurred_at)
-
-    if request.client_event_id:
-        db.add(SyncEvent(
-            client_event_id=request.client_event_id,
-            user_id=request.user_id,
-            kind="exercise_answer",
-            target_id=exercise.id,
-            occurred_at=occurred_at,
-        ))
+    record_event(db, request.client_event_id, request.user_id,
+                 "exercise_answer", exercise.id, occurred_at)
 
     try:
         db.commit()

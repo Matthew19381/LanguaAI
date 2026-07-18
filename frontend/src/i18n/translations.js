@@ -156,6 +156,11 @@
     'practice.downloadPack': 'Pobierz zadania na offline',
     'practice.packSaved': 'Pobrano {n} zadań do ćwiczenia offline.',
     'practice.packFailed': 'Nie udało się pobrać zadań offline.',
+    'offline.syncing': 'Wysyłanie postępów: {n}',
+    'flash.offlineMode': 'Tryb offline',
+    'flash.downloadPack': 'Pobierz fiszki na offline',
+    'flash.packSaved': 'Pobrano {n} fiszek do powtórek offline.',
+    'flash.packFailed': 'Nie udało się pobrać fiszek offline.',
     'stats.loadingTips': 'Ĺadowanie wskazĂłwek...',
     'stats.noTips': 'Brak wskazĂłwek',
 
@@ -604,6 +609,11 @@
     'practice.downloadPack': 'Download exercises for offline',
     'practice.packSaved': 'Downloaded {n} exercises for offline practice.',
     'practice.packFailed': 'Could not download offline exercises.',
+    'offline.syncing': 'Uploading progress: {n}',
+    'flash.offlineMode': 'Offline mode',
+    'flash.downloadPack': 'Download flashcards for offline',
+    'flash.packSaved': 'Downloaded {n} flashcards for offline review.',
+    'flash.packFailed': 'Could not download offline flashcards.',
     'stats.loadingTips': 'Loading tips...',
     'stats.noTips': 'No tips available',
 

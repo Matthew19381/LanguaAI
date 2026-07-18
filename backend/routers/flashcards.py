@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -27,6 +28,7 @@ from backend.services.flashcard_service import (
 )
 from backend.services.fsrs_service import apply_fsrs as fsrs_apply
 from backend.services.gemini_service import generate_json, with_model
+from backend.services.sync_service import already_applied, parse_occurred_at, record_event
 from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
@@ -118,6 +120,47 @@ async def get_due_flashcards(user_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/api/flashcards/{user_id}/offline-pack")
+async def get_flashcards_offline_pack(user_id: int, size: int = 100, db: Session = Depends(get_db)):
+    """Cards to review without a network.
+
+    Flashcards are self-rated (1-4), so unlike the exercise pack there is nothing
+    to grade on the device — this is simply the card content plus its schedule.
+    ``audio_path`` is included so the service worker can pre-cache pronunciation.
+    """
+    user = get_user_or_404(db, user_id)
+    size = max(1, min(size, 500))
+
+    cards = db.query(Flashcard).filter(
+        Flashcard.user_id == user_id,
+        Flashcard.language == user.target_language,
+        Flashcard.is_active == True,  # noqa: E712
+    ).order_by(Flashcard.next_review_date.asc()).limit(size).all()
+
+    return {
+        "user_id": user_id,
+        "language": user.target_language,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "flashcards": [
+            {
+                "id": f.id,
+                "word": f.word,
+                "translation": f.translation,
+                "example_sentence": f.example_sentence,
+                "audio_path": f.audio_path,
+                "gender": f.gender,
+                "isImportant": f.isImportant,
+                "cefr_level": f.cefr_level,
+                "lesson_topic": f.lesson_topic,
+                "is_mastered": f.is_mastered,
+                "correct_recall_sessions": f.correct_recall_sessions,
+                "next_review_date": f.next_review_date.isoformat() if f.next_review_date else None,
+            }
+            for f in cards
+        ],
+    }
+
+
 @router.post("/api/flashcards/{flashcard_id}/review")
 async def review_flashcard(
     flashcard_id: int,
@@ -135,8 +178,22 @@ async def review_flashcard(
 
     user = get_user_or_404(db, user_id)
 
-    # Determine session type based on current UTC hour
-    now = datetime.now(timezone.utc)
+    # ── Offline replay: a queued review must never be applied twice ──
+    if already_applied(db, request.client_event_id):
+        return {
+            "success": True,
+            "duplicate": True,
+            "flashcard_id": flashcard_id,
+            "new_interval": flashcard.interval_days,
+            "state": flashcard.fsrs_state,
+            "next_review": flashcard.next_review_date.isoformat() if flashcard.next_review_date else None,
+            "correct_recall_sessions": flashcard.correct_recall_sessions,
+            "is_mastered": flashcard.is_mastered,
+            "new_achievements": [],
+        }
+
+    # Reviews replayed from a device are scheduled from when they happened
+    now = parse_occurred_at(request.reviewed_at)
     current_hour = now.hour
     if 6 <= current_hour <= 10:
         session_type = "morning"
@@ -222,13 +279,22 @@ async def review_flashcard(
     flashcard.interleaving_bonus = interleaving_bonus
     flashcard.interference_penalty = interference_penalty
 
-    db.commit()
+    record_event(db, request.client_event_id, user_id,
+                 "flashcard_review", flashcard.id, now)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        # Two replays raced on the same client_event_id — the other one won.
+        db.rollback()
+        return {"success": True, "duplicate": True, "flashcard_id": flashcard_id}
 
     # Check achievements after flashcard review (e.g. flashcards_review_50)
     new_achievements = check_and_award_achievements(user, db)
 
     return {
         "success": True,
+        "duplicate": False,
         "flashcard_id": flashcard_id,
         "new_interval": flashcard.interval_days,
         "new_difficulty": result.difficulty,
