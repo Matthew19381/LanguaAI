@@ -137,12 +137,14 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
 
     # ── RAG: fetch user's data to personalize the lesson ──
 
-    # User's known vocabulary (flashcards) — last 50 active cards
+    # User's known vocabulary (flashcards) — 50 cards, genuinely-known first.
+    # SCI-1: mastered words (3 correct recalls across sessions) are the most
+    # reliable "known" input for i+1 comprehensible-input generation.
     user_flashcards = db.query(Flashcard.word).filter(
         Flashcard.user_id == user_id,
         Flashcard.language == user.target_language,
         Flashcard.is_active == True,
-    ).order_by(Flashcard.created_at.desc()).limit(50).all()
+    ).order_by(Flashcard.is_mastered.desc(), Flashcard.created_at.desc()).limit(50).all()
     user_vocabulary = [f[0] for f in user_flashcards] if user_flashcards else None
 
     # Weak topics (low memory_strength) and strong topics (high memory_strength)
@@ -639,11 +641,12 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
             pass
 
     # RAG: fetch user's vocabulary and topic strengths for next lesson too
+    # SCI-1: mastered words first (most reliable "known" input for i+1).
     next_flashcards = db.query(Flashcard.word).filter(
         Flashcard.user_id == user_id,
         Flashcard.language == user.target_language,
         Flashcard.is_active == True,
-    ).order_by(Flashcard.created_at.desc()).limit(50).all()
+    ).order_by(Flashcard.is_mastered.desc(), Flashcard.created_at.desc()).limit(50).all()
     next_vocab = [f[0] for f in next_flashcards] if next_flashcards else None
 
     next_all_topics = db.query(Topic).filter(

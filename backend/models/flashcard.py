@@ -32,6 +32,11 @@ class Flashcard(Base):
     fsrs_state = Column(String, default="Learning")  # Learning/Review/Relearning
     next_review_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     last_review_date = Column(DateTime, nullable=True)  # last FSRS review (needed for interval calc)
+    # ── SCI-1: Successive relearning (Rawson & Dunlosky 2011) ──
+    # A word counts as "mastered" only after 3 correct recalls on distinct days.
+    correct_recall_sessions = Column(Integer, default=0)  # distinct-day correct recalls since last lapse
+    last_recall_date = Column(DateTime, nullable=True)    # last day a correct recall was counted
+    is_mastered = Column(Boolean, default=False)          # reached the relearning criterion
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_active = Column(Boolean, default=True)
     # ── Review-context telemetry (informational; not used by the FSRS scheduler) ──

@@ -31,7 +31,12 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
 
 > Każda z cytowaniem recenzowanego źródła. Kolejność = priorytet implementacji.
 
-- [ ] **SCI-1 Successive relearning** — słowo „opanowane" dopiero po 3 poprawnych przypomnieniach rozłożonych na ≥2 sesje; do tego czasu wraca w kolejce mimo oceny „Good". _Rawson & Dunlosky (2011)._ → pole `correct_recall_sessions` na fiszce; status `mastered` sterujący statystykami i doborem słów do i+1.
+- [x] **SCI-1 Successive relearning** ✅ — słowo „opanowane" po 3 poprawnych przypomnieniach na odrębnych dniach; do tego czasu interwał FSRS capowany (≤2 dni), by karta wracała na kolejną sesję. _Rawson & Dunlosky (2011)._
+    - `backend/services/flashcard_service.py`: czysta funkcja `advance_relearning_criterion` (rating≥3 liczy raz/dzień, rating==1 resetuje, rating==2 neutralny) + stałe `MASTERY_SESSIONS_REQUIRED=3`, `MASTERY_REVIEW_CAP_DAYS=2`.
+    - `backend/models/flashcard.py` + migracja w `main.py`: `correct_recall_sessions`, `last_recall_date`, `is_mastered`.
+    - `backend/routers/flashcards.py`: wpięte w `review_flashcard`; cap interwału dla niezmasterowanych; `is_mastered`/`correct_recall_sessions` w odpowiedziach + `mastered_count` w liście.
+    - `backend/routers/lessons.py`: słowa `mastered` mają pierwszeństwo jako „known vocabulary" dla i+1 (oba miejsca).
+    - Testy: `backend/tests/test_successive_relearning.py` (7 testów: kryterium przez daty + integracja).
 - [ ] **SCI-2 Pretesting** — 3-5 pytań-zgadywanek o nowe słowa *przed* lekcją; błędne odpowiedzi oczekiwane i nieszkodliwe. _Kornell, Hays & Bjork (2009); Richland et al. (2009)._ → sekcja `pretest` renderowana przed `vocabulary`; bez kar XP.
 - [ ] **SCI-3 Walidator pokrycia leksykalnego** — po wygenerowaniu tekstu i+1 backend liczy % znanych tokenów; przy <95% regeneruje (max 2 próby). _Hu & Nation (2000); Nation (2006)._ → `lexical_coverage(text, known_words)` w `lesson_generator`.
 - [ ] **SCI-4 Rozpraszanie podobnych słów** — słowa z tej samej kategorii semantycznej dostają rozsunięte `next_review_date` zamiast wchodzić do kolejki razem. _Tinkham (1993); Nakata & Suzuki (2019)._ → przy batchu nowych fiszek offset dat wewnątrz klastra.

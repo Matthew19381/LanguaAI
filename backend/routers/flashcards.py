@@ -3,7 +3,7 @@ import io
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -21,6 +21,10 @@ from backend.schemas.flashcard import (
 from backend.services.achievement_service import check_and_award_achievements
 from backend.services.anki_service import generate_anki_deck
 from backend.services.audio_service import generate_flashcard_audio
+from backend.services.flashcard_service import (
+    MASTERY_REVIEW_CAP_DAYS,
+    advance_relearning_criterion,
+)
 from backend.services.fsrs_service import apply_fsrs as fsrs_apply
 from backend.services.gemini_service import generate_json, with_model
 from backend.utils import get_user_or_404
@@ -73,10 +77,13 @@ async def get_flashcards(
                 "lesson_topic": f.lesson_topic,
                 "gender": f.gender,
                 "isImportant": f.isImportant,
+                "correct_recall_sessions": f.correct_recall_sessions,
+                "is_mastered": f.is_mastered,
             }
             for f in flashcards
         ],
-        "total": total
+        "total": total,
+        "mastered_count": sum(1 for f in flashcards if f.is_mastered),
     }
 
 
@@ -185,12 +192,30 @@ async def review_flashcard(
     flashcard.difficulty = result.difficulty
     flashcard.stability = result.stability
     flashcard.retrievability = result.retrievability
-    flashcard.interval_days = result.interval
     flashcard.repetitions = result.repetitions
     flashcard.lapses = result.lapses
     flashcard.fsrs_state = result.state
-    flashcard.next_review_date = result.next_review_date
     flashcard.last_review_date = now
+
+    # ── SCI-1: successive relearning ──
+    # Advance the correct-recall criterion; until the card is mastered, cap the
+    # FSRS interval so it returns for another relearning session soon. FSRS's
+    # own scheduling (incl. sub-day learning steps) is preserved otherwise.
+    sessions, mastered, last_recall = advance_relearning_criterion(
+        rating=request.rating,
+        correct_recall_sessions=flashcard.correct_recall_sessions or 0,
+        last_recall_date=flashcard.last_recall_date,
+        now=now,
+    )
+    flashcard.correct_recall_sessions = sessions
+    flashcard.is_mastered = mastered
+    flashcard.last_recall_date = last_recall
+    if not mastered and result.interval > MASTERY_REVIEW_CAP_DAYS:
+        flashcard.interval_days = MASTERY_REVIEW_CAP_DAYS
+        flashcard.next_review_date = now + timedelta(days=MASTERY_REVIEW_CAP_DAYS)
+    else:
+        flashcard.interval_days = result.interval
+        flashcard.next_review_date = result.next_review_date
     # Preserve neuro telemetry metadata (informational only, not used by FSRS scheduler)
     flashcard.session_type = session_type
     flashcard.sleep_quality = sleep_quality
@@ -205,11 +230,14 @@ async def review_flashcard(
     return {
         "success": True,
         "flashcard_id": flashcard_id,
-        "new_interval": result.interval,
+        "new_interval": flashcard.interval_days,
         "new_difficulty": result.difficulty,
         "new_stability": result.stability,
         "state": getattr(result, 'state', "Review"),
         "next_review": flashcard.next_review_date.isoformat(),
+        # SCI-1: successive-relearning progress toward mastery
+        "correct_recall_sessions": flashcard.correct_recall_sessions,
+        "is_mastered": flashcard.is_mastered,
         "sleep_quality": sleep_quality,
         "interleaving_bonus": interleaving_bonus,
         "interference_penalty": interference_penalty,
