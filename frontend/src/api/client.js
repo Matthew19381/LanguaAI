@@ -194,6 +194,12 @@ export const exportLessonPDF = (lessonId, userId) =>
 export const getQuickMode = (userId) =>
   api.get(`/quickmode/${userId}`)
 
+export const getDictation = (userId, count = 3) =>
+  api.get(`/quickmode/dictation/${userId}`, { params: { count } })
+
+export const checkDictation = (reference, typed) =>
+  api.post(`/quickmode/dictation/check`, { reference, typed })
+
 // ===== News =====
 
 export const getNews = (userId, limit = 5) =>

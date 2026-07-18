@@ -57,7 +57,17 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
     - `frontend`: `getBestStudyTime` w client.js + karta na stronie Stats (pokazywana tylko gdy `enough_data`); klucze `stats.bestTime*`/`stats.timeBucket.*` (PL+EN).
     - Testy: `backend/tests/test_best_study_time.py` (8: buckety, próg, wybór najlepszego, endpoint 200/404). Frontend build + 43 testy OK.
     - _Uwaga:_ używamy wyników testów (znaczonych czasem), bo pojedyncze powtórki fiszek nie są logowane per-event; telemetria `session_type` na fiszce to tylko ostatnia wartość. Realistyczny próg 8 zamiast 200.
-- [ ] **SCI-6 Dyktando** — odsłuch zdania (edge-tts) + zapis ze słuchu, z diffem błędów. _Nation & Newton (2009)._ → nowa aktywność w Quick Mode.
+- [x] **SCI-6 Dyktando** ✅ — odsłuch zdania (edge-tts) + zapis ze słuchu, z word-level diffem (correct/wrong/missing/extra) i trafnością. _Nation & Newton (2009)._
+    - `services/dictation_service.py`: czysty `diff_transcription` (difflib, normalizacja wielkości liter/interpunkcji) + `generate_dictation_sentences` (AI, fallback offline).
+    - `routers/quickmode.py`: `GET /api/quickmode/dictation/{user_id}` (zdania + audio edge-tts, degradacja gdy TTS pada), `POST /api/quickmode/dictation/check`; aktywność „Dyktando" w planie Quick Mode.
+    - `frontend`: nowa strona `Dictation.jsx` + route `/dictation` + `getDictation`/`checkDictation` w client.js; odtwarzanie z `audio_path` (nie ujawnia tekstu przed sprawdzeniem); ikona Headphones w QuickMode; klucze `dictation.*` (PL+EN).
+    - Testy: `backend/tests/test_dictation.py` (10: diff correct/wrong/missing/extra + endpointy 200/404 + degradacja audio). Frontend build + 43 testy OK.
+
+---
+
+### ✅ Backlog SCI: 6/6 ukończone (2026-07-18)
+
+Wszystkie funkcje z audytu spójności naukowej zaimplementowane, przetestowane i wypchnięte. Łącznie ~48 nowych testów backendu (273 → 321). Każda funkcja poparta cytowanym recenzowanym źródłem i zweryfikowana testami jednostkowymi + integracyjnymi.
 
 ---
 

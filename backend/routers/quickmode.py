@@ -1,16 +1,28 @@
 import logging
+import os
 from datetime import date
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
+from backend.services.audio_service import AUDIO_DIR, generate_audio
+from backend.services.dictation_service import (
+    diff_transcription,
+    generate_dictation_sentences,
+)
 from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class DictationCheckRequest(BaseModel):
+    reference: str
+    typed: str
 
 
 @router.get("/api/quickmode/{user_id}")
@@ -104,6 +116,18 @@ async def get_quickmode_plan(user_id: int, db: Session = Depends(get_db)):
         "completed": False,
     })
 
+    # Dictation (SCI-6): listen and type what you hear
+    activities.append({
+        "id": "dictation",
+        "title": "Dyktando ze słuchu",
+        "description": "Posłuchaj zdania i zapisz je ze słuchu",
+        "estimated_minutes": 4,
+        "priority": 4,
+        "route": "/dictation",
+        "icon": "Headphones",
+        "completed": False,
+    })
+
     # Sort by priority
     activities.sort(key=lambda x: x["priority"])
 
@@ -117,3 +141,42 @@ async def get_quickmode_plan(user_id: int, db: Session = Depends(get_db)):
         "activities": activities,
         "timer_minutes": 15,
     }
+
+
+@router.get("/api/quickmode/dictation/{user_id}")
+async def get_dictation(user_id: int, count: int = 3, db: Session = Depends(get_db)):
+    """SCI-6: generate dictation sentences (with audio) for the learner's level."""
+    user = get_user_or_404(db, user_id)
+    sentences = await generate_dictation_sentences(
+        target_language=user.target_language,
+        cefr_level=user.cefr_level,
+        count=count,
+    )
+
+    items = []
+    for i, sentence in enumerate(sentences):
+        audio_path = None
+        # Filename derived from content so identical sentences reuse cached audio
+        safe = "".join(c for c in sentence[:24] if c.isalnum() or c == " ").strip().replace(" ", "_")
+        filename = f"dictation_{user_id}_{i}_{safe}.mp3"
+        output_path = os.path.join(AUDIO_DIR, filename)
+        try:
+            if not os.path.exists(output_path):
+                await generate_audio(sentence, user.target_language, output_path)
+            audio_path = f"/audio/{filename}"
+        except Exception as e:
+            logger.warning(f"Dictation audio failed for '{sentence[:20]}...': {e}")
+        items.append({"sentence": sentence, "audio_path": audio_path})
+
+    return {
+        "user_id": user_id,
+        "target_language": user.target_language,
+        "cefr_level": user.cefr_level,
+        "items": items,
+    }
+
+
+@router.post("/api/quickmode/dictation/check")
+async def check_dictation(payload: DictationCheckRequest):
+    """SCI-6: word-level diff between the reference sentence and what the user typed."""
+    return diff_transcription(payload.reference, payload.typed)

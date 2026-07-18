@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Timer, CheckCircle, BookOpen, FlaskConical, Brain, Mic, Newspaper, Play, Pause, RotateCcw } from 'lucide-react'
+import { Timer, CheckCircle, BookOpen, FlaskConical, Brain, Mic, Newspaper, Play, Pause, RotateCcw, Headphones } from 'lucide-react'
 import { getUserId, getQuickMode } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
@@ -16,6 +16,7 @@ const ICON_MAP = {
   Brain: <Brain className="w-5 h-5" />,
   Mic: <Mic className="w-5 h-5" />,
   Newspaper: <Newspaper className="w-5 h-5" />,
+  Headphones: <Headphones className="w-5 h-5" />,
 }
 
 const STORAGE_KEY_START = 'quickmode_start'
