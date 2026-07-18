@@ -50,6 +50,11 @@ async def generate_daily_lesson(
 {rag_context}
 
     Create a comprehensive lesson with the following sections:
+    0. Pretest (2-3 min): BEFORE teaching anything, ask the student to GUESS the meaning of 3-5 of the
+       new words from the Vocabulary section below. Wrong guesses are expected and helpful — this is a
+       pretesting exercise (Kornell, Hays & Bjork 2009), not a graded quiz. Each item: the target word,
+       a short guessing instruction in {native_language}, four plausible {native_language} options
+       (exactly one correct), and the correct answer. The words MUST be a subset of the Vocabulary words.
     1. Warm-up (2-3 min): Quick review of previous day's material
     2. Vocabulary introduction (10-15 min): 10-15 new words with translations, example sentences, and audio cues
     3. Grammar explanation (10-15 min): One key grammar point with clear examples
@@ -67,6 +72,12 @@ async def generate_daily_lesson(
 
     Return ONLY valid JSON:
     {{
+        "pretest": [{{
+            "word": "target language word (must also appear in vocabulary)",
+            "prompt": "guessing instruction in {native_language}",
+            "options": ["{native_language} option 1", "option 2", "option 3", "option 4"],
+            "answer": "the correct {native_language} option"
+        }}],
         "warmup": {{
             "activity": "description of warm-up activity",
             "duration_minutes": 3,
@@ -144,11 +155,21 @@ async def generate_daily_lesson(
         if not (isinstance(of, dict) and of.get("text") and of.get("instruction")):
             lesson.pop("output_forcing", None)
 
+        # SCI-2: keep only well-formed pretest items (word + options + answer)
+        # whose target word is actually taught in this lesson's vocabulary.
+        lesson["pretest"] = _sanitize_pretest(lesson.get("pretest"), lesson.get("vocabulary"))
+
         return lesson
     except Exception as e:
         logger.error(f"Error generating daily lesson: {e}")
         # Fallback lesson
         return {
+            "pretest": [{
+                "word": "Hallo",
+                "prompt": "Zgadnij, co znaczy to słowo (błędna odpowiedź jest OK):",
+                "options": ["Hello", "Goodbye", "Please", "Thank you"],
+                "answer": "Hello"
+            }],
             "warmup": {
                 "activity": "Review yesterday's vocabulary",
                 "duration_minutes": 3,
@@ -250,6 +271,38 @@ Return JSON:
             "questions": [{"question": "Was lernt die Person?", "answer": "Deutsch"}],
             "cefr_level": cefr_level
         }
+
+
+def _sanitize_pretest(pretest, vocabulary) -> list:
+    """Validate SCI-2 pretest items (Kornell, Hays & Bjork 2009).
+
+    Keeps only items that have a target word, exactly-one-correct multiple
+    choice (>=2 options incl. the answer), and whose word is actually taught in
+    this lesson's vocabulary. Returns [] on anything malformed — the frontend
+    renders the section conditionally, so an empty list simply hides it.
+    """
+    if not isinstance(pretest, list) or not isinstance(vocabulary, list):
+        return []
+    vocab_words = {
+        (v.get("word") or "").strip().lower()
+        for v in vocabulary if isinstance(v, dict)
+    }
+    clean = []
+    for item in pretest:
+        if not isinstance(item, dict):
+            continue
+        word = (item.get("word") or "").strip()
+        answer = (item.get("answer") or "").strip()
+        options = item.get("options")
+        if not (word and answer and isinstance(options, list) and len(options) >= 2):
+            continue
+        if answer not in options:
+            continue
+        if vocab_words and word.lower() not in vocab_words:
+            continue
+        clean.append({"word": word, "prompt": item.get("prompt", ""),
+                      "options": options, "answer": answer})
+    return clean[:5]
 
 
 def _build_interleaved_review(recent_topics: list[str] | None) -> list:

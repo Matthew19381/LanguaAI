@@ -4,7 +4,7 @@ import {
   BookOpen, CheckCircle, ChevronDown, ChevronUp,
   AlertTriangle, MessageSquare, PenTool, Star, Download,
   RefreshCw, Eye, EyeOff, FileText, BookmarkPlus, Loader2,
-  History, ArrowRight
+  History, ArrowRight, HelpCircle
 } from 'lucide-react'
 import { getUserId, getTodayLesson, getLesson, completeLesson, addFlashcardAI, evaluateProduction, generateNextLesson, generateConceptFlashcards, recordExerciseError, getDailyTest, getNews, searchYouTube, exportLessonPDF, exportObsidian, resetTodayLesson, getLessonAudioPackage } from '../api/client'
 import PlayButton from '../components/PlayButton'
@@ -82,6 +82,7 @@ export default function DailyLesson() {
     comprehensibleInput: false,
     interleaved: false,
     outputForcing: false,
+    pretest: true,
   })
   const [pdfLoading, setPdfLoading] = useState(false)
   const [audioPackageLoading, setAudioPackageLoading] = useState(false)
@@ -547,6 +548,18 @@ export default function DailyLesson() {
           {conceptsMsg && <p className="text-xs text-emerald-400 mt-1">{conceptsMsg}</p>}
         </div>
       </Section>
+
+      {/* Pretest (SCI-2): guess before being taught — wrong guesses are fine */}
+      {content.pretest?.length > 0 && (
+        <Section
+          title={t('lesson.pretest')}
+          icon={<HelpCircle className="w-5 h-5 text-amber-400" />}
+          expanded={expandedSections.pretest}
+          onToggle={() => toggleSection('pretest')}
+        >
+          <PretestCard items={content.pretest} t={t} />
+        </Section>
+      )}
 
       {/* Vocabulary */}
       {content.vocabulary?.length > 0 && (
@@ -1027,6 +1040,61 @@ function TranslationReveal({ translation }) {
       <Eye className="w-3 h-3" />
       {show ? <span className="text-emerald-300">{translation}</span> : 'Pokaż tłumaczenie'}
     </button>
+  )
+}
+
+function PretestCard({ items, t }) {
+  // SCI-2 pretesting: the learner guesses each word's meaning BEFORE the lesson
+  // teaches it. A wrong guess is expected and pedagogically useful — no scoring,
+  // no XP. After choosing, we reveal the correct answer and move on.
+  return (
+    <div>
+      <p className="text-amber-300/90 text-sm mb-3">
+        {t('lesson.pretestHint')}
+      </p>
+      <div className="space-y-4">
+        {items.map((item, i) => (
+          <PretestItem key={i} item={item} t={t} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PretestItem({ item, t }) {
+  const [chosen, setChosen] = useState(null)
+  const answered = chosen !== null
+  return (
+    <div className="bg-amber-900/10 border border-amber-700/30 rounded-lg p-3">
+      <p className="text-gray-200 text-sm mb-2">
+        {item.prompt || t('lesson.pretestGuess')} <span className="font-semibold text-amber-200">{item.word}</span>
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {item.options.map((opt, j) => {
+          const isCorrect = opt === item.answer
+          const isChosen = opt === chosen
+          let cls = 'bg-gray-800 hover:bg-gray-700 text-gray-200'
+          if (answered && isCorrect) cls = 'bg-emerald-800/60 text-emerald-100 border border-emerald-600'
+          else if (answered && isChosen) cls = 'bg-red-900/50 text-red-200 border border-red-700'
+          else if (answered) cls = 'bg-gray-800/50 text-gray-500'
+          return (
+            <button
+              key={j}
+              onClick={() => !answered && setChosen(opt)}
+              disabled={answered}
+              className={`text-left text-sm px-3 py-2 rounded-lg transition-colors ${cls}`}
+            >
+              {opt}
+            </button>
+          )
+        })}
+      </div>
+      {answered && (
+        <p className="text-xs text-gray-400 mt-2">
+          {chosen === item.answer ? t('lesson.pretestCorrect') : t('lesson.pretestWrongOk')}
+        </p>
+      )}
+    </div>
   )
 }
 

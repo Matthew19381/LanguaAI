@@ -37,7 +37,11 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
     - `backend/routers/flashcards.py`: wpięte w `review_flashcard`; cap interwału dla niezmasterowanych; `is_mastered`/`correct_recall_sessions` w odpowiedziach + `mastered_count` w liście.
     - `backend/routers/lessons.py`: słowa `mastered` mają pierwszeństwo jako „known vocabulary" dla i+1 (oba miejsca).
     - Testy: `backend/tests/test_successive_relearning.py` (7 testów: kryterium przez daty + integracja).
-- [ ] **SCI-2 Pretesting** — 3-5 pytań-zgadywanek o nowe słowa *przed* lekcją; błędne odpowiedzi oczekiwane i nieszkodliwe. _Kornell, Hays & Bjork (2009); Richland et al. (2009)._ → sekcja `pretest` renderowana przed `vocabulary`; bez kar XP.
+- [x] **SCI-2 Pretesting** ✅ — 3-5 zgadywanek (multiple-choice) o nowe słowa PRZED lekcją; bez punktów/XP, błędna odpowiedź komunikowana jako pożądana. _Kornell, Hays & Bjork (2009)._
+    - `daily_lesson.py`: sekcja `pretest` w promptcie (pkt 0, przed warm-up) + schema JSON; `_sanitize_pretest` waliduje (word ∈ vocabulary, answer ∈ options, ≥2 opcje, max 5); fallback zawiera pretest.
+    - `frontend/src/pages/DailyLesson.jsx`: komponenty `PretestCard`/`PretestItem` renderowane przed słownictwem; ujawnienie poprawnej odpowiedzi po wyborze, bez oceny.
+    - `frontend/src/i18n/translations.js`: klucze `lesson.pretest*` (PL+EN).
+    - Testy: `backend/tests/test_pretest.py` (6 testów sanitizer). Frontend build + 43 testy OK.
 - [ ] **SCI-3 Walidator pokrycia leksykalnego** — po wygenerowaniu tekstu i+1 backend liczy % znanych tokenów; przy <95% regeneruje (max 2 próby). _Hu & Nation (2000); Nation (2006)._ → `lexical_coverage(text, known_words)` w `lesson_generator`.
 - [ ] **SCI-4 Rozpraszanie podobnych słów** — słowa z tej samej kategorii semantycznej dostają rozsunięte `next_review_date` zamiast wchodzić do kolejki razem. _Tinkham (1993); Nakata & Suzuki (2019)._ → przy batchu nowych fiszek offset dat wewnątrz klastra.
 - [ ] **SCI-5 Osobista najlepsza pora nauki** — po ≥200 powtórkach analiza skuteczności per pora dnia z istniejącej telemetrii `session_type`; sugestia zamiast sztywnych okien godzinowych. _May & Hasher (1998); Goldstein et al. (2007) — synchrony effect._ → `GET /stats/{user_id}/best-study-time`.
