@@ -4,7 +4,7 @@ import {
   BookOpen, FlaskConical, MessageSquare, LayoutGrid,
   BarChart3, Flame, Star, Brain, Timer, Newspaper, Mic,
   BookmarkPlus, X, Loader2, Video, AlertTriangle, Layers,
-  Sun, Moon
+  Sun, Moon, Dumbbell, Headphones
 } from 'lucide-react'
 import { getUserId, getStats, addFlashcardAI } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
@@ -70,6 +70,9 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
     { to: '/pronunciation', label: t('nav.pronounce'), icon: Mic },
     { to: '/conversation', label: t('nav.speak'), icon: MessageSquare },
     { to: '/flashcards', label: t('nav.flashcards'), icon: Brain },
+    // Practice + dictation work offline, so they matter most on a phone
+    { to: '/practice', label: t('nav.practice'), icon: Dumbbell },
+    { to: '/dictation', label: t('nav.dictation'), icon: Headphones },
     { to: '/test', label: t('nav.test'), icon: FlaskConical },
     { to: '/news', label: t('nav.news'), icon: Newspaper },
     { to: '/videos', label: t('nav.videos'), icon: Video },
@@ -135,13 +138,14 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
             <span className="font-bold text-lg dark:text-indigo-400 text-indigo-600 hidden sm:block">LinguaAI</span>
           </Link>
 
-          {/* Navigation Links */}
-          <div className="flex items-center gap-1">
+          {/* Navigation Links — scrolls horizontally on phones, where the
+              14 icons cannot fit on one row */}
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
             {navItems.map(({ to, label, icon: Icon, exact }) => (
               <Link
                 key={to}
                 to={to}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 shrink-0 ${
                   isActive(to, exact) || (exact && location.pathname === to)
                     ? 'bg-indigo-600 text-white'
                     : 'dark:text-gray-400 text-gray-600 dark:hover:text-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 hover:bg-gray-100'

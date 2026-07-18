@@ -252,3 +252,12 @@
 .xp-glow {
   box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
 }
+
+/* Horizontal nav scrolling on phones — keep the swipe, hide the scrollbar */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
