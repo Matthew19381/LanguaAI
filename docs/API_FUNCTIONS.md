@@ -40,10 +40,16 @@ Router (FastAPI) → Service (logika AI/FSRS) → SQLAlchemy Session (get_db)
 | `GET /export-pdf` | `export_lesson_pdf` — PDF (fpdf2) | Offline review. |
 | `GET /audio/{id}` | audio lekcji (edge-tts) | Fonologiczna pętla (słuchanie + powtarzanie). |
 
-**Struktura lekcji** (`generate_daily_lesson`): warmup, vocabulary (10–15),
-grammar, exercises, cultural_note, speaking_practice, writing_exercise, wrap_up,
-**interleaved_review** (z poprzednich tematów — interleaving!), **output_forcing**
-(zakryj/odtwórz — active recall), **comprehensible_input** (i+1, 90% znane/10% nowe).
+**Struktura lekcji** (`generate_daily_lesson`): **pretest** (SCI-2 — zgadywanki
+przed nauką), warmup, vocabulary (10–15, z `category` dla SCI-4), grammar,
+exercises (z `skill_tag` dla banku ćwiczeń), cultural_note, speaking_practice,
+writing_exercise, wrap_up, **interleaved_review** (z poprzednich tematów),
+**output_forcing** (zakryj/odtwórz — active recall, generowany per lekcja
+w języku docelowym). Tekst i+1 (`generate_iplus1_content`): **≥95% znanych słów
++ 3–5 nowych** (Hu & Nation 2000), z walidatorem pokrycia i regeneracją (SCI-3).
+
+**Cache testu dnia**: wygenerowane pytania są zapisywane w blobie lekcji pod
+`content["daily_test"]`, więc ponowne otwarcie strony testu nie płaci za AI.
 
 ### Tests (`/api/tests/`)
 | Endpoint | Funkcja | Wpływ na naukę |
@@ -58,7 +64,7 @@ grammar, exercises, cultural_note, speaking_practice, writing_exercise, wrap_up,
 |---|---|---|
 | `GET /{user_id}` | lista fiszek (aktywne) | Przegląd materiału. |
 | `GET /{user_id}/due` | fiszki do powtórki (`next_review_date <= now`) | **Spaced repetition** (FSRS). |
-| `POST /{id}/review` | `review_flashcard` — rating 1–4, neuro-FSRS (sen/circadian/interference), achievements | Optymalne interwały + **desirable difficulties** (Bjork). |
+| `POST /{id}/review` | `review_flashcard` — rating 1–4, **FSRS v6** (lib `fsrs`), SCI-1 successive relearning (cap interwału do opanowania), telemetria snu/interleavingu, achievements | Optymalne interwały + **relearn-to-criterion** (Rawson & Dunlosky 2011). |
 | `POST /{user_id}/export-anki` | eksport `.apkg` | Przenośność do Anki. |
 | `POST /add`, `/add-ai`, `/batch-add` | dodawanie fiszek | Kontrola ucznia (autonomia). |
 
@@ -88,6 +94,18 @@ grammar, exercises, cultural_note, speaking_practice, writing_exercise, wrap_up,
 | `GET /{user_id}/errors` | grupowane błędy | **Error analysis**. |
 | `GET /tips/{user_id}` | `generate_daily_tips` | Mikro-nauka codzienna. |
 
+### Exercises — bank ćwiczeń (`/api/exercises/`)
+| Endpoint | Funkcja | Wpływ na naukę |
+|---|---|---|
+| `GET /{user_id}/practice` | `build_practice_set` — zaległe wg FSRS + przeplatane z innych tematów (odpowiedzi nie wyciekają) | **Spacing + interleaving ćwiczeń**, nie tylko fiszek. |
+| `POST /{id}/answer` | ocena odpowiedzi + FSRS + liczniki ekspozycji | **Testing effect** na poziomie pojedynczego zadania. |
+| `GET /{user_id}/stats` | rozmiar banku, zaległe, słabe umiejętności | Metapoznanie + wejście dla wariantów. |
+| `POST /{user_id}/generate-variants` | `generate_exercise_variants` — nowe zadania dla słabych `skill_tag` | **Variability of practice** (Schmidt & Bjork 1992) — chroni transfer przed wyuczeniem konkretnego zadania. |
+
+**Zasada banku**: ćwiczenia z lekcji są zapisywane raz (`create_exercises_from_lesson`,
+dedup po odcisku prompt+answer) i wracają w powtórkach. **Jedyną ścieżką płacącą za AI
+jest `generate-variants`** — reszta praktyki jest darmowa.
+
 ### News (`/api/news/`), Pronunciation (`/api/pronunciation/`), YouTube (`/api/youtube/`), Voice-Chat (`/api/voice-chat/`), QuickMode (`/api/quickmode/`), Settings (`/api/...`)
 - **News**: RSS + uproszczenie do CEFR → **autentyczny input** (real-world i+1).
 - **Pronunciation**: faster-whisper + word-level score → **sensory-motor loop** (Derwing & Munro 2015).
@@ -102,11 +120,13 @@ grammar, exercises, cultural_note, speaking_practice, writing_exercise, wrap_up,
 
 | Serwis | Rola | Uwagi naukowe |
 |---|---|---|
-| `gemini_service` | Jedyny punkt kontaktu z AI (`generate_json`/`generate_text`). `@with_model` dobiera model z `model_router`. | **Brak fallbacku JSON** przy błędzie (rzuca `ValueError`→500) — do poprawy (CLAUDE.md obiecuje fallback). |
+| `gemini_service` | Jedyny punkt kontaktu z AI (`generate_json`/`generate_text`). `@with_model` dobiera model z `model_router`. Parametr `fallback` w `generate_json` zapewnia graceful degradation. | Odporność na awarie API. |
 | `model_router` | Kuratela 50+ modeli OpenRouter, tiery free/cheap/best, mapa per-zadanie. | Centralizacja — brak hardcoded `:free`. |
 | `lesson_generator` | `generate_daily_lesson` (RAG+i+1+interleaving), `generate_iplus1_content`, `analyze_test_errors`, `analyze_conversation`. | Rdzeń pedagogiczny. |
-| `fsrs_service` | Prawdziwa lib `fsrs` v6 (`apply_fsrs`, `calculate_memory_strength_fsrs`). | Używana przez **topics**. |
-| `fsrs_neuro` | Heurystyka neuro (sen/circadian/interference). | Używana przez **flashcards** — przybliżenie, nie kalibrowane (rek. migracja na `fsrs_service`). |
+| `fsrs_service` | Prawdziwa lib `fsrs` v6 (`apply_fsrs`, `calculate_memory_strength_fsrs`). | Jedyny scheduler w systemie — używany przez **topics, flashcards i bank ćwiczeń**. (`fsrs_neuro` usunięty 2026-07 — patrz NEURO_FEATURES.md „Funkcje wycofane".) |
+| `exercise_service` | Bank ćwiczeń: `create_exercises_from_lesson`, `build_practice_set`, `find_weak_skills`, `review_exercise`. | Ponowne użycie zamiast regeneracji + spacing/interleaving zadań. |
+| `analytics_service` | `analyze_best_study_time` — skuteczność per pora dnia z wyników testów. | Synchrony effect (SCI-5) — data-driven, nie uniwersalna godzina. |
+| `dictation_service` | `diff_transcription`, `generate_dictation_sentences`. | Dyktando ze słuchu (SCI-6). |
 | `test_generator` | `submit_test` (idempotentny, XP), `get_or_create_*`. | Bezpieczna powtórka. |
 | `achievement_service` | `calculate_level_from_xp` (krzywa `(n-1)²×20`), `check_and_award_achievements` (wywoływane w lessons/tests/conversation/flashcards). | Gamifikacja (SDT). |
 | `streak_service` | `calculate_streak` (dni + freezes). | Nawyk (regularność > intensywność). |
@@ -118,11 +138,15 @@ grammar, exercises, cultural_note, speaking_practice, writing_exercise, wrap_up,
 
 ## 4. Modele (SQLAlchemy)
 
-`User` (XP, streak, języki, neuro_wagi), `Lesson` (content JSON), `TestResult`
-(błędy JSON), `Flashcard` (FSRS: difficulty/stability/retrievability/interval/
-repetitions/lapses/fsrs_state/next_review_date), `Topic`/`TopicItem` (FSRS per temat),
-`StudyPlan`, `Achievement` (type/unlocked_at/notified), `ConversationSession`,
-`PronunciationAttempt`, `ErrorLog`.
+`User` (XP, streak, języki, `sleep_data`), `Lesson` (content JSON — mieści też
+`daily_test` i `user_exercise_errors`), `TestResult` (błędy JSON), `Flashcard`
+(FSRS + SCI-1: `correct_recall_sessions`/`is_mastered`), **`Exercise`** (bank:
+treść, `skill_tag`, `variant_of`, `times_seen`/`times_correct`, pola FSRS),
+`Topic`/`TopicItem` (FSRS per temat), `StudyPlan`, `Achievement`, `ConversationSession`.
+
+> Dodając nowy model: zaimportuj go w bloku `lifespan` w `main.py` **oraz** w
+> `backend/tests/conftest.py` (tworzenie + czyszczenie tabel), inaczej wiersze
+> przeciekają między testami.
 
 ---
 

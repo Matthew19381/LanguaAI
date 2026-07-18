@@ -65,6 +65,27 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
 
 ---
 
+### 🏦 Bank ćwiczeń (2026-07-18) — zapisywanie zamiast regeneracji
+
+**Powód:** ćwiczenia generowane z każdą lekcją ginęły w blobie JSON — nie dało się ich ponownie użyć, wymieszać ani zaplanować. Dodatkowo **test dnia był generowany od nowa przy każdym otwarciu strony** (`get_or_create_daily_test` zwracał `test_id: None` i nic nie zapisywał).
+
+- [x] Model `Exercise` (treść, `skill_tag`, `topic`, `variant_of`, `times_seen`/`times_correct`, pola FSRS) + rejestracja w `main.py` i `conftest.py`
+- [x] `exercise_service`: ekstrakcja z lekcji z dedupem, `build_practice_set` (zaległe wg FSRS + przeplatane z innych tematów), `find_weak_skills`, `review_exercise`
+- [x] Router `/api/exercises/`: `practice` (bez wycieku odpowiedzi), `answer`, `stats`, `generate-variants`
+- [x] `skill_tag` w schemacie ćwiczeń + `generate_exercise_variants` — nowe warianty dla słabych umiejętności (chroni transfer; Schmidt & Bjork 1992)
+- [x] **Naprawa marnotrawstwa:** pytania testu dnia cache'owane w `lesson.content["daily_test"]`
+- [ ] **Frontend:** strona ćwiczeń korzystająca z banku (`/practice`) — backend gotowy, UI do zrobienia
+- [ ] Auto-wywoływanie `generate-variants` po serii błędów na tej samej umiejętności (dziś endpoint trzeba wywołać jawnie)
+
+### 🧹 Nieaktualne wpisy NEURO (uspójnione 2026-07-18)
+
+- **NEURO-15** (konfigurowalne wagi) — oznaczone wyżej jako ✅, ale **usunięte**: endpointy `neuro-weights`, kolumna `users.neuro_weights` i osiągnięcie `neuro_tuned` konfigurowały martwy kod.
+- **NEURO-8** (neuro-FSRS) — **wycofane**, `fsrs_neuro.py` usunięty; jedynym schedulerem jest FSRS v6.
+- **NEURO-3** (loot box „dopaminowy") — **odradzone** (pop-neuronauka + wzorce hazardowe); ewentualnie jako zwykła jawna premia XP.
+- **NEURO-5 / NEURO-9** — kolumny `gesture_anchor`/`spatial_anchor` usunięte; wrócą razem z faktyczną implementacją tych funkcji.
+
+Szczegóły i uzasadnienia: `docs/NEURO_FEATURES.md` → „Funkcje wycofane i dlaczego".
+
 ### ✅ Backlog SCI: 6/6 ukończone (2026-07-18)
 
 Wszystkie funkcje z audytu spójności naukowej zaimplementowane, przetestowane i wypchnięte. Łącznie ~48 nowych testów backendu (273 → 321). Każda funkcja poparta cytowanym recenzowanym źródłem i zweryfikowana testami jednostkowymi + integracyjnymi.
