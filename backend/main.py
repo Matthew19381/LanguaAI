@@ -14,6 +14,7 @@ from backend.database import Base, engine
 from backend.routers import (
     admin,
     audio,
+    auth,
     conversation,
     exercises,
     flashcards,
@@ -132,6 +133,37 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Admin-Key", "Accept", "Origin"],
 )
 
+# Access gate — when APP_ACCESS_TOKEN is set, every API/audio request must prove
+# the shared secret. Off by default so localhost development is unaffected.
+# Registered before the rate limiter so unauthorized traffic is rejected first.
+_GATE_EXEMPT_PREFIXES = (
+    "/api/health",
+    "/api/auth/",          # unlocking must be reachable while locked
+    "/api/settings/gdrive/callback",  # Google OAuth redirect cannot send our header
+)
+
+
+@app.middleware("http")
+async def access_gate_middleware(request: Request, call_next):
+    from backend.routers.auth import gate_enabled, request_is_authorized
+
+    if not gate_enabled() or request.method == "OPTIONS":
+        return await call_next(request)
+
+    path = request.url.path
+    if any(path.startswith(p) for p in _GATE_EXEMPT_PREFIXES):
+        return await call_next(request)
+
+    # Guard the API and the audio files; static frontend assets stay public
+    if path.startswith("/api") or path.startswith("/audio"):
+        if not request_is_authorized(request):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Locked. Unlock this device with the app access token."},
+            )
+    return await call_next(request)
+
+
 # Rate limiting middleware — max 30 requests per 60s per IP for AI endpoints
 _ai_rate_limits: dict[str, list[float]] = defaultdict(list)
 _ai_rate_lock = Lock()
@@ -185,6 +217,7 @@ app.include_router(settings.router, tags=["Settings"])
 app.include_router(audio.router, tags=["Audio"])
 app.include_router(youtube.router, tags=["YouTube"])
 app.include_router(voice_chat.router, tags=["Voice-Chat"])
+app.include_router(auth.router, tags=["Auth"])
 app.include_router(exercises.router, tags=["Exercises"])
 app.include_router(topics.router, prefix="/api/topics", tags=["Topics"])
 app.include_router(admin.router, tags=["Admin"])

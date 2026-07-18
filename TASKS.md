@@ -104,7 +104,15 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
     - **Zweryfikowane end-to-end:** przy martwym backendzie 3 karty ocenione offline (Dobra/Jeszcze raz/Dobra) i zakolejkowane; po restarcie kolejka pusta, `reps=1` na każdej karcie, a karta z oceną „Jeszcze raz" ma `lapses=1` (dowód, że ocena przeszła wiernie); ponowne odtworzenie → `duplicate: true`, `reps` bez zmian
 - [ ] Offline dla ukończenia lekcji (ten sam wzorzec)
 - [ ] Prawdziwy Background Sync API (dziś synchronizacja odpala się przy zdarzeniu `online` i przy wejściu na ekran — wystarcza, ale nie działa gdy aplikacja jest zamknięta)
-- [ ] **HTTPS**: SW/instalacja PWA nie działają pod `http://<ip>:5173`. Do pełnego PWA na telefonie potrzebne wdrożenie w chmurze lub tunel HTTPS
+- [x] **Bramka dostępu** ✅ (2026-07-19) — warunek wystawienia aplikacji na internet
+    - Odkrycie: poza `/api/admin/*` **żaden endpoint nie miał uwierzytelnienia**; tunel bez ochrony = obcy może czytać/zmieniać dane i palić kredyty OpenRouter
+    - `APP_ACCESS_TOKEN` w configu (pusty = bramka wyłączona, localhost bez zmian); middleware chroni `/api/*` i `/audio/*`, otwarte zostają `/api/health` i `/api/auth/*`
+    - `routers/auth.py`: wymiana sekretu na ciasteczko **HttpOnly** (JS go nie trzyma, pliki audio autoryzują się same); `secrets.compare_digest` przeciw atakom czasowym
+    - `UnlockGate` na froncie: ekran „Aplikacja zablokowana", token wpisywany raz na urządzenie; dowolny 401 w aplikacji przełącza w stan zablokowany
+    - Testy: `backend/tests/test_auth_gate.py` (11)
+    - **Zweryfikowane na żywo:** bez tokenu 401 (także `/audio/*`), health otwarty, zły token odrzucony, poprawny odblokowuje i aplikacja działa normalnie
+- [x] **Naprawa przy okazji:** interceptor w `client.js` gubił kod statusu HTTP (`new Error(message)`), więc kolejka offline nigdy nie odróżniała trwałego odrzucenia 4xx od błędu sieci — zdarzenia byłyby ponawiane w nieskończoność. Testy tego nie łapały, bo mockowały poster z pominięciem interceptora. Dodane `err.status` + testy na realny kształt błędu i na 401 (zatrzymanie kolejki bez gubienia zdarzeń)
+- [ ] **Tunel HTTPS / wdrożenie** — instrukcja gotowa w `docs/PRODUCTION_AND_MOBILE.md`; do wykonania po stronie użytkownika (`winget install Cloudflare.cloudflared`)
 
 ### 🧹 Nieaktualne wpisy NEURO (uspójnione 2026-07-18)
 

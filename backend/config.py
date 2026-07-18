@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./lingua_ai.db"
     SECRET_KEY: str = ""  # Must be set in .env file
     ADMIN_API_KEY: str = ""  # API key for admin endpoints (backup, etc.)
+    # Shared secret guarding the whole API. Empty (default) = no gate, which is
+    # what you want on localhost. Set it before exposing the app to the internet
+    # (tunnel, cloud) — otherwise anyone with the URL can read/modify your data
+    # and spend your AI credits.
+    APP_ACCESS_TOKEN: str = ""
     TARGET_LANGUAGE: str = "German"
     NATIVE_LANGUAGE: str = "Polish"
     DISCORD_WEBHOOK_URL: str = ""

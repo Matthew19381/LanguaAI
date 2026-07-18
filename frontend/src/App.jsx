@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import ErrorBoundary from './components/ErrorBoundary'
 import Layout from './components/Layout'
+import UnlockGate from './components/UnlockGate'
 import Home from './pages/Home'
 import PlacementTest from './pages/PlacementTest'
 import DailyLesson from './pages/DailyLesson'
@@ -21,6 +22,7 @@ import Practice from './pages/Practice'
 function App() {
   return (
     <ErrorBoundary>
+      <UnlockGate>
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<ErrorBoundary><Home /></ErrorBoundary>} />
@@ -42,6 +44,7 @@ function App() {
         </Route>
         <Route path="/placement" element={<ErrorBoundary><PlacementTest /></ErrorBoundary>} />
       </Routes>
+      </UnlockGate>
     </ErrorBoundary>
   )
 }

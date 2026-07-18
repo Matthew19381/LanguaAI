@@ -159,7 +159,8 @@ export async function syncQueue(handlers) {
   const remaining = []
   let synced = 0
 
-  for (const event of pending) {
+  for (let i = 0; i < pending.length; i++) {
+    const event = pending[i]
     // Events queued by an older build predate `kind` and were always exercises
     const handler = handlers[event.kind || KIND_EXERCISE]
     if (!handler) {
@@ -170,7 +171,14 @@ export async function syncQueue(handlers) {
       await handler(event)
       synced += 1
     } catch (err) {
-      const status = err?.response?.status
+      // The API client wraps errors, so read the status from either shape
+      const status = err?.response?.status ?? err?.status
+      if (status === 401) {
+        // Gated and locked — stop and keep this event *and everything after it*,
+        // since the rest would only produce more 401s.
+        remaining.push(...pending.slice(i))
+        break
+      }
       if (status && status >= 400 && status < 500) {
         // Permanently rejected (deleted card, bad payload) — retrying forever
         // would block everything behind it.

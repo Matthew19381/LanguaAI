@@ -6,6 +6,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
   timeout: 120000, // 120 seconds for AI generation calls
+  withCredentials: true, // carry the access-gate cookie
 })
 
 // Request interceptor
@@ -18,10 +19,28 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    const status = error.response?.status
+    // The app is gated and this device has not been unlocked yet
+    if (status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('app-locked'))
+    }
     const message = error.response?.data?.detail || error.message || 'An error occurred'
-    return Promise.reject(new Error(message))
+    const wrapped = new Error(message)
+    // Keep the status reachable: the offline queue uses it to tell a permanent
+    // rejection (drop the event) from a network failure (retry it later).
+    wrapped.status = status
+    wrapped.response = error.response
+    return Promise.reject(wrapped)
   }
 )
+
+// ===== Access gate =====
+
+export const getAuthStatus = () =>
+  api.get('/auth/status')
+
+export const unlockApp = (token) =>
+  api.post('/auth/unlock', { token })
 
 // ===== User / Placement =====
 

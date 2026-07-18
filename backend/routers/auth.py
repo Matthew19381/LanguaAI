@@ -1,0 +1,84 @@
+"""Single shared-secret gate for the whole app.
+
+This is not user accounts — it is one password for one owner, so the app can be
+exposed over a tunnel or a cloud URL without leaving the API (and the AI credits
+behind it) open to anyone who guesses the address.
+
+The secret is exchanged for an HttpOnly cookie: JavaScript never holds it, and
+plain ``<audio src="/audio/...">`` requests carry it automatically.
+"""
+import logging
+import secrets
+
+from fastapi import APIRouter, Request, Response
+from pydantic import BaseModel
+
+from backend.config import settings
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+COOKIE_NAME = "linguaai_access"
+COOKIE_MAX_AGE = 60 * 60 * 24 * 180  # 180 days — this is a personal device
+
+
+class UnlockRequest(BaseModel):
+    token: str
+
+
+def gate_enabled() -> bool:
+    return bool(settings.APP_ACCESS_TOKEN)
+
+
+def request_is_authorized(request: Request) -> bool:
+    """True when the gate is off, or the caller proved the shared secret."""
+    if not gate_enabled():
+        return True
+    expected = settings.APP_ACCESS_TOKEN
+    # compare_digest avoids leaking the secret through response timing
+    cookie = request.cookies.get(COOKIE_NAME)
+    if cookie and secrets.compare_digest(cookie, expected):
+        return True
+    header = request.headers.get("X-App-Token")
+    if header and secrets.compare_digest(header, expected):
+        return True
+    return False
+
+
+@router.get("/api/auth/status")
+async def auth_status(request: Request):
+    """Whether the gate is on and whether this device is already unlocked."""
+    return {
+        "gate_enabled": gate_enabled(),
+        "unlocked": request_is_authorized(request),
+    }
+
+
+@router.post("/api/auth/unlock")
+async def unlock(payload: UnlockRequest, response: Response):
+    """Exchange the shared secret for a long-lived HttpOnly cookie."""
+    if not gate_enabled():
+        return {"success": True, "gate_enabled": False}
+
+    if not secrets.compare_digest(payload.token or "", settings.APP_ACCESS_TOKEN):
+        logger.warning("Failed unlock attempt")
+        return Response(status_code=401)
+
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=settings.APP_ACCESS_TOKEN,
+        max_age=COOKIE_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        # Set on HTTPS (tunnel/cloud); harmless to omit on plain-HTTP localhost
+        secure=settings.BACKEND_URL.startswith("https"),
+        path="/",
+    )
+    return {"success": True, "gate_enabled": True}
+
+
+@router.post("/api/auth/lock")
+async def lock(response: Response):
+    """Forget this device."""
+    response.delete_cookie(COOKIE_NAME, path="/")
+    return {"success": True}

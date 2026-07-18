@@ -149,6 +149,36 @@ describe('syncQueue', () => {
     expect(queueSize()).toBe(1) // retried on the next reconnect
   })
 
+  it('reads the status from the API client error shape', async () => {
+    // client.js rejects with a plain Error carrying .status (not an axios error),
+    // so the queue must understand that shape too — otherwise a permanently
+    // rejected event would be retried forever.
+    enqueueFlashcardReview({ flashcardId: 999, userId: 5, rating: 3 })
+    const err = Object.assign(new Error('Not found'), { status: 404 })
+    const fc = vi.fn().mockRejectedValue(err)
+
+    const res = await syncQueue(handlers(vi.fn(), fc))
+
+    expect(res.failed).toBe(0)
+    expect(queueSize()).toBe(0)
+  })
+
+  it('stops on 401 and keeps every remaining event', async () => {
+    enqueueAnswer({ exerciseId: 1, userId: 5, answer: 'a', correct: true })
+    enqueueAnswer({ exerciseId: 2, userId: 5, answer: 'b', correct: true })
+    enqueueAnswer({ exerciseId: 3, userId: 5, answer: 'c', correct: true })
+    const ex = vi.fn()
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(Object.assign(new Error('Locked'), { status: 401 }))
+
+    const res = await syncQueue(handlers(ex))
+
+    // First one went through; the failing one AND the untried one stay queued
+    expect(res.synced).toBe(1)
+    expect(queueSize()).toBe(2)
+    expect(getQueue().map(e => e.exercise_id)).toEqual([2, 3])
+  })
+
   it('drops events the server rejects permanently', async () => {
     enqueueFlashcardReview({ flashcardId: 999, userId: 5, rating: 3 })
     const fc = vi.fn().mockRejectedValue({ response: { status: 404 } })

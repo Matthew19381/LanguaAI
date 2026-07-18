@@ -228,6 +228,54 @@ Service worker cache'uje odpowiedzi GET. **Zapis wymaga sieci** — odpowiadanie
 materiał, ale postęp się nie zapisze. Kolejkowanie zapisów (Background Sync) to
 osobne zadanie w `TASKS.md`.
 
+### 🔒 ZANIM cokolwiek wystawisz na internet
+
+Poza `/api/admin/*` **żaden endpoint nie ma uwierzytelnienia** — dostęp to
+podanie `user_id` w parametrze. Wystawienie API bez ochrony oznacza, że każdy,
+kto pozna adres, może czytać i zmieniać Twoje dane oraz **wywoływać endpointy AI
+na Twój koszt** (Twój klucz OpenRouter).
+
+Dlatego jest bramka dostępu — jeden wspólny sekret:
+
+1. Wygeneruj token i wpisz go do `backend/.env`:
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   # APP_ACCESS_TOKEN=<wynik>
+   ```
+2. Zrestartuj backend. Od tej chwili każde żądanie do `/api/*` i `/audio/*` bez
+   sekretu dostaje **401**. Otwarte zostaje tylko `/api/health` (do sond) oraz
+   `/api/auth/*` (żeby dało się odblokować).
+3. W przeglądarce zobaczysz ekran „Aplikacja zablokowana". Wpisujesz token **raz
+   na urządzenie** — backend wymienia go na ciasteczko HttpOnly (JavaScript nigdy
+   go nie trzyma, a pliki `/audio/*` też się autoryzują).
+
+Pusty `APP_ACCESS_TOKEN` = bramka wyłączona, czyli praca na localhoście bez zmian.
+
+### Tunel HTTPS — test na telefonie bez wdrożenia
+
+Service worker i instalacja PWA wymagają HTTPS, więc `http://<ip>:5173` nie
+wystarczy. Najszybsza droga to tunel:
+
+```bash
+winget install --id Cloudflare.cloudflared
+
+# 1. backend z bramką (APP_ACCESS_TOKEN ustawiony w backend/.env)
+uvicorn backend.main:app --host 0.0.0.0 --port 8001
+
+# 2. frontend (produkcyjny build serwuje też SW)
+cd frontend && npm run build && npm run preview   # :4173
+
+# 3. tunel na frontend — proxy przekazuje /api i /audio do backendu
+cloudflared tunnel --url http://localhost:4173
+```
+
+`cloudflared` wypisze adres `https://<losowy>.trycloudflare.com` — otwórz go na
+telefonie, odblokuj tokenem i dodaj do ekranu głównego.
+
+**Pamiętaj:** adres quick tunnela jest losowy, ale publiczny. Bramka jest tym, co
+Cię chroni — nie sam fakt, że adres jest trudny do zgadnięcia. Po teście zamknij
+tunel (Ctrl+C).
+
 ### Jak ćwiczyć na telefonie — dziś, bez chmury
 
 Telefon i komputer w tej samej sieci Wi-Fi:
