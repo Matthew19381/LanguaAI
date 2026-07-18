@@ -1,8 +1,42 @@
 ﻿# TASKS – LinguaAI
 
-_Ostatnia aktualizacja: 207-08_
+_Ostatnia aktualizacja: 2026-07-18_
 
 _Źródło: FEEDBACK.md, własne implementacje_
+
+---
+
+## 🔬 AUDYT SPÓJNOŚCI NAUKOWEJ I LOGICZNEJ (2026-07-18)
+
+_Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z badaniami naukowymi; napraw znalezione problemy; zaproponuj nowe funkcje poparte badaniami._
+
+### ✅ Naprawione (9 punktów — commit `72c5f2a`)
+
+**Niespójności logiczne (5):**
+1. **`output_forcing` — zahardkodowany niemiecki tekst z błędami dla wszystkich języków.** Każdy użytkownik (nawet uczący się hiszpańskiego) dostawał ten sam niemiecki akapit z polskimi wtrąceniami („Warschau **i** wir", „**często** am **Weekend**"). **Naprawa:** generowany per lekcja w języku docelowym z jej słownictwa; brak sekcji = pomijana (frontend renderuje warunkowo). `backend/services/lesson_generator/daily_lesson.py`.
+2. **Sprzeczność w generatorze i+1.** Prompt żądał jednocześnie „10% nowych słów" i „3-5 max" (to 2-5%, nie 10%). **Naprawa:** spójna reguła ≥95% znanych + 3-5 nowych.
+3. **`fsrs_neuro.py` — martwy kod z zepsutą matematyką.** Dokumentacja twierdziła, że jest zintegrowany; w rzeczywistości produkcja używa FSRS v6. Stabilność nie rosła w fazie Review (`w[12]=0.0`), interwał `stability × (rating−1)` wymyślony. **Naprawa:** plik + testy usunięte.
+4. **Endpointy `neuro-weights` konfigurowały nieistniejący mechanizm.** NEURO-15 (GET/PATCH wag, kolumna `users.neuro_weights`, osiągnięcie `neuro_tuned`, kolumny `gesture_anchor`/`spatial_anchor`) zasilały wyłącznie martwy kod. **Naprawa:** usunięte.
+5. **Notifier czytał złą bazę.** `backend/LinguaAI.db` zamiast `lingua_ai.db`. **Naprawa:** lista kandydatów jak w `backup_service`.
+
+**Twierdzenia bez pokrycia w badaniach (4):**
+6. **Sfabrykowane liczby w tipach.** „+200% retencji — Ebbinghaus (1885)" i „3× retencja w kontekście — Nation (2001)" — obie zmyślone. **Naprawa:** zastąpione twierdzeniami zgodnymi ze źródłami (`notifier.py`).
+7. **Proporcja i+1 „90/10" niezgodna z badaniami.** Pokrycie leksykalne wymaga 95-98% (Hu & Nation 2000; Nation 2006). **Naprawa:** ≥95%/3-5 słów; usunięto pseudonaukowy dopisek „Friston".
+8. **Mnożniki „neuro" bez podstaw empirycznych** (okno kortyzolowe, bonus za sen). **Naprawa:** usunięte wraz z `fsrs_neuro.py`; telemetria pozostała jako czyste zbieranie danych.
+9. **`NEURO_FEATURES.md` — fałszywy status integracji + pop-neuronauka.** **Naprawa:** przepisany — rzeczywisty status, sekcja funkcji wycofanych, backlog SCI.
+
+**Weryfikacja:** pytest 273 passed (−12 testów martwego kodu), aplikacja importuje się czysto (82 routy).
+
+### 📋 Nowe funkcje poparte badaniami (backlog SCI — do implementacji)
+
+> Każda z cytowaniem recenzowanego źródła. Kolejność = priorytet implementacji.
+
+- [ ] **SCI-1 Successive relearning** — słowo „opanowane" dopiero po 3 poprawnych przypomnieniach rozłożonych na ≥2 sesje; do tego czasu wraca w kolejce mimo oceny „Good". _Rawson & Dunlosky (2011)._ → pole `correct_recall_sessions` na fiszce; status `mastered` sterujący statystykami i doborem słów do i+1.
+- [ ] **SCI-2 Pretesting** — 3-5 pytań-zgadywanek o nowe słowa *przed* lekcją; błędne odpowiedzi oczekiwane i nieszkodliwe. _Kornell, Hays & Bjork (2009); Richland et al. (2009)._ → sekcja `pretest` renderowana przed `vocabulary`; bez kar XP.
+- [ ] **SCI-3 Walidator pokrycia leksykalnego** — po wygenerowaniu tekstu i+1 backend liczy % znanych tokenów; przy <95% regeneruje (max 2 próby). _Hu & Nation (2000); Nation (2006)._ → `lexical_coverage(text, known_words)` w `lesson_generator`.
+- [ ] **SCI-4 Rozpraszanie podobnych słów** — słowa z tej samej kategorii semantycznej dostają rozsunięte `next_review_date` zamiast wchodzić do kolejki razem. _Tinkham (1993); Nakata & Suzuki (2019)._ → przy batchu nowych fiszek offset dat wewnątrz klastra.
+- [ ] **SCI-5 Osobista najlepsza pora nauki** — po ≥200 powtórkach analiza skuteczności per pora dnia z istniejącej telemetrii `session_type`; sugestia zamiast sztywnych okien godzinowych. _May & Hasher (1998); Goldstein et al. (2007) — synchrony effect._ → `GET /stats/{user_id}/best-study-time`.
+- [ ] **SCI-6 Dyktando** — odsłuch zdania (edge-tts) + zapis ze słuchu, z diffem błędów. _Nation & Newton (2009)._ → nowa aktywność w Quick Mode.
 
 ---
 
