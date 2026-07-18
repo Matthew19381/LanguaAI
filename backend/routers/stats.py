@@ -14,6 +14,7 @@ from backend.models.flashcard import Flashcard
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
 from backend.models.user import User
+from backend.services.analytics_service import analyze_best_study_time
 from backend.services.lesson_generator import generate_daily_tips
 from backend.utils import get_user_or_404
 
@@ -203,6 +204,24 @@ async def get_leaderboard_position(user_id: int, db: Session = Depends(get_db)):
             for u in top_users
         ]
     }
+
+
+@router.get("/api/stats/{user_id}/best-study-time")
+async def get_best_study_time(user_id: int, db: Session = Depends(get_db)):
+    """SCI-5: recommend the learner's most effective time of day to study, based
+    on their own timestamped test scores (not a universal assumed peak hour).
+    """
+    get_user_or_404(db, user_id)  # 404 if the user doesn't exist
+
+    results = db.query(TestResult.created_at, TestResult.score).filter(
+        TestResult.user_id == user_id,
+        TestResult.created_at.isnot(None),
+    ).all()
+    samples = [(row[0].hour, float(row[1])) for row in results if row[1] is not None]
+
+    analysis = analyze_best_study_time(samples)
+    analysis["user_id"] = user_id
+    return analysis
 
 
 @router.get("/api/stats/{user_id}/export-csv")

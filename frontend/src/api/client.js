@@ -181,6 +181,9 @@ export const getDailyTips = (userId) =>
 export const getAllErrors = (userId) =>
   api.get(`/stats/${userId}/errors`)
 
+export const getBestStudyTime = (userId) =>
+  api.get(`/stats/${userId}/best-study-time`)
+
 // ===== PDF Export =====
 
 export const exportLessonPDF = (lessonId, userId) =>

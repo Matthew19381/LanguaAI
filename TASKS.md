@@ -51,7 +51,12 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
     - `flashcard_service.py`: czysta funkcja `assign_cluster_offsets(categories)` (case-insensitive, blank=0, cap `SEMANTIC_STAGGER_MAX_DAYS=3`); `create_flashcards_from_vocab` staguje daty per klaster + dedup w obrębie batcha + fallback `example_sentence`.
     - `daily_lesson.py`: pole `category` w słownictwie (prompt + schema JSON) — bez dodatkowego wywołania AI.
     - Testy: `backend/tests/test_semantic_spacing.py` (7: offsety + integracja z DB + dedup).
-- [ ] **SCI-5 Osobista najlepsza pora nauki** — po ≥200 powtórkach analiza skuteczności per pora dnia z istniejącej telemetrii `session_type`; sugestia zamiast sztywnych okien godzinowych. _May & Hasher (1998); Goldstein et al. (2007) — synchrony effect._ → `GET /stats/{user_id}/best-study-time`.
+- [x] **SCI-5 Osobista najlepsza pora nauki** ✅ — analiza skuteczności per pora dnia z realnych, znaczonych czasem wyników testów (nie uniwersalna „szczytowa godzina"); sugestia data-driven. _May & Hasher (1998); Goldstein et al. (2007) — synchrony effect._
+    - `services/analytics_service.py`: `bucket_for_hour` (morning/afternoon/evening/night) + `analyze_best_study_time(samples)` — średni wynik per bucket, próg `MIN_SAMPLES=8`, `MIN_PER_BUCKET=3`, zwraca `best_bucket` tylko przy wystarczających danych.
+    - `routers/stats.py`: `GET /api/stats/{user_id}/best-study-time` (źródło: `TestResult.created_at`+`score`).
+    - `frontend`: `getBestStudyTime` w client.js + karta na stronie Stats (pokazywana tylko gdy `enough_data`); klucze `stats.bestTime*`/`stats.timeBucket.*` (PL+EN).
+    - Testy: `backend/tests/test_best_study_time.py` (8: buckety, próg, wybór najlepszego, endpoint 200/404). Frontend build + 43 testy OK.
+    - _Uwaga:_ używamy wyników testów (znaczonych czasem), bo pojedyncze powtórki fiszek nie są logowane per-event; telemetria `session_type` na fiszce to tylko ostatnia wartość. Realistyczny próg 8 zamiast 200.
 - [ ] **SCI-6 Dyktando** — odsłuch zdania (edge-tts) + zapis ze słuchu, z diffem błędów. _Nation & Newton (2009)._ → nowa aktywność w Quick Mode.
 
 ---

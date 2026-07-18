@@ -3,10 +3,10 @@ import { useNavigate, Link } from 'react-router-dom'
 import {
   BarChart3, Flame, Star, Trophy, BookOpen,
   FlaskConical, Brain, TrendingUp, Target, Calendar,
-  Download, Globe, Lightbulb, CheckCircle, Loader2
+  Download, Globe, Lightbulb, CheckCircle, Loader2, Clock
 } from 'lucide-react'
 import { exportProgressCSV } from '../api/client'
-import { getUserId, getStats, getDailyTips, updateUserLanguage, getLanguageProfiles, getStudyPlan, getLessonConcepts, generateConceptFlashcards, getVoiceChatPrompt } from '../api/client'
+import { getUserId, getStats, getDailyTips, updateUserLanguage, getLanguageProfiles, getStudyPlan, getLessonConcepts, generateConceptFlashcards, getVoiceChatPrompt, getBestStudyTime } from '../api/client'
 import { NotificationSettings } from '../components/NotificationManager'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
@@ -24,6 +24,7 @@ export default function Stats() {
   const [languageProfiles, setLanguageProfiles] = useState(null)
   const [voiceChatPrompt, setvoiceChatPrompt] = useState(null)
   const [voiceChatLoading, setVoiceChatLoading] = useState(false)
+  const [bestTime, setBestTime] = useState(null)
   const [manualAnkiDone, setManualAnkiDone] = useState(() => {
     const today = new Date().toISOString().slice(0, 10)
     return localStorage.getItem('manual_anki_date') === today
@@ -42,6 +43,7 @@ export default function Stats() {
       .then(setLanguageProfiles)
       .catch(() => {})
     getStudyPlan(userId).then(setStudyPlan).catch(() => {})
+    getBestStudyTime(userId).then(setBestTime).catch(() => {})
   }, [userId])
 
   useEffect(() => {
@@ -552,6 +554,35 @@ export default function Stats() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Best study time (SCI-5) */}
+      {bestTime?.enough_data && bestTime?.best_bucket && (
+        <div className="card mb-6">
+          <h2 className="section-title flex items-center gap-2">
+            <Clock className="w-5 h-5 text-sky-400" />
+            {t('stats.bestTimeTitle')}
+          </h2>
+          <p className="text-gray-300 text-sm mt-1">
+            {t('stats.bestTimeIntro')}{' '}
+            <span className="font-semibold text-sky-300">
+              {t(`stats.timeBucket.${bestTime.best_bucket}`)}
+            </span>.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            {Object.entries(bestTime.buckets).map(([name, b]) => (
+              b.avg_score != null && (
+                <div key={name} className={`px-3 py-1.5 rounded-lg text-xs ${
+                  name === bestTime.best_bucket
+                    ? 'bg-sky-900/40 border border-sky-700/50 text-sky-200'
+                    : 'bg-gray-800/60 text-gray-400'
+                }`}>
+                  {t(`stats.timeBucket.${name}`)}: {b.avg_score}% ({b.n})
+                </div>
+              )
+            ))}
           </div>
         </div>
       )}
