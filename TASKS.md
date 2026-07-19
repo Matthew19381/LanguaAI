@@ -6,6 +6,47 @@ _Źródło: FEEDBACK.md, własne implementacje_
 
 ---
 
+## ✅ DO SPRAWDZENIA PRZEZ UŻYTKOWNIKA
+
+- [ ] **Test PWA na telefonie przez tunel HTTPS** (instrukcja: `docs/PRODUCTION_AND_MOBILE.md`)
+    1. `python -c "import secrets; print(secrets.token_urlsafe(32))"` → wpisz jako `APP_ACCESS_TOKEN` w `backend/.env`
+    2. `winget install --id Cloudflare.cloudflared`
+    3. backend `--host 0.0.0.0 --port 8001`, frontend `npm run build && npm run preview`, `cloudflared tunnel --url http://localhost:4173`
+    4. Na telefonie: otwórz adres `*.trycloudflare.com`, odblokuj tokenem, dodaj do ekranu głównego
+    - **Co zweryfikować:** instalacja PWA (ikona), tryb offline fiszek (samolotowy), synchronizacja po powrocie sieci, czytelność na małym ekranie
+    - **Pamiętaj:** po teście zamknij tunel (adres jest publiczny — chroni bramka, nie losowość adresu)
+
+---
+
+## 🤖 AUDYT DOBORU MODELI AI (2026-07-19)
+
+_Zakres: `model_router.py`, wszystkie wywołania `@with_model`, ścieżka `gemini_service` → OpenRouter._
+
+### 🔴 Istotne
+
+- [ ] **A1. W domyślnym tierze router nie różnicuje modeli.** W `cheap` zadania `placement`, `lesson`, `conversation`, `test` rozwiązują się do **tego samego** `deepseek/deepseek-v3.2`. Rozbudowana mapa per-zadanie daje złudzenie optymalizacji, a w praktyce cała aplikacja działa na jednym modelu. Jedyny wyjątek (`news` → `gemini-2.5-flash`) nie działa — patrz A2.
+- [ ] **A2. Dwa serwisy omijają router.** `news_service.py` (`simplify_article`, `_generate_sample_news`) i `topic_service.py` wołają `generate_json` **bez `@with_model`**, więc lecą na domyślny model tieru. Zamierzony model dla newsów nigdy nie jest używany. CLAUDE.md wprost zabrania omijania routera.
+- [ ] **A3. Brak walidacji istnienia modelu → ciche pogorszenie jakości.** Zły identyfikator = wyjątek w `_call_openrouter_api` → serwis łapie i zwraca **zaszyty fallback**. Użytkownik dostaje gorszą lekcję i nie wie dlaczego. `validate_model()` istnieje, ale **nie jest nigdzie wołane**, a log błędu nie zawiera nazwy modelu.
+- [ ] **A4. Dobór nie uwzględnia kryterium najważniejszego dla tej aplikacji: jakości generowania w języku docelowym.** DeepSeek jest mocny w reasoning/kodzie; dla poprawnego niemieckiego z polskimi objaśnieniami bezpieczniejsze są Gemini / GPT / Claude. Projekt miał już incydent tego typu (niemiecki tekst z polskimi wtrąceniami w `output_forcing`).
+- [ ] **A5. `deepseek-v3.2` to wariant „thinking".** Do generowania lekcji to wolniej i drożej niż potrzeba; katalog zawiera `deepseek-v3.2-non-thinking`, który był wcześniej dokumentowany jako domyślny.
+
+### 🟡 Średnie
+
+- [ ] **A6. Martwe mapowania zadań.** `pronunciation` (wymowa używa lokalnego faster-whisper, zero AI tekstowego), `code`, `reasoning`, `multimodal` — **nic ich nie używa**. `code` w aplikacji do nauki języka nie ma uzasadnienia. Realnie używane są tylko: `lesson`, `conversation`, `test`, `placement`, `news`.
+- [ ] **A7. Tier jest globalny.** Nie da się dać rozmowie `best`, a codziennym podpowiedziom `cheap`. `get_model_for_task(tier=...)` to obsługuje, ale nikt nie przekazuje parametru — a to najprostsza dźwignia kosztowa.
+- [ ] **A8. Klasyfikacja tierów przez podłańcuch w opisie.** `FREE/CHEAP/BEST` liczone przez `"| free " in v` na notatce tekstowej. `qwen/qwen3-coder:free` trafia jednocześnie do FREE i BEST, bo notatka brzmi „best free coding". Kruche — literówka w spacji cicho zmienia tier.
+- [ ] **A9. Katalog niezweryfikowany.** Nie ma czym sprawdzić, czy identyfikatory (`openai/gpt-5`, `anthropic/claude-opus-4-6`, `google/gemini-3.1-pro`, `deepseek/deepseek-v4-flash:free`…) faktycznie istnieją na OpenRouterze. Potrzebny skrypt/test odpytujący `GET /api/v1/models` i porównujący z katalogiem.
+- [ ] **A10. Brak trybu strukturalnego wyjścia.** Prawie wszystkie wywołania to `generate_json`, ale opieramy się na prompcie („Respond ONLY with valid JSON") + zdejmowaniu znaczników. Gemini i OpenAI potrafią wymusić JSON schematem — to eliminuje całą klasę błędów parsowania.
+
+### Proponowana kolejność napraw
+
+1. **A2 + A3** — najmniejszy koszt, największy zysk: wpiąć brakujące `@with_model`, wołać `validate_model()` przy starcie i logować nazwę modelu przy błędzie (koniec cichego fallbacku).
+2. **A1 + A4 + A5** — przemyśleć mapę: inny model do generowania treści językowych, inny do analizy błędów; rozważyć non-thinking do prostych zadań.
+3. **A9** — skrypt weryfikujący katalog wobec API OpenRoutera.
+4. **A6 + A7 + A8** — sprzątanie: usunąć martwe zadania, dodać tier per-zadanie, zamienić parsowanie opisu na jawne pole.
+
+---
+
 ## 🔬 AUDYT SPÓJNOŚCI NAUKOWEJ I LOGICZNEJ (2026-07-18)
 
 _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z badaniami naukowymi; napraw znalezione problemy; zaproponuj nowe funkcje poparte badaniami._
