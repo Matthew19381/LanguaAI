@@ -1,6 +1,45 @@
 ﻿# TASKS – LinguaAI
 
-_Ostatnia aktualizacja: 2026-07-18_
+_Ostatnia aktualizacja: 2026-07-19_
+
+---
+
+## 🔗 PLAN v2 — INTEGRACJA Z SYSTEMEM GŁÓWNYM (2026-07-19)
+
+_Kontekst: `NEURO_PLAN.md` (ten projekt) + `System-Glowny/MASTER_PLAN.md`.
+Werdykt audytu kodu 2026-07-19: **rdzeń jest dobry — nie przerabiać.**
+321 testów, FSRS v6, offline-sync z idempotencją, bramka dostępu, świeże audyty
+naukowe i logiczne. Braki dotyczą wyłącznie integracji (zero połączenia
+z Systemem Głównym) i znanych porządków (audyt modeli A1-A10 poniżej)._
+
+### Integracja (kolejność implementacji)
+- [ ] **INT-1: `GET /api/v1/summary`** — ujednolicony format ekosystemu
+      `{module:"lingua-ai", user_id, date, summary:{lessons_done, reviews_done,
+      due_reviews, streak, minutes}, events:[...]}`. Read-only, liczone z DB.
+- [ ] **INT-2: Publisher eventów** do Systemu Głównego
+      (`POST http://localhost:8000/api/v1/integrations/event`, nagłówek
+      `X-Module-Key`). Eventy: `lesson_completed`, `review_session_done`,
+      `test_submitted`, `sleep_logged`. **Wzorzec: istniejący `sync_service`**
+      (kolejka + retry + idempotencja przez `client_event_id`) — nie pisać od zera;
+      błąd sieci nigdy nie blokuje UX.
+- [ ] **INT-3: `POST /api/v1/directives`** — przyjmowanie dyrektyw:
+      `survival_mode` (cel dzienny → 5 min / 1 sesja fiszek),
+      `priority` (np. egzamin → więcej powtórek tematu), `quiet_hours`.
+      Zapis w DB + odczyt przez Quick Mode/notifier.
+- [ ] **INT-4: Sen przez Affect Engine** — `sync-sleep`/dziennik snu LinguaAI
+      przestaje być osobnym źródłem: subskrypcja snu z Systemu Głównego
+      (jedno źródło prawdy), lokalne endpointy zostają jako fallback offline.
+- [ ] **INT-5: Zaległe powtórki → planner dnia** — System Główny odpytuje
+      `summary.due_reviews` i wstawia blok powtórek do planu (SCI-9 z NEURO_PLAN).
+- [ ] **INT-6: Web Push przez centralny notifier Systemu Głównego** zamiast
+      własnego workera VAPID (powiadomienia batched, zgodnie z MASTER_PLAN SG-7).
+
+### Porządki przed/przy integracji
+- [ ] Ujednolicenie prefixów API do `/api/v1/*` (dziś mieszanka `/api` i `/api/v1`;
+      zrobić z aliasami przejściowymi, żeby nie zepsuć PWA cache).
+- [ ] Audyt modeli A1–A10 (sekcja niżej) — minimum A2+A3 przed INT-2 (koszty).
+- [ ] **NIE wydzielać jeszcze FSRS jako wspólnej usługi** — to faza 3 MASTER_PLAN;
+      LinguaAI pozostaje implementacją referencyjną do tego czasu.
 
 _Źródło: FEEDBACK.md, własne implementacje_
 
@@ -38,8 +77,24 @@ _Zakres: `model_router.py`, wszystkie wywołania `@with_model`, ścieżka `gemin
 - [ ] **A9. Katalog niezweryfikowany.** Nie ma czym sprawdzić, czy identyfikatory (`openai/gpt-5`, `anthropic/claude-opus-4-6`, `google/gemini-3.1-pro`, `deepseek/deepseek-v4-flash:free`…) faktycznie istnieją na OpenRouterze. Potrzebny skrypt/test odpytujący `GET /api/v1/models` i porównujący z katalogiem.
 - [ ] **A10. Brak trybu strukturalnego wyjścia.** Prawie wszystkie wywołania to `generate_json`, ale opieramy się na prompcie („Respond ONLY with valid JSON") + zdejmowaniu znaczników. Gemini i OpenAI potrafią wymusić JSON schematem — to eliminuje całą klasę błędów parsowania.
 
+### 📄 Audyt dokumentacji (po ponownej lekturze wszystkich dokumentów)
+
+- [ ] **D1. `ADR-003-account-protection.md` należy do INNEGO PROJEKTU.** Nagłówek: „Projekt: **AutoLogic** / analytics/risk_engine.py". Treść to circuit breaker tradingowy, alpha decay, MT5, equity curve, stop-loss — zero związku z nauką języków. Plik jest śledzony w gicie w korzeniu repo. To ta sama kontaminacja, przez którą na początku usuwałem puste katalogi `mt5/`, `strategies/`, `analytics/`, `dashboard/` — ten plik miał treść, więc przetrwał. **Do usunięcia lub przeniesienia do właściwego repo.**
+- [ ] **D2. `FEEDBACK.md` nie istnieje**, a jest wskazywany jako źródło prawdy: nagłówek `TASKS.md` mówi „_Źródło: FEEDBACK.md, własne implementacje_", a `CHANGELOG` wskazuje go jako miejsce ewaluacji modeli AI. **Dokument uzasadniający decyzje o modelach zniknął z repo.**
+- [ ] **D3. Udokumentowana decyzja o modelach została po cichu porzucona — istotne dla audytu modeli.** `CHANGELOG` (2026-04-05): _„app uses **Ollama** (qwen2.5:7b, llama3.1, deepseek-coder) with task-based routing — **optimal free/local stack**"_, a wpis 2026-04-06 wspomina port Ollamy w docker-compose. Sprawdziłem: **zero Ollamy** w kodzie backendu i w `docker-compose.yml`; wszystko idzie przez OpenRouter (płatny, chmurowy). Zmiana nie ma wpisu w CHANGELOG.
+    → Wprost dotyczy Twojego celu „nie tracić zasobów": **lokalna Ollama = zero kosztu za wywołanie**. Trzeba świadomie zdecydować, czy porzucenie było zamierzone, czy to dryf.
+- [ ] **D4. README opisuje funkcje, których nie ma** (część usunąłem ja, i nie zaktualizowałem README — mój błąd):
+    - „fiszki z FSRS v6 **z rozszerzeniami neuronaukowymi: modulacja snu, pora dnia, interleaving, interferencja**" — usunięte; dziś czysty FSRS v6, a sen/pora dnia to wyłącznie telemetria
+    - „osiągnięcia neuronaukowe: **gestualna kotwica**" — usunięte razem z kolumną `gesture_anchor`
+    - „AI: **Google Gemini 2.0 Flash** (lub OpenRouter)" — odwrotnie, domyślny jest OpenRouter
+    - **Brak** w opisie: bank ćwiczeń, ekran ćwiczeń, dyktando, tryb offline z synchronizacją, PWA, bramka dostępu
+    - „Frontend (Playwright/CSC) - **TODO**" — nieprawda: 65 testów vitest + specyfikacje Playwright w `frontend/e2e/`
+- [ ] **D5. `docs/deployment.md` prowadzi wprost do niebezpiecznego wdrożenia.** Instruuje postawienie Nginx + Let's Encrypt i wystawienie aplikacji do internetu, a przykładowy `.env` **nie zawiera `APP_ACCESS_TOKEN`**. Kto pójdzie tym przewodnikiem, wystawi publicznie API bez uwierzytelnienia — dokładnie ten scenariusz, przed którym powstała bramka.
+- [ ] **D6. `deployment.md` każe ustawić `DEBUG=False`** („Ważne: Ustaw DEBUG=False w produkcji!"), ale **takie ustawienie nie istnieje w `config.py`**. Instrukcja nic nie robi, a daje złudzenie zabezpieczenia.
+
 ### Proponowana kolejność napraw
 
+0. **D5 + D1** — najpilniejsze: dopisać bramkę do przewodnika wdrożeniowego (inaczej dokumentacja prowadzi do wycieku) i usunąć obcy ADR.
 1. **A2 + A3** — najmniejszy koszt, największy zysk: wpiąć brakujące `@with_model`, wołać `validate_model()` przy starcie i logować nazwę modelu przy błędzie (koniec cichego fallbacku).
 2. **A1 + A4 + A5** — przemyśleć mapę: inny model do generowania treści językowych, inny do analizy błędów; rozważyć non-thinking do prostych zadań.
 3. **A9** — skrypt weryfikujący katalog wobec API OpenRoutera.
