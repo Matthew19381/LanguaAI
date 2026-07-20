@@ -219,6 +219,22 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
 
 Szczegóły i uzasadnienia: `docs/NEURO_FEATURES.md` → „Funkcje wycofane i dlaczego".
 
+### 📌 Zgodność z NEURO_PLAN.md (odkryte 2026-07-19)
+
+`NEURO_PLAN.md` (plan ekosystemowy, wcześniej nieczytany) potwierdza i rozszerza backlog:
+
+- ✅ **Zrealizowane SCI-1…SCI-6 to dokładnie „priorytet 1"** z planu — zgodność pełna.
+- ✅ **Anty-wzorce z planu = dokładnie to, co usunąłem** w audycie naukowym: zakaz mnożników interwałów za sen/porę dnia, sztywnych okien godzinowych, loot-boxów i fabrykowanych liczb w tipach.
+- ℹ️ Plan wskazuje `docs/NEURO_FEATURES.md` jako **wzorzec dla całego ekosystemu** — czyli przepisany przeze mnie dokument pełni rolę standardu poza tym projektem.
+- ⚠️ **Kolejność faz w planie jest inna niż wykonana.** Plan: faza 1 = SCI-1…SCI-3, faza 2 = **SCI-8 + SCI-9**, faza 3 = SCI-4…SCI-7 + SCI-10. Zrobiłem SCI-4…SCI-6 przed SCI-8/SCI-9 (nie wiedząc o planie).
+
+**Rozszerzenia z planu, których nie było w backlogu:**
+
+- [~] **SCI-8 Natychmiastowy feedback korekcyjny** _(Metcalfe 2017, META)_ — poprawna odpowiedź + zdanie wyjaśnienia zamiast samego „źle". **W dużej części już działa**: ekran ćwiczeń pokazuje `expected_answer` + `feedback` przy błędzie. Do sprawdzenia: czy testy dzienne i fiszki też dają korekcyjny feedback, czy tylko wynik.
+- [ ] **SCI-9 Kolejka powtórek dnia w Systemie Głównym** _(Gollwitzer & Sheeran 2006, META)_ — FSRS publikuje liczbę zaległych → planner wstawia blok powtórek jako implementation intention. Wymaga integracji międzyprojektowej.
+- [ ] **SCI-7 Production effect** _(MacLeod et al. 2010, RCT)_ — etap „powtórz na głos" w Quick Mode; TTS już jest, w v1 bez rozpoznawania mowy (samoocena).
+- [ ] **SCI-10 Wieczorna konsolidacja** — **jako hipoteza do eksperymentu n-of-1**, nie jako reguła. Zgodne z zasadą, że sen konsoliduje pamięć (META), ale przewaga pory wieczornej u konkretnej osoby wymaga zmierzenia.
+
 ### ✅ Backlog SCI: 6/6 ukończone (2026-07-18)
 
 Wszystkie funkcje z audytu spójności naukowej zaimplementowane, przetestowane i wypchnięte. Łącznie ~48 nowych testów backendu (273 → 321). Każda funkcja poparta cytowanym recenzowanym źródłem i zweryfikowana testami jednostkowymi + integracyjnymi.
