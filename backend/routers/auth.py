@@ -96,7 +96,6 @@ def get_login_link(user_id: int, db: Session = Depends(get_db)):
     is only ever shown behind the access gate on the owner's own device.
     NOTE: mounted on the auth router (no mount prefix), so the full path is used.
     """
-    from backend.models.user import User
     from backend.utils import get_user_or_404
 
     user = get_user_or_404(db, user_id)
