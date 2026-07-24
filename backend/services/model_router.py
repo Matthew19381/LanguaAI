@@ -18,57 +18,27 @@ from backend.config import settings
 
 OPENROUTER_MODELS = {
     # ── FREE TIER (:free suffix) ─────────────────────────────────────────────
-    "openrouter/owl-alpha":                    "1.0M | agentic  | free | tools, long-context",
-    "inclusionai/ring-2.6-1t:free":            "262K | reasoning | free | 1T params, tools",
     "google/gemma-4-26b-a4b-it:free":         "262K | multimodal| free | vision+tools",
     "google/gemma-4-31b-it:free":              "262K | multimodal| free | vision+tools",
-    "arcee-ai/trinity-large-thinking:free":    "262K | reasoning | free | thinking, tools",
     "nvidia/nemotron-3-super-120b-a12b:free": "262K | reasoning | free | MoE, tools",
-    "qwen/qwen3-next-80b-a3b-instruct:free":   "262K | instruct  | free | MoE, tools",
-    "qwen/qwen3-coder:free":                  "262K | coding    | free | best free coding",
-    "deepseek/deepseek-v4-flash:free":         "256K | general   | free | programming, reasoning",
-    "minimax/minimax-m2.5:free":               "197K | general   | free | strong generalist",
-    "openai/gpt-oss-120b:free":                "131K | general   | free | OpenAI open-weight",
     "openai/gpt-oss-20b:free":                 "131K | general   | free | OpenAI open-weight, fast",
-    "z-ai/glm-4.5-air:free":                   "131K | general   | free | tools, fast",
-    "meta-llama/llama-3.2-3b-instruct:free":   "131K | general   | free | lightweight",
-    "meta-llama/llama-3.3-70b-instruct:free":  "66K  | general   | free | tools, Meta",
-    "nousresearch/hermes-3-llama-3.1-405b:free": "131K | general | free | 405B params",
-    "liquid/lfm-2.5-1.2b-instruct:free":       "33K  | general   | free | tiny, fast",
-    "liquid/lfm-2.5-1.2b-thinking:free":       "33K  | reasoning | free | thinking, tiny",
 
     # ── CHEAP TIER (tanie płatne, <$1/1M tokens) ────────────────────────────
     "deepseek/deepseek-v3.2":                  "128K | reasoning | cheap | ~90% GPT-5 jakości, 1/50 kosztu",
-    "deepseek/deepseek-v3.2-non-thinking":     "128K | general   | cheap | szybszy, tańszy",
-    "qwen/qwen3-235b-a22b":                    "128K | instruct  | cheap | Alibaba hybrid arch",
-    "qwen/qwen3-coder":                        "256K | coding    | cheap | najlepszy coding w taniej cenie",
-    "qwen/qwen3-8b":                           "128K | general   | cheap | szybki, tani",
-    "mistralai/mistral-small-3.1-24b":         "128K | general   | cheap | Mistral, szybki",
-    "mistralai/mistral-small-3.1-8b":          "128K | general   | cheap | Mistral, najtańszy",
-    "meta-llama/llama-4-maverick-17b":         "128K | general   | cheap | Meta multimodal",
-    "meta-llama/llama-4-scout-17b":            "128K | general   | cheap | Meta, szybki",
-    "openai/gpt-4o-mini":                      "128K | general   | cheap | OpenAI, tani",
-    "openai/gpt-4o":                           "128K | general   | cheap | OpenAI, jakościowy",
-    "google/gemini-2.0-flash":                 "128K | general   | cheap | Google, szybki",
     "google/gemini-2.5-flash":                 "128K | general   | cheap | Google, najnowszy flash",
     "google/gemini-2.5-flash-lite":            "128K | general   | cheap | Google, najtańszy",
     "minimax/minimax-m2.5":                    "197K | general   | cheap | MiniMax, strong generalist",
-    "minimax/minimax-m2.7":                    "197K | general   | cheap | MiniMax, top usage",
-    "x-ai/grok-3-mini":                        "128K | general   | cheap | X.ai, szybki",
-    "amazon/nova-lite-v1":                     "128K | general   | cheap | Amazon, tani",
-    "amazon/nova-micro-v1":                    "128K | general   | cheap | Amazon, najtańszy",
+    "meta-llama/llama-4-maverick":             "1.0M | general   | cheap | Meta multimodal",
+    "meta-llama/llama-4-scout":                "1.3M | general   | cheap | Meta, szybki, najtańszy",
+    "openai/gpt-4o-mini":                      "128K | general   | cheap | OpenAI, tani",
+    "openai/gpt-5-nano":                       "400K | general   | cheap | OpenAI, ultra-tani",
 
     # ── BEST TIER (najlepsze jakościowo) ─────────────────────────────────────
-    "anthropic/claude-sonnet-4-6":             "200K | general   | best | Anthropic, top quality",
-    "anthropic/claude-opus-4-6":               "200K | general   | best | Anthropic, najlepszy",
+    "anthropic/claude-sonnet-4.6":             "1.0M | general   | best | Anthropic, top quality",
     "openai/gpt-5":                            "128K | general   | best | OpenAI flagship",
     "openai/gpt-5-mini":                       "128K | general   | best | OpenAI, tani flagship",
     "google/gemini-2.5-pro":                   "128K | general   | best | Google flagship",
-    "google/gemini-3.1-pro":                   "128K | general   | best | Google, top usage",
     "deepseek/deepseek-r1":                    "128K | reasoning | best | DeepSeek reasoning",
-    "x-ai/grok-3":                             "128K | general   | best | X.ai flagship",
-    "qwen/qwen3-max":                          "128K | general   | best | Alibaba flagship",
-    "mistralai/mistral-large-2":               "128K | general   | best | Mistral flagship",
 }
 
 # ── Tier lookup sets ────────────────────────────────────────────────────────
@@ -112,40 +82,40 @@ def _get_openrouter_model(task: str, fallback: str = None, tier: str = "cheap") 
     if fallback is None:
         fallback = _tier_default_openrouter(tier)
 
-    # Mapping per tier: task → model
+    # Mapping per tier: task → model (all ids verified against GET /api/v1/models 2026-07-24)
     MAPPINGS = {
         "free": {
-            "placement":     "meta-llama/llama-3.2-3b-instruct:free",
-            "pronunciation": "liquid/lfm-2.5-1.2b-instruct:free",
-            "lesson":        "deepseek/deepseek-v4-flash:free",
-            "conversation":  "minimax/minimax-m2.5:free",
+            "placement":     "openai/gpt-oss-20b:free",
+            "pronunciation": "openai/gpt-oss-20b:free",
+            "lesson":        "google/gemma-4-31b-it:free",
+            "conversation":  "google/gemma-4-31b-it:free",
             "news":          "google/gemma-4-26b-a4b-it:free",
-            "test":          "deepseek/deepseek-v4-flash:free",
-            "code":          "qwen/qwen3-coder:free",
+            "test":          "openai/gpt-oss-20b:free",
+            "code":          "openai/gpt-oss-20b:free",
             "reasoning":     "nvidia/nemotron-3-super-120b-a12b:free",
             "multimodal":    "google/gemma-4-26b-a4b-it:free",
         },
         "cheap": {
-            "placement":     "deepseek/deepseek-v3.2-non-thinking",
-            "pronunciation": "google/gemini-2.5-flash",
-            "lesson":        "deepseek/deepseek-v3.2-non-thinking",
-            "conversation":  "deepseek/deepseek-v3.2-non-thinking",
+            "placement":     "google/gemini-2.5-flash-lite",
+            "pronunciation": "google/gemini-2.5-flash-lite",
+            "lesson":        "google/gemini-2.5-flash",
+            "conversation":  "google/gemini-2.5-flash",
             "news":          "google/gemini-2.5-flash",
-            "test":          "deepseek/deepseek-v3.2-non-thinking",
-            "code":          "qwen/qwen3-coder",
+            "test":          "deepseek/deepseek-v3.2",
+            "code":          "deepseek/deepseek-v3.2",
             "reasoning":     "deepseek/deepseek-v3.2",
             "multimodal":    "google/gemini-2.5-flash",
         },
         "best": {
             "placement":     "openai/gpt-5-mini",
-            "pronunciation": "google/gemini-2.5-flash",
-            "lesson":        "anthropic/claude-sonnet-4-6",
-            "conversation":  "anthropic/claude-sonnet-4-6",
+            "pronunciation": "openai/gpt-5-mini",
+            "lesson":        "anthropic/claude-sonnet-4.6",
+            "conversation":  "anthropic/claude-sonnet-4.6",
             "news":          "google/gemini-2.5-pro",
             "test":          "openai/gpt-5",
             "code":          "openai/gpt-5",
             "reasoning":     "deepseek/deepseek-r1",
-            "multimodal":    "google/gemini-3.1-pro",
+            "multimodal":    "google/gemini-2.5-pro",
         },
     }
 
@@ -203,10 +173,10 @@ def _get_gemini_model(task: str, fallback: str = None, tier: str = "cheap") -> s
 def _tier_default_openrouter(tier: str) -> str:
     """Domyślny fallback model dla danego tieru OpenRouter."""
     return {
-        "free":  "meta-llama/llama-3.2-3b-instruct:free",
-        "cheap": "deepseek/deepseek-v3.2-non-thinking",
-        "best":  "anthropic/claude-sonnet-4-6",
-    }.get(tier, "deepseek/deepseek-v3.2-non-thinking")
+        "free":  "openai/gpt-oss-20b:free",
+        "cheap": "google/gemini-2.5-flash",
+        "best":  "anthropic/claude-sonnet-4.6",
+    }.get(tier, "google/gemini-2.5-flash")
 
 
 def get_available_models(provider: str = None, tier: str = None) -> list:

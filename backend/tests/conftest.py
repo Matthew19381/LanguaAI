@@ -11,6 +11,8 @@ import os
 os.environ.setdefault("OPENROUTER_API_KEY", "test-dummy-key")
 os.environ.setdefault("GEMINI_API_KEY", "test-dummy-key")
 os.environ.setdefault("ADMIN_API_KEY", "test-key")
+# Pin the model tier so tests are independent of the developer's .env choice
+os.environ["AI_MODEL_TIER"] = "cheap"
 os.environ["TESTING"] = "1"
 
 import pytest

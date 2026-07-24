@@ -300,4 +300,4 @@ class TestDefaultModelResolution:
         assert isinstance(model, str) and model
         assert ":free" not in model, "default model resolves to a free tier - router ignored"
         # cheap tier default per model_router._tier_default_openrouter
-        assert model == "deepseek/deepseek-v3.2-non-thinking"
+        assert model == "google/gemini-2.5-flash"
