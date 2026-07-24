@@ -80,15 +80,24 @@ pip install -r requirements.txt
 Utwórz plik `/opt/linguaai/app/backend/.env`:
 
 ```env
+OPENROUTER_API_KEY=«redacted:sk-…»
 GEMINI_API_KEY=your_gemini_api_key_here
-OPENROUTER_API_KEY=sk-or-v1_your_openrouter_key_here
-TARGET_LANGUAGE=German
-NATIVE_LANGUAGE=Polish
 DATABASE_URL=sqlite:///./lingua_ai.db
-DEBUG=False
+APP_ACCESS_TOKEN=<wygenerowany_sekret>
 ```
 
-**Ważne**: Ustaw `DEBUG=False` w produkcji!
+**⚠️ KRYTYCZNE — bramka dostępu:** przed wystawieniem aplikacji do internetu
+**musi** być ustawiony `APP_ACCESS_TOKEN` (losowy sekret, min. 32 znaki). Bez
+niego każdy, kto zna adres, może czytać/zmieniać dane użytkownika i palić
+Twoje kredyty OpenRouter. Wygeneruj:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Bramka wymaga jednorazowego odblokowania na każdym urządzeniu (ekran
+"Aplikacja zablokowana" → wklejenie tokenu). Lokalny localhost bez tokenu
+działa bez zmian (bramka wyłączona gdy zmienna pusta).
 
 ### 4. Inicjalizacja bazy danych
 

@@ -4,6 +4,24 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-07-24
+
+### Docs: audyt dokumentacji D1-D6
+- **D1** — usunięty `ADR-003-account-protection.md` (obcy projekt AutoLogic, kontaminacja repo)
+- **D2** — `FEEDBACK.md` nie istnieje: odniesienia zastąpione aktualnym stanem
+  (modele zarządzane przez `backend/services/model_router.py` + audyt A1-A10 w TASKS.md)
+- **D3** — dopisane porzucenie Ollamy (patrz wpis poniżej z 2026-04-05): od
+  2026-07-13 wszystko idzie przez OpenRouter; lokalna Ollama nie jest używana
+  w kodzie ani w docker-compose
+- **D4** — README zaktualizowane: usunięte martwe funkcje (modulacja FSRS,
+  gesturalna kotwica, Ollama), dodane brakujące (bank ćwiczeń, PWA, bramka,
+  profil JSON); poprawiony provider domyślny na OpenRouter
+- **D5+D6** — `docs/deployment.md`: dopisana bramka `APP_ACCESS_TOKEN` jako
+  warunek wystawienia (wcześniej przewodnik prowadził do publicznego API bez
+  uwierzytelnienia); usunięty martwy `DEBUG=False` (nie istnieje w config.py)
+
+---
+
 ## 2026-07-20
 
 ### Feat: INT-1 — integracja z Systemem Głównym (pilot ekosystemu)
@@ -43,7 +61,7 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 - **VIDEOS-1** — Toggle "Tylko język docelowy" vs "Język docelowy + polskie wyjaśnienia" w zakładce Filmy
 - **backend/routers/youtube.py** — `_suggest_queries()` accepts `include_polish` flag, generates 2 additional Polish queries when enabled
 - **frontend/src/pages/Videos.jsx** — Added toggle button, passes `include_polish` to API
-- **FEEDBACK.md** — AI model evaluation complete: app uses **Ollama** (qwen2.5:7b, llama3.1, deepseek-coder) with task-based routing — optimal free/local stack
+- ~~FEEDBACK.md~~ — AI model evaluation complete: app uses **Ollama** (qwen2.5:7b, llama3.1, deepseek-coder) with task-based routing — optimal free/local stack. **UPDATE 2026-07-24: decyzja porzucona bez wpisu — od 2026-07-13 app używa OpenRouter (płatny, chmurowy); Ollama nie istnieje w kodzie ani docker-compose. Plik FEEDBACK.md zniknął z repo.**
 - **.gitignore** — Added logs and temp plugin caches
 
 ### Feature: Phase 2 — Learning enhancements

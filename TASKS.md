@@ -96,7 +96,7 @@ z Systemem Głównym) i znanych porządków (audyt modeli A1-A10 poniżej)._
 - [ ] **NIE wydzielać jeszcze FSRS jako wspólnej usługi** — to faza 3 MASTER_PLAN;
       LinguaAI pozostaje implementacją referencyjną do tego czasu.
 
-_Źródło: FEEDBACK.md, własne implementacje_
+_Źródło: audyt własny + `backend/services/model_router.py`_
 
 ---
 
@@ -144,18 +144,12 @@ _Zakres: `model_router.py`, wszystkie wywołania `@with_model`, ścieżka `gemin
 
 ### 📄 Audyt dokumentacji (po ponownej lekturze wszystkich dokumentów)
 
-- [ ] **D1. `ADR-003-account-protection.md` należy do INNEGO PROJEKTU.** Nagłówek: „Projekt: **AutoLogic** / analytics/risk_engine.py". Treść to circuit breaker tradingowy, alpha decay, MT5, equity curve, stop-loss — zero związku z nauką języków. Plik jest śledzony w gicie w korzeniu repo. To ta sama kontaminacja, przez którą na początku usuwałem puste katalogi `mt5/`, `strategies/`, `analytics/`, `dashboard/` — ten plik miał treść, więc przetrwał. **Do usunięcia lub przeniesienia do właściwego repo.**
-- [ ] **D2. `FEEDBACK.md` nie istnieje**, a jest wskazywany jako źródło prawdy: nagłówek `TASKS.md` mówi „_Źródło: FEEDBACK.md, własne implementacje_", a `CHANGELOG` wskazuje go jako miejsce ewaluacji modeli AI. **Dokument uzasadniający decyzje o modelach zniknął z repo.**
-- [ ] **D3. Udokumentowana decyzja o modelach została po cichu porzucona — istotne dla audytu modeli.** `CHANGELOG` (2026-04-05): _„app uses **Ollama** (qwen2.5:7b, llama3.1, deepseek-coder) with task-based routing — **optimal free/local stack**"_, a wpis 2026-04-06 wspomina port Ollamy w docker-compose. Sprawdziłem: **zero Ollamy** w kodzie backendu i w `docker-compose.yml`; wszystko idzie przez OpenRouter (płatny, chmurowy). Zmiana nie ma wpisu w CHANGELOG.
-    → Wprost dotyczy Twojego celu „nie tracić zasobów": **lokalna Ollama = zero kosztu za wywołanie**. Trzeba świadomie zdecydować, czy porzucenie było zamierzone, czy to dryf.
-- [ ] **D4. README opisuje funkcje, których nie ma** (część usunąłem ja, i nie zaktualizowałem README — mój błąd):
-    - „fiszki z FSRS v6 **z rozszerzeniami neuronaukowymi: modulacja snu, pora dnia, interleaving, interferencja**" — usunięte; dziś czysty FSRS v6, a sen/pora dnia to wyłącznie telemetria
-    - „osiągnięcia neuronaukowe: **gestualna kotwica**" — usunięte razem z kolumną `gesture_anchor`
-    - „AI: **Google Gemini 2.0 Flash** (lub OpenRouter)" — odwrotnie, domyślny jest OpenRouter
-    - **Brak** w opisie: bank ćwiczeń, ekran ćwiczeń, dyktando, tryb offline z synchronizacją, PWA, bramka dostępu
-    - „Frontend (Playwright/CSC) - **TODO**" — nieprawda: 65 testów vitest + specyfikacje Playwright w `frontend/e2e/`
-- [ ] **D5. `docs/deployment.md` prowadzi wprost do niebezpiecznego wdrożenia.** Instruuje postawienie Nginx + Let's Encrypt i wystawienie aplikacji do internetu, a przykładowy `.env` **nie zawiera `APP_ACCESS_TOKEN`**. Kto pójdzie tym przewodnikiem, wystawi publicznie API bez uwierzytelnienia — dokładnie ten scenariusz, przed którym powstała bramka.
-- [ ] **D6. `deployment.md` każe ustawić `DEBUG=False`** („Ważne: Ustaw DEBUG=False w produkcji!"), ale **takie ustawienie nie istnieje w `config.py`**. Instrukcja nic nie robi, a daje złudzenie zabezpieczenia.
+- [x] **D1. `ADR-003-account-protection.md` należy do INNEGO PROJEKTU** ✅ 2026-07-24 — usunięty (`git rm`). Treść: circuit breaker tradingowy, alpha decay, MT5 — zero związku z nauką języków.
+- [x] **D2. `FEEDBACK.md` nie istnieje** ✅ 2026-07-24 — odniesienia zastąpione: nagłówek TASKS.md → „audyt własny + model_router.py", CHANGELOG 2026-04-05 → przekreślone + UPDATE o porzuceniu Ollamy.
+- [x] **D3. Udokumentowana decyzja o modelach po cichu porzucona** ✅ 2026-07-24 — dopisane w CHANGELOG: od 2026-07-13 app używa OpenRouter; Ollama nie istnieje w kodzie ani docker-compose.
+- [x] **D4. README opisuje funkcje, których nie ma** ✅ 2026-07-24 — usunięte: modulacja FSRS, gesturalna kotwica, Gemini jako domyślny, „Frontend TODO". Dodane: bank ćwiczeń, dyktando, PWA/offline, bramka, profil JSON, czysty FSRS z telemetrią, 393+65 testów.
+- [x] **D5. `docs/deployment.md` prowadzi wprost do niebezpiecznego wdrożenia** ✅ 2026-07-24 — sekcja env zawiera teraz `APP_ACCESS_TOKEN` z generatorem i ostrzeżeniem, że bez niej publiczne API = wyciek danych + palenie kredytów.
+- [x] **D6. `deployment.md` każe ustawić `DEBUG=False`** ✅ 2026-07-24 — usunięte (nie istnieje w `config.py`; instrukcja nic nie robiła, a dawała złudzenie zabezpieczenia).
 
 ### Proponowana kolejność napraw
 

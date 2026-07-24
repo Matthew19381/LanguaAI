@@ -22,20 +22,23 @@ Aplikacja do nauki języków obcych wspierana przez AI. Interfejs w języku pols
 
 **Backend**: FastAPI, SQLAlchemy (SQLite), FSRS v6, edge-tts, faster-whisper, fpdf2, feedparser, genanki  
 **Frontend**: React 19, React Router v7, Axios, Tailwind CSS, Vite, lucide-react  
-**AI**: Google Gemini 2.0 Flash (lub OpenRouter)  
+**AI**: OpenRouter (domyślny; wybór modelu per zadanie w `backend/services/model_router.py`) lub Google Gemini Direct
 
 ## Kluczowe funkcje
 
 - Test poziomujący CEFR (20 pytań)
 - Codzienne lekcje z AI (słownictwo, gramatyka, i+1 input, przeplatanie, wymuszona produkcja)
-- System fiszek z FSRS v6 (z rozszerzeniami neuronaukowymi: modulacja snu, pora dnia, interleaving, interferencja)
-- Konwersacja z AI (tekst/glos)
+- System fiszek FSRS v6 — czysty, bez mnożników; telemetria kontekstu (pora dnia, sen, interleaving) jest zbierana do analizy, nie wpływa na harmonogram
+- Bank ćwiczeń z powtórkami FSRS + warianty na słabe umiejętności
+- Konwersacja z AI (tekst/głos)
 - Analiza wymowy (word-level scoring)
 - Czytanie nieuprzedzonych artykułów (RSS + AI upraszczanie)
 - System punktów (XP) i poziomów (50 poziomów, kwadratowa krzywa)
-- 57+ osiągnięć (w tym neuronaukowe: świadomy sen, przeplatanie, gestualna kotwica)
-- Tryb szybki (5-120 min) z niezależnym timerem
-- Eksport do Anki, PDF, audio TTS
+- Osiągnięcia (w tym za telemetrię snu i regularność)
+- Tryb szybki (5-120 min) z niezależnym timerem + dyktando
+- PWA: instalacja na telefonie, fiszki i ćwiczenia offline z synchronizacją po powrocie sieci
+- Bramka dostępu (APP_ACCESS_TOKEN) — warunek wystawienia na internet
+- Eksport do Anki, PDF, audio TTS, Obsidian, CSV; profil do JSON (telefon/nowe urządzenie)
 - Kopie zapasowe (lokalne i Google Drive)
 
 ## Wdrożenie Docker
@@ -53,10 +56,14 @@ API Docs: http://localhost:8001/docs
 ## Testy
 
 ```bash
-# Backend
+# Backend (393 testów)
 py -3.11 -m pytest backend/tests/ -v
 
-# Frontend (Playwright/CSC) - TODO
+# Frontend (65 testów, Vitest)
+cd frontend && npm test
+
+# E2E (Playwright)
+cd frontend && npx playwright test
 ```
 
 ## Licencja
