@@ -130,6 +130,7 @@ async def _call_gemini_api(url: str, payload: dict, headers: dict, timeout: floa
 
 async def _call_openrouter_api(url: str, payload: dict, headers: dict, timeout: float = 60.0) -> str:
     """Call OpenRouter API and return response text."""
+    model = payload.get("model", "?")
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             response = await client.post(url, json=payload, headers=headers)
@@ -137,7 +138,9 @@ async def _call_openrouter_api(url: str, payload: dict, headers: dict, timeout: 
             data = response.json()
             return data["choices"][0]["message"]["content"]
         except Exception as e:
-            logger.error(f"Error calling OpenRouter API: {e}")
+            # Include the model id so a catalog typo is visible in logs instead
+            # of degrading silently to a hardcoded fallback downstream (A3).
+            logger.error("OpenRouter call failed (model=%s): %s", model, e)
             raise
 
 

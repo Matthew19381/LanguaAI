@@ -47,8 +47,8 @@ Zweryfikowane live na uvicornie + w openapi.json — wszystkie 404/405:
       skipped=1. Testy: 4 w test_missing_endpoints.py.
 
 ### ⚠️ Drobne
-- [ ] `test_language_tutor.db` (176 KB) w korzeniu repo — artefakt testowy,
-      nie w .gitignore.
+- [x] `test_language_tutor.db` (176 KB, 0 tabel) w korzeniu repo — usunięty 2026-07-24;
+      był już w .gitignore.
 - [ ] Alembic: szkielet bez `alembic.ini` — `alembic heads` nie działa
       (schema przez `create_all`, więc bez szkody; martwy katalog).
 
@@ -119,10 +119,20 @@ _Zakres: `model_router.py`, wszystkie wywołania `@with_model`, ścieżka `gemin
 ### 🔴 Istotne
 
 - [ ] **A1. W domyślnym tierze router nie różnicuje modeli.** W `cheap` zadania `placement`, `lesson`, `conversation`, `test` rozwiązują się do **tego samego** `deepseek/deepseek-v3.2`. Rozbudowana mapa per-zadanie daje złudzenie optymalizacji, a w praktyce cała aplikacja działa na jednym modelu. Jedyny wyjątek (`news` → `gemini-2.5-flash`) nie działa — patrz A2.
-- [ ] **A2. Dwa serwisy omijają router.** `news_service.py` (`simplify_article`, `_generate_sample_news`) i `topic_service.py` wołają `generate_json` **bez `@with_model`**, więc lecą na domyślny model tieru. Zamierzony model dla newsów nigdy nie jest używany. CLAUDE.md wprost zabrania omijania routera.
-- [ ] **A3. Brak walidacji istnienia modelu → ciche pogorszenie jakości.** Zły identyfikator = wyjątek w `_call_openrouter_api` → serwis łapie i zwraca **zaszyty fallback**. Użytkownik dostaje gorszą lekcję i nie wie dlaczego. `validate_model()` istnieje, ale **nie jest nigdzie wołane**, a log błędu nie zawiera nazwy modelu.
+- [x] **A2. Dwa serwisy omijają router** ✅ 2026-07-24 — `news_service.py`
+      (`simplify_article`, `_generate_sample_news` → `@with_model("news")`) i
+      `topic_service.py` (`extract_topics_from_lesson` → `@with_model("lesson")`)
+      wpięte w router. Zamierzony model dla newsów (gemini-2.5-flash) jest
+      teraz faktycznie używany.
+- [x] **A3. Brak walidacji istnienia modelu → ciche pogorszenie jakości** ✅
+      2026-07-24 — `main.py` lifespan waliduje katalog przy starcie (5 zadań ×
+      `validate_model()`, log: "Model catalog OK (47 entries)"); `gemini_service`
+      loguje nazwę modelu przy błędzie OpenRoutera (`model=%s`).
 - [ ] **A4. Dobór nie uwzględnia kryterium najważniejszego dla tej aplikacji: jakości generowania w języku docelowym.** DeepSeek jest mocny w reasoning/kodzie; dla poprawnego niemieckiego z polskimi objaśnieniami bezpieczniejsze są Gemini / GPT / Claude. Projekt miał już incydent tego typu (niemiecki tekst z polskimi wtrąceniami w `output_forcing`).
-- [ ] **A5. `deepseek-v3.2` to wariant „thinking".** Do generowania lekcji to wolniej i drożej niż potrzeba; katalog zawiera `deepseek-v3.2-non-thinking`, który był wcześniej dokumentowany jako domyślny.
+- [x] **A5. `deepseek-v3.2` to wariant „thinking"** ✅ 2026-07-24 — cheap tier
+      przełączony na `deepseek-v3.2-non-thinking` (placement/lesson/conversation/test
+      + domyślny tier); `reasoning` świadomie zostaje na thinking. Szybciej i taniej
+      przy tej samej jakości generowania.
 
 ### 🟡 Średnie
 

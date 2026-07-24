@@ -110,6 +110,34 @@ async def lifespan(app: FastAPI):
     os.makedirs(audio_dir, exist_ok=True)
     os.makedirs(exports_dir, exist_ok=True)
 
+    # A3: validate the model catalog at startup — a typo'd model id should be
+    # loud here, not discovered as a silent fallback mid-lesson.
+    try:
+        from backend.config import settings as _settings
+        from backend.services.model_router import (
+            OPENROUTER_MODELS,
+            get_model_for_task,
+            validate_model,
+        )
+
+        if _settings.AI_PROVIDER.lower() == "openrouter":
+            tasks = ["placement", "lesson", "conversation", "news", "test"]
+            invalid = []
+            for task in tasks:
+                model = get_model_for_task(task)
+                if model and not validate_model(model):
+                    invalid.append(f"{task} -> {model}")
+            if invalid:
+                logger.warning(
+                    "Model catalog contains unknown OpenRouter ids (they will fail "
+                    "at call time and fall back silently): %s",
+                    "; ".join(invalid),
+                )
+            else:
+                logger.info("Model catalog OK: all task models exist in OPENROUTER_MODELS (%d entries)", len(OPENROUTER_MODELS))
+    except Exception as e:
+        logger.warning("Model catalog validation skipped: %s", e)
+
     logger.info("LinguaAI API started successfully!")
     yield
     # Shutdown

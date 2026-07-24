@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
 from backend.models.topic import ItemType, Topic, TopicCategory, TopicItem
-from backend.services.gemini_service import generate_json
+from backend.services.gemini_service import generate_json, with_model
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # TOPIC EXTRACTION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@with_model("lesson")
 async def extract_topics_from_lesson(content: dict, language: str, cefr_level: str) -> list[dict]:
     """
     Use AI to extract topics from lesson content.

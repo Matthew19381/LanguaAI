@@ -2,7 +2,7 @@ import logging
 
 import feedparser
 
-from backend.services.gemini_service import generate_json
+from backend.services.gemini_service import generate_json, with_model
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +81,7 @@ def fetch_articles(language: str, limit: int = 10) -> list:
     return articles[:limit]
 
 
+@with_model("news")
 async def simplify_article(article: dict, cefr_level: str, native_language: str, language: str) -> dict:
     """Use Gemini to simplify an article to the user's CEFR level."""
     prompt = f"""You are a language teacher. Simplify the following news article for a {language} learner at CEFR level {cefr_level} (native language: {native_language}).
@@ -143,6 +144,7 @@ async def get_news_for_user(language: str, cefr_level: str, native_language: str
     return results
 
 
+@with_model("news")
 async def _generate_sample_news(language: str, cefr_level: str, native_language: str, limit: int) -> list:
     """Generate sample news articles using Gemini when RSS is unavailable."""
     prompt = f"""Generate {limit} sample news articles in {language} for a learner at CEFR level {cefr_level}.
