@@ -22,6 +22,9 @@ class User(Base):
     language_profiles = Column(Text, default="{}")
     # JSON: {"last_sleep_quality": 3, "history": [{"date": "2026-07-10", "quality": 4}, ...]}
     sleep_data = Column(Text, default="{}")
+    # Magic-link token: opening /login-as?key=<token> on a new device binds it
+    # to this account (single-user app; generated lazily on first request).
+    login_token = Column(String, nullable=True, unique=True)
 
     lessons = relationship("Lesson", back_populates="user")
     test_results = relationship("TestResult", back_populates="user")

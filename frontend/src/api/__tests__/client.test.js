@@ -83,7 +83,7 @@ describe('API function exports', () => {
       'getFlashcards', 'getDueFlashcards', 'reviewFlashcard', 'exportAnki',
       'addFlashcard',
       'startConversation', 'sendMessage', 'analyzeConversation', 'askQuestion',
-      'getStats', 'addXP', 'getDailyTips',
+      'getStats', 'getDailyTips',
       'getQuickMode', 'getNews',
       'getPronunciationPhrases', 'analyzePronunciation',
       'getAchievements',

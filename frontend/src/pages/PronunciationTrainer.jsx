@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mic, MicOff, RotateCcw, ChevronRight, BarChart3, Trophy, CheckCircle } from 'lucide-react'
-import { getUserId, addXP, addFlashcard, askQuestion, getPronunciationPhrases, analyzePronunciation } from '../api/client'
+import { getUserId, addFlashcard, askQuestion, getPronunciationPhrases, analyzePronunciation } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
 import PlayButton from '../components/PlayButton'
@@ -51,7 +51,6 @@ export default function PronunciationTrainer() {
   const handleMarkDone = async () => {
     markTabComplete('pronunciation')
     setActivityDone(true)
-    try { await addXP(userId, 10, 'activity_complete') } catch {}
   }
 
   const currentPhrase = useCustom ? customPhrase : phrases[currentIdx]?.text || ''

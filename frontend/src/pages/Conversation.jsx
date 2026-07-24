@@ -229,7 +229,7 @@ export default function Conversation() {
 
     recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error)
-      setRecognitionError('BĹ‚Ä…d rozpoznawania mowy: ' + event.error)
+      setRecognitionError('Błąd rozpoznawania mowy: ' + event.error)
       setIsRecording(false)
     }
 
@@ -374,7 +374,7 @@ export default function Conversation() {
               Analiza wklejonej rozmowy
             </h2>
             <p className="text-gray-400 text-sm mb-3">
-              Wklej podsumowanie lub transkrypt rozmowy z Voice Chat â€” przeanalizujÄ™ Twoje bĹ‚Ä™dy i dodam je do statystyk.
+              Wklej podsumowanie lub transkrypt rozmowy z Voice Chat — przeanalizuję Twoje błędy i dodam je do statystyk.
             </p>
             <textarea
               className="input-field h-36 resize-none mb-3 text-sm"
@@ -388,7 +388,7 @@ export default function Conversation() {
               disabled={pasteLoading || !pasteText.trim()}
             >
               {pasteLoading ? <LoadingSpinner size="sm" /> : <BarChart3 className="w-4 h-4" />}
-              {pasteLoading ? 'Analizowanie...' : 'Analizuj bĹ‚Ä™dy'}
+              {pasteLoading ? 'Analizowanie...' : 'Analizuj błędy'}
             </button>
             {pasteResult && (
               <div className="space-y-3">
@@ -405,7 +405,7 @@ export default function Conversation() {
                 </div>
                 {pasteResult.errors?.length > 0 && (
                   <div>
-                    <p className="text-sm font-semibold text-gray-400 mb-2">Znalezione bĹ‚Ä™dy ({pasteResult.errors.length}):</p>
+                    <p className="text-sm font-semibold text-gray-400 mb-2">Znalezione błędy ({pasteResult.errors.length}):</p>
                     <div className="space-y-2">
                       {pasteResult.errors.slice(0, 8).map((err, i) => {
                         const isCritical = err.severity !== 'minor'
@@ -672,10 +672,10 @@ export default function Conversation() {
 
 const CONV_SPECIAL_CHARS = {
   German: ['Ă¤', 'Ă¶', 'ĂĽ', 'Ăź', 'Ă„', 'Ă–', 'Ăś'],
-  Spanish: ['Ăˇ', 'Ă©', 'Ă­', 'Ăł', 'Ăş', 'Ă±', 'Âż', 'Âˇ'],
+  Spanish: ['á', 'é', 'í', 'ó', 'ú', 'ñ', '¿', '¡'],
   French: ['Ă ', 'Ă˘', 'Ă©', 'Ă¨', 'ĂŞ', 'Ă®', 'Ă´', 'Ăą', 'Ă»', 'Ă§'],
-  Portuguese: ['ĂŁ', 'Ă˘', 'Ăˇ', 'Ă ', 'ĂŞ', 'Ă©', 'Ă­', 'Ăł', 'Ă´', 'Ăş', 'Ă§'],
-  Italian: ['Ă ', 'Ă¨', 'Ă©', 'Ă¬', 'Ă˛', 'Ăł', 'Ăą'],
+  Portuguese: ['ã', 'â', 'á', 'à', 'ê', 'é', 'í', 'ó', 'ô', 'ú', 'ç'],
+  Italian: ['à', 'è', 'é', 'ì', 'ò', 'ó', 'ù'],
 }
 
 function ConvSpecialChars({ language, onInsert }) {

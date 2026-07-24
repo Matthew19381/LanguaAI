@@ -34,3 +34,22 @@ class ConceptFlashcardRequest(BaseModel):
 class GenerateFromTopicRequest(BaseModel):
     topic_id: int
     count: int = 10
+
+
+class GenerateFromErrorsRequest(BaseModel):
+    user_id: int
+    count: int = 10
+
+
+class BatchFlashcardItem(BaseModel):
+    word: str
+    translation: str
+    example: Optional[str] = None
+    example_translation: Optional[str] = None
+    gender: Optional[str] = None
+    isImportant: Optional[bool] = False
+
+
+class BatchAddRequest(BaseModel):
+    user_id: int
+    flashcards: list[BatchFlashcardItem]

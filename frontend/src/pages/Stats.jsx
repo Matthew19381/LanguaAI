@@ -114,9 +114,9 @@ export default function Stats() {
   const LANG_NAMES_PL = {
     German: 'Niemiecki',
     English: 'Angielski',
-    Spanish: 'HiszpaĹ„ski',
+    Spanish: 'Hiszpański',
     Russian: 'Rosyjski',
-    Chinese: 'ChiĹ„ski',
+    Chinese: 'Chiński',
   }
 
   const handleChangeLanguage = async (newLanguage) => {
@@ -139,7 +139,7 @@ export default function Stats() {
         window.location.reload()
       }
     } catch (e) {
-      setLanguageMsg('BĹ‚Ä…d: ' + e.message)
+      setLanguageMsg('Błąd: ' + e.message)
       setChangingLanguage(false)
     }
   }
@@ -150,7 +150,7 @@ export default function Stats() {
       await fetch(`/api/lessons/next/${userId}`, { method: 'POST' })
       window.location.href = '/lesson'
     } catch (e) {
-      alert('BĹ‚Ä…d: ' + e.message)
+      alert('Błąd: ' + e.message)
     }
   }
 
@@ -161,7 +161,7 @@ export default function Stats() {
 
   const CATEGORY_LABELS = {
     grammar: 'Gramatyka',
-    vocabulary: 'SĹ‚ownictwo',
+    vocabulary: 'Słownictwo',
     word_order: 'Szyk zdania',
     articles: 'Rodzajniki',
     verb_conjugation: 'Koniugacja',
@@ -170,9 +170,9 @@ export default function Stats() {
     pronunciation: 'Wymowa',
     case: 'Przypadki',
     comprehension: 'Rozumienie',
-    syntax: 'SkĹ‚adnia',
+    syntax: 'Składnia',
     pronunciation_spelling: 'Wymowa/Pisownia',
-    fluency: 'PĹ‚ynnoĹ›Ä‡',
+    fluency: 'Płynność',
     register: 'Rejestr',
     application: 'Zastosowanie',
     conversation: 'Rozmowa',
@@ -181,21 +181,21 @@ export default function Stats() {
 
   const CATEGORY_ADVICE = {
     grammar: 'Popracuj nad zasadami gramatycznymi â€” deklinacje, koniugacje, czasy gramatyczne.',
-    vocabulary: 'Rozszerz sĹ‚ownictwo â€” ucz siÄ™ nowych sĹ‚Ăłw w kontekĹ›cie zdaĹ„.',
-    word_order: 'Ä†wicz szyk zdania â€” zwrĂłÄ‡ uwagÄ™ na kolejnoĹ›Ä‡ sĹ‚Ăłw w zdaniach podrzÄ™dnych.',
-    articles: 'Ucz siÄ™ rodzajnikĂłw i rodzaju gramatycznego rzeczownikĂłw na pamiÄ™Ä‡.',
-    verb_conjugation: 'Ä†wicz odmianÄ™ czasownikĂłw â€” szczegĂłlnie nieregularne i modalne.',
-    prepositions: 'ZapamiÄ™tuj przyimki z ich przypadkami â€” lista typowych poĹ‚Ä…czeĹ„.',
-    spelling: 'Ä†wicz pisowniÄ™ â€” zwrĂłÄ‡ uwagÄ™ na podwĂłjne litery i wyjÄ…tki ortograficzne.',
-    pronunciation: 'SĹ‚uchaj native speakerĂłw i powtarzaj na gĹ‚os â€” Ä‡wicz trudne dĹşwiÄ™ki.',
-    case: 'Ä†wicz przypadki gramatyczne â€” szczegĂłlnie Akkusativ i Dativ z przyimkami.',
-    comprehension: 'Ä†wicz rozumienie ze sĹ‚uchu i z czytania â€” wiÄ™cej ekspozycji na jÄ™zyk.',
-    syntax: 'Popracuj nad budowÄ… zdaĹ„ zĹ‚oĹĽonych i spĂłjnikami.',
-    pronunciation_spelling: 'Ä†wicz wymowÄ™ i pisowniÄ™ â€” sĹ‚uchaj native speakerĂłw i powtarzaj.',
-    fluency: 'MĂłw wiÄ™cej i nie bĂłj siÄ™ bĹ‚Ä™dĂłw â€” liczy siÄ™ pĹ‚ynnoĹ›Ä‡ rozmowy.',
-    register: 'Ä†wicz rĂłĹĽne rejestry jÄ™zyka â€” formalny i nieformalny styl.',
-    application: 'Ä†wicz zastosowanie wiedzy w praktycznych sytuacjach.',
-    conversation: 'Regularnie rozmawiaj z AI â€” rĂłĹĽne tematy i sytuacje.',
+    vocabulary: 'Rozszerz słownictwo — ucz się nowych słów w kontekście zdań.',
+    word_order: 'Ćwicz szyk zdania — zwróć uwagę na kolejność słów w zdaniach podrzędnych.',
+    articles: 'Ucz się rodzajników i rodzaju gramatycznego rzeczowników na pamięć.',
+    verb_conjugation: 'Ćwicz odmianę czasowników — szczególnie nieregularne i modalne.',
+    prepositions: 'Zapamiętuj przyimki z ich przypadkami — lista typowych połączeń.',
+    spelling: 'Ćwicz pisownię — zwróć uwagę na podwójne litery i wyjątki ortograficzne.',
+    pronunciation: 'Słuchaj native speakerów i powtarzaj na głos — ćwicz trudne dźwięki.',
+    case: 'Ćwicz przypadki gramatyczne — szczególnie Akkusativ i Dativ z przyimkami.',
+    comprehension: 'Ćwicz rozumienie ze słuchu i z czytania — więcej ekspozycji na język.',
+    syntax: 'Popracuj nad budową zdań złożonych i spójnikami.',
+    pronunciation_spelling: 'Ćwicz wymowę i pisownię — słuchaj native speakerów i powtarzaj.',
+    fluency: 'Mów więcej i nie bój się błędów — liczy się płynność rozmowy.',
+    register: 'Ćwicz różne rejestry języka — formalny i nieformalny styl.',
+    application: 'Ćwicz zastosowanie wiedzy w praktycznych sytuacjach.',
+    conversation: 'Regularnie rozmawiaj z AI — różne tematy i sytuacje.',
   }
 
   const SUPER_GROUPS = [
@@ -205,7 +205,7 @@ export default function Stats() {
       color: 'purple',
       icon: 'đź“',
       keys: ['grammar', 'word_order', 'articles', 'verb_conjugation', 'prepositions', 'case', 'syntax'],
-      advice: 'Skup siÄ™ na zasadach gramatycznych: odmiana czasownikĂłw, przypadki, szyk zdania. Ä†wicz Ä‡wiczenia gramatyczne z lekcji i zaglÄ…daj do wyjaĹ›nieĹ„.',
+      advice: 'Skup się na zasadach gramatycznych: odmiana czasowników, przypadki, szyk zdania. Ćwicz ćwiczenia gramatyczne z lekcji i zaglądaj do wyjaśnień.',
     },
     {
       id: 'comprehension_group',
@@ -213,7 +213,7 @@ export default function Stats() {
       color: 'blue',
       icon: 'đź“–',
       keys: ['comprehension', 'vocabulary', 'application'],
-      advice: 'ZwiÄ™ksz ekspozycjÄ™ na jÄ™zyk â€” czytaj, sĹ‚uchaj, oglÄ…daj. Dodawaj nowe sĹ‚Ăłwka do fiszek i powtarzaj je regularnie.',
+      advice: 'Zwiększ ekspozycję na język — czytaj, słuchaj, oglądaj. Dodawaj nowe słówka do fiszek i powtarzaj je regularnie.',
     },
     {
       id: 'pronunciation_group',
@@ -221,7 +221,7 @@ export default function Stats() {
       color: 'emerald',
       icon: 'đźŽ™ď¸Ź',
       keys: ['pronunciation', 'pronunciation_spelling', 'spelling'],
-      advice: 'SĹ‚uchaj native speakerĂłw i naĹ›laduj. Korzystaj z zakĹ‚adki Wymowa â€” nagrywaj siÄ™ i analizuj rĂłĹĽnice.',
+      advice: 'Słuchaj native speakerów i naśladuj. Korzystaj z zakładki Wymowa — nagrywaj się i analizuj różnice.',
     },
     {
       id: 'conversation_group',
@@ -229,7 +229,7 @@ export default function Stats() {
       color: 'yellow',
       icon: 'đź’¬',
       keys: ['fluency', 'register', 'conversation', 'unknown'],
-      advice: 'MĂłw regularnie â€” nie bĂłj siÄ™ bĹ‚Ä™dĂłw. Korzystaj z zakĹ‚adki MĂłw: rozmawiaj z AI na rĂłĹĽne tematy, proĹ› o korektÄ™.',
+      advice: 'Mów regularnie — nie bój się błędów. Korzystaj z zakładki Mów: rozmawiaj z AI na różne tematy, proś o korektę.',
     },
   ]
 
@@ -266,11 +266,11 @@ export default function Stats() {
         </div>
       </div>
 
-      {/* Today's Activity Completion â€” WskaĹşnik ukoĹ„czenia */}
+      {/* Today's Activity Completion — Wskaźnik ukończenia */}
       <div className="card mb-6">
         <h2 className="section-title flex items-center gap-2 mb-3">
           <CheckCircle className="w-5 h-5 text-emerald-400" />
-          WskaĹşnik ukoĹ„czenia â€” dziĹ›
+          Wskaźnik ukończenia — dziś
         </h2>
         <TodayCompletion stats={stats} />
       </div>
@@ -343,7 +343,7 @@ export default function Stats() {
                 onClick={() => setShowAllLessons(s => !s)}
                 className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
               >
-                {showAllLessons ? 'ZwiĹ„' : 'PokaĹĽ wszystkie'}
+                {showAllLessons ? 'Zwiń' : 'Pokaż wszystkie'}
               </button>
             )}
           </div>
@@ -357,7 +357,7 @@ export default function Stats() {
                 </div>
                 <div className="flex-1">
                   <p className={`text-sm ${lesson.completed ? 'text-gray-300' : 'text-gray-500'}`}>
-                    {(lesson.title || '').replace(/^Day\s+\d+[:\s]*/i, '').replace(/^DzieĹ„\s+\d+[:\s]*/i, '') || lesson.title}
+                    {(lesson.title || '').replace(/^Day\s+\d+[:\s]*/i, '').replace(/^Dzień\s+\d+[:\s]*/i, '') || lesson.title}
                   </p>
                 </div>
                 <span className="text-xs text-gray-600">{lesson.date}</span>
@@ -413,7 +413,7 @@ export default function Stats() {
               className="btn-secondary text-sm flex items-center gap-1"
             >
               <Flame className="w-3 h-3" />
-              {t('stats.goToFlashcards') || 'PrzejdĹş do fiszek'}
+              {t('stats.goToFlashcards') || 'Przejdź do fiszek'}
             </Link>
           </div>
           {/* Manual Anki review checkbox */}
@@ -480,10 +480,10 @@ export default function Stats() {
                 Kopiuj do schowka
               </button>
               {voiceChatPrompt.has_lesson_today && (
-                <span className="text-xs text-emerald-400">âś“ Lekcja dzisiaj ukoĹ„czona</span>
+                <span className="text-xs text-emerald-400">✓ Lekcja dzisiaj ukończona</span>
               )}
               {voiceChatPrompt.due_flashcards > 0 && (
-                <span className="text-xs text-yellow-400">Fiszki do powtĂłrki: {voiceChatPrompt.due_flashcards}</span>
+                <span className="text-xs text-yellow-400">Fiszki do powtórki: {voiceChatPrompt.due_flashcards}</span>
               )}
             </div>
           </div>
@@ -609,10 +609,10 @@ export default function Stats() {
                     'bg-yellow-900/50 text-yellow-300'
                   }`}>{
                     tip.type === 'grammar' ? 'Gramatyka' :
-                    tip.type === 'vocabulary' ? 'SĹ‚ownictwo' :
+                    tip.type === 'vocabulary' ? 'Słownictwo' :
                     tip.type === 'culture' ? 'Kultura' :
-                    tip.type === 'memory_tip' ? 'ZapamiÄ™tywanie' :
-                    tip.type || 'WskazĂłwka'
+                    tip.type === 'memory_tip' ? 'Zapamiętywanie' :
+                    tip.type || 'Wskazówka'
                   }</span>
                   <p className="font-semibold text-gray-100 text-sm">{tip.title}</p>
                 </div>
@@ -655,7 +655,7 @@ export default function Stats() {
                 Hardcore (EN)
               </button>
             ) : (
-              <span className="px-4 py-1.5 rounded-lg text-sm bg-gray-800/50 text-gray-600" title="DostÄ™pne tylko dla jÄ™zyka angielskiego">
+              <span className="px-4 py-1.5 rounded-lg text-sm bg-gray-800/50 text-gray-600" title="Dostępne tylko dla języka angielskiego">
                 Hardcore (tylko EN)
               </span>
             )}
@@ -664,8 +664,8 @@ export default function Stats() {
 
         {/* Target Language Change */}
         <div className="mb-4 mt-4">
-          <span className="text-gray-300 text-sm block mb-1">ZmieĹ„ jÄ™zyk nauki</span>
-          <span className="text-gray-500 text-xs mb-3 block">Progres dla kaĹĽdego jÄ™zyka jest zachowywany oddzielnie</span>
+          <span className="text-gray-300 text-sm block mb-1">Zmień język nauki</span>
+          <span className="text-gray-500 text-xs mb-3 block">Progres dla każdego języka jest zachowywany oddzielnie</span>
           <div className="grid grid-cols-5 gap-2">
             {LANGUAGES.map(lng => {
               const profile = languageProfiles?.languages?.find(p => p.language === lng)
@@ -701,7 +701,7 @@ export default function Stats() {
               )
             })}
           </div>
-          {changingLanguage && <p className="text-xs text-indigo-400 mt-2">Zmienianie jÄ™zyka...</p>}
+          {changingLanguage && <p className="text-xs text-indigo-400 mt-2">Zmienianie języka...</p>}
           {languageMsg && <p className="text-sm text-indigo-300 mt-2">{languageMsg}</p>}
         </div>
 
@@ -709,7 +709,7 @@ export default function Stats() {
           onClick={handleRegenerateLesson}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-red-900/30 hover:border-red-700/30 border border-transparent text-gray-300 hover:text-red-300 text-sm transition-colors mt-2"
         >
-          Wygeneruj nastÄ™pnÄ… lekcjÄ™
+          Wygeneruj następną lekcję
         </button>
 
       </div>
@@ -744,7 +744,7 @@ function ErrorCategoriesCard({ error_categories, error_examples, CATEGORY_LABELS
           {t('stats.errorAnalysis')}
         </h2>
         <Link to="/errors" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
-          PrzeglÄ…d wszystkich bĹ‚Ä™dĂłw â†’
+          Przegląd wszystkich błędów →
         </Link>
       </div>
       <p className="text-gray-400 text-sm mb-4">{t('stats.errorAreas')}</p>
@@ -774,7 +774,7 @@ function ErrorCategoriesCard({ error_categories, error_examples, CATEGORY_LABELS
                     )}
                   </span>
                   <span className="flex items-center gap-2">
-                    {groupCount === 0 && <span className="text-xs text-emerald-500">âś“ brak bĹ‚Ä™dĂłw</span>}
+                    {groupCount === 0 && <span className="text-xs text-emerald-500">✓ brak błędów</span>}
                     <span className="text-gray-600 text-xs">{isOpen ? 'â–˛' : 'â–Ľ'}</span>
                   </span>
                 </div>
@@ -873,7 +873,7 @@ function ConceptsCard({ userId, t }) {
       setMsg('Koncepcje dodane do fiszek!')
       setTimeout(() => setMsg(''), 3000)
     } catch {
-      setMsg('BĹ‚Ä…d dodawania.')
+      setMsg('Błąd dodawania.')
     } finally {
       setAddingIdx(null)
     }
@@ -910,7 +910,7 @@ function ConceptsCard({ userId, t }) {
                             <p className="font-semibold text-teal-300 text-sm mb-1">{c.name}</p>
                             <p className="text-gray-400 text-xs leading-relaxed">{c.explanation}</p>
                             {c.example && (
-                              <p className="text-yellow-300 text-xs mt-1 italic">PrzykĹ‚ad: {c.example}</p>
+                              <p className="text-yellow-300 text-xs mt-1 italic">Przykład: {c.example}</p>
                             )}
                           </div>
                           <button
@@ -930,7 +930,7 @@ function ConceptsCard({ userId, t }) {
                     onClick={() => { setData(null); setOpen(false); setAddedIdxs(new Set()) }}
                     className="text-xs text-gray-600 hover:text-gray-400 mt-1"
                   >
-                    OdĹ›wieĹĽ â†’
+                    Odśwież →
                   </button>
                 </>
               )}
@@ -1003,7 +1003,7 @@ function TodayCompletion({ stats }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-gray-400 text-sm">{doneCount}/{activities.length} aktywnoĹ›ci ukoĹ„czonych</span>
+        <span className="text-gray-400 text-sm">{doneCount}/{activities.length} aktywności ukończonych</span>
         <span className={`text-sm font-bold ${pct === 100 ? 'text-emerald-400' : pct >= 50 ? 'text-yellow-400' : 'text-gray-400'}`}>{pct}%</span>
       </div>
       <div className="progress-bar mb-4">
@@ -1058,7 +1058,7 @@ function LessonPlanCard({ plan, currentLesson }) {
             groupedWeeks.map((week, wi) => (
               <div key={wi}>
                 <h3 className="text-sm font-semibold text-indigo-300 mb-1">
-                  TydzieĹ„ {week.week || wi + 1}{week.goal ? `: ${week.goal}` : (week.theme || week.focus ? `: ${week.theme || week.focus}` : '')}
+                  Tydzień {week.week || wi + 1}{week.goal ? `: ${week.goal}` : (week.theme || week.focus ? `: ${week.theme || week.focus}` : '')}
                 </h3>
                 {week.key_grammar && (
                   <p className="text-xs text-gray-500 mb-2">Gramatyka: {week.key_grammar}</p>
@@ -1066,7 +1066,7 @@ function LessonPlanCard({ plan, currentLesson }) {
                 <div className="space-y-1">
                   {(week.days || week.lessons || []).map((day, di) => (
                     <div key={di} className={`flex items-start gap-2 text-sm py-1 border-b border-gray-800 last:border-0 ${currentLesson === day.day ? 'bg-indigo-900/20 rounded px-1' : ''}`}>
-                      <span className="text-gray-600 shrink-0 w-16 text-xs">DzieĹ„ {day.day || di + 1}</span>
+                      <span className="text-gray-600 shrink-0 w-16 text-xs">Dzień {day.day || di + 1}</span>
                       <div className="flex-1">
                         <span className="text-gray-300">{day.grammar_topic || day.topic || day.title || ''}</span>
                         {day.vocabulary_theme && <span className="text-gray-500 text-xs ml-2">Â· {day.vocabulary_theme}</span>}
@@ -1080,7 +1080,7 @@ function LessonPlanCard({ plan, currentLesson }) {
             <div className="space-y-1">
               {dailyTopics.map((day) => (
                 <div key={day.day} className={`flex items-start gap-2 text-sm py-1 border-b border-gray-800 last:border-0 ${currentLesson === day.day ? 'bg-indigo-900/20 rounded px-1' : ''}`}>
-                  <span className="text-gray-600 shrink-0 w-16 text-xs">DzieĹ„ {day.day}</span>
+                  <span className="text-gray-600 shrink-0 w-16 text-xs">Dzień {day.day}</span>
                   <div className="flex-1">
                     <span className="text-gray-300">{day.grammar_topic}</span>
                     {day.vocabulary_theme && <span className="text-gray-500 text-xs ml-2">Â· {day.vocabulary_theme}</span>}

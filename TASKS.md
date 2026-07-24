@@ -1,6 +1,56 @@
 ﻿# TASKS – LinguaAI
 
-_Ostatnia aktualizacja: 2026-07-19_
+_Ostatnia aktualizacja: 2026-07-23_
+
+---
+
+## 🔴 AUDYT ENDPOINTÓW + ZGODNOŚĆ NEURO (2026-07-23)
+
+_Pełny przegląd: 375 backend testów ✅, 65 frontend ✅, ruff ✅, uvicorn live ✅
+(`/api/health` 200, INT-1 `summary` 200/404/422 poprawnie). Werdykt naukowy poniżej._
+
+### Werdykt neuronaukowy (vs `docs/NEURO_FEATURES.md` + `NEURO_PLAN.md`)
+- ✅ **Kod jest zgodny z obiema specyfikacjami.** FSRS v6 bez mnożników
+  (`fsrs_neuro.py` nie istnieje w backendzie — potwierdzone grepem);
+  telemetria `session_type`/`sleep_quality`/`interleaving_bonus`/`interference_penalty`
+  jest TYLKO zapisywana (`flashcards.py:277-280`), nic jej nie konsumuje —
+  zgodnie z zasadą "zbieranie, nie modulacja".
+- ✅ **Anty-wzorce nie wróciły:** zero `loot`/`surprise` w achievement_service,
+  zero fabrykowanych liczb w notifierze, zero sztywnych okien godzinowych.
+- ✅ **Martwe sekcje WYCZYSZCZONE (2026-07-23):** usunięto z TASKS.md plan
+  "Neuro‑naukowe funkcje Faza 2" (NEURO-1…16 z loot boxami, mnożnikami FSRS,
+  oknami kortyzolowymi, gesture anchors) oraz macierz priorytetów, MVP 1-4,
+  "Analiza kodu", adaptacje DE i "Źródła badań" (Friston/Schultz) — łącznie
+  ~186 linii pseudonauki sprzed audytu naukowego. Aktualny backlog naukowy
+  to SCI-1…SCI-10 (sekcja PLAN v2 + `docs/NEURO_FEATURES.md`).
+
+### 🔴 Znalezione bugi (6 funkcji client.js woła nieistniejące endpointy)
+Zweryfikowane live na uvicornie + w openapi.json — wszystkie 404/405:
+
+- [x] **BUG-1: Voice chat całkowicie zepsuty (zły prefix)** ✅ — client.js:175,178,181
+      wołał `/api/voice-chat/*`, router ma `/api/v1/voice-chat/*`. Naprawione
+      (3 linie, dodane `v1/`). Zweryfikowane live: `GET /api/v1/voice-chat/prompt/1` → 200.
+- [x] **BUG-2: `addXP` cicho połyka 404** ✅ — endpoint `/api/stats/{id}/xp` był
+      **celowo usunięty w commicie d339b59 jako backdoor do farmienia XP**
+      (test `test_add_xp_endpoint_removed` pilnuje jego nieobecności). Nie
+      przywracać! Naprawa = usunięcie martwych wywołań: `addXP` z client.js
+      oraz wywołania w News/PronunciationTrainer/Videos (były w `try/catch {}`,
+      więc użytkownik nic nie traci — nigdy nie działały).
+- [x] **BUG-3: `generateFlashcardsFromErrors` → 404** ✅ — dodany endpoint
+      `POST /api/flashcards/generate-from-errors` w flashcards.py: zbiera ostatnie
+      błędy z TestResult (max 15, tylko dict-wpisy), buduje prompt z poprawnych
+      form, filtruje duplikaty istniejących fiszek. Błąd AI → pusta lista
+      (graceful). Testy: 3 w test_missing_endpoints.py.
+- [x] **BUG-4: `batchAddFlashcards` → 404** ✅ — dodany endpoint
+      `POST /api/flashcards/batch-add`: walidacja Pydantic, dedup po słowie
+      per język, pomija puste wiersze. Zweryfikowane live: create=1, retry →
+      skipped=1. Testy: 4 w test_missing_endpoints.py.
+
+### ⚠️ Drobne
+- [ ] `test_language_tutor.db` (176 KB) w korzeniu repo — artefakt testowy,
+      nie w .gitignore.
+- [ ] Alembic: szkielet bez `alembic.ini` — `alembic heads` nie działa
+      (schema przez `create_all`, więc bez szkody; martwy katalog).
 
 ---
 
@@ -13,9 +63,14 @@ naukowe i logiczne. Braki dotyczą wyłącznie integracji (zero połączenia
 z Systemem Głównym) i znanych porządków (audyt modeli A1-A10 poniżej)._
 
 ### Integracja (kolejność implementacji)
-- [ ] **INT-1: `GET /api/v1/summary`** — ujednolicony format ekosystemu
-      `{module:"lingua-ai", user_id, date, summary:{lessons_done, reviews_done,
-      due_reviews, streak, minutes}, events:[...]}`. Read-only, liczone z DB.
+- [x] **INT-1: `GET /api/v1/summary`** ✅ 2026-07-20 — `backend/routers/integration.py`:
+      ujednolicony format `{module, user_id, date, summary:{lessons_completed,
+      tests_submitted, reviews_done, due_reviews, mastered_words, streak, total_xp,
+      target_language, cefr_level}, events, wellbeing_contribution:null}`.
+      Read-only, bez AI. `wellbeing_contribution` świadomie null do czasu Affect
+      Engine (bez fabrykowanych metryk). Testy: `test_integration_summary.py` (5);
+      cała suita **375 passed**. **Zweryfikowane end-to-end**: System Główny (:8000)
+      pobiera realne dane przez rejestr modułów.
 - [ ] **INT-2: Publisher eventów** do Systemu Głównego
       (`POST http://localhost:8000/api/v1/integrations/event`, nagłówek
       `X-Module-Key`). Eventy: `lesson_completed`, `review_session_done`,
@@ -269,105 +324,6 @@ Wszystkie funkcje z audytu spójności naukowej zaimplementowane, przetestowane 
 - [ ] **Framework testów** – wybór (zalecane: pytest + Playwright)  
 - [ ] **Format dokumentacji** – PDF vs online README oraz poziom szczegółowości  
 
----
-
-## 🧠 Neuro‑naukowe funkcje językowe (Faza 2)
-
-*Na podstawie badań z 2024‑2025 r. dotyczących nabywania języka.*
-
-### Faza 2A – Optymalizacja snu i pamięci (wysoki (wysoki wpływ, mały nakład)
-
-- [ ] **NEURO‑1** Harmonogram świadomości snu  
-    - Backend: dodaj pole `session_type` (wieczór/rano/dzień) do modelu **Lesson**  
-    - Frontend: planuj powiadomienia w optymalnych oknach kodowania/odtworzenia  
-    - Integracja: opcjonalne śledzenie jakości snu (ręczne lub przez API wearables)  
-
-- [ ] **NEURO‑2** Generator treści i+1 (kodowanie predykcyjne / zrozumiały input)  
-    - Backend: nowy endpoint `/api/lessons/iplus1/{user_id}` – generuje tekst, w którym 90 % słów znanych, 10 % nowych  
-    - Wykorzystuje `known_words` z fiszek oraz historię lekcji do kalibracji trudności  
-    - Zwraca `i_plus_1_text`, `new_words_highlighted`, `cefr_level`  
-
-- [ ] **NEURO‑3** Zmienna nagroda (optymalizacja dopaminy)  
-    - Backend: rozszerz `achievement_service.py` o `surprise_loot` (15 % szans) oraz `prediction_bonus` (+50 % XP za trafne zgadywanie kontekstu)  
-    - Frontend: animacja skrzyni z łupem, licznik „serii przewidywań”  
-    - Config: `target_success_rate: 0.85` (strefa i+1)  
-
-### Faza 2B – Motoryczna wymowa (wysoki wpływ, średni nakład)
-
-- [ ] **NEURO‑4** Mechanizm shadowing z odtwarzaniem opóźnioním  
-    - Frontend: odtwarzacz audio z konfigurowalnym opóźnieniem (domyślnie 0,5 s) – słuchaj → mów z przesunięciem  
-    - Synchronizacja fali dźwiękowej, tryb „choralny” (użytkownik + AI jednocześnie)  
-
-- [ ] **NEURO‑5** Kotwice gestowe dla fonetów niemieckich  
-    - Mapowanie: 🤲 „ch” (ich/ach), 👉 „ü/ö”, 🤏 „r” (uvular), ✋ „sch”, 👌 „pf/ts”  
-    - Frontend: karta z podpowiedzią gestu podczas treningu wymowy  
-    - Backend: przechowuj `gesture_anchor` przy fiszce/frazie  
-
-- [ ] **NEURO‑6** Wizualizacja artykulacji (3D)  
-    - Frontend: animacja języka/podniebienia w Three.js/WebGL dla dźwięków niemieckich  
-    - Przełącznik w `PronunciationTrainer`: „Pokaż artykulację”  
-
-### Faza 2C – Przeplatanie i pożądane trudności (wysoki wpływ)
-
-- [ ] **NEURO‑7** Mieszacz sesji (interleaving)  
-    - Backend: usługa `session_mixer` – miesza bloki słownictwa/gramatyki/wymowy/słuchania/produkcji  
-    - Specyfika niemiecka: ćwiczenia proceduralne `der/die/das`, pamięć robocza `verb_position` (n‑back), wymowa → kora ruchowa  
-    - Algorytm: maksymalizacja interferencji kontekstowej  
-
-- [ ] **NEURO‑8** Neuro‑uświadomiony FSRS V2  
-    - Rozszerz parametry FSRS o: `sleep_cycles_since_review`, `time_of_day_factor`, `interleaving_bonus`, `interference_penalty`  
-    - Wzór: `R = S * exp(-t/S) * sleep_modulator * interference_modulator`  
-    - Śledź: `sleep_quality` (1‑5), `time_of_day` (rano/wieczór), `session_type`  
-
-### Faza 2C – Embodiment i słownictwo przestrzenne (średni wpływ)
-
-- [ ] **NEURO‑9** Pałac pamięci / mapa słownictwa przestrzennego  
-    - Frontend: siatka 2D „Pałac pamięci” – pokoje = tematy, obiekty = słowa  
-    - Kliknięcie w pokój → pokaz słów z kontekstem przestrzennym  
-    - Backend: przechowuj `spatial_anchor` (x,y,room) przy fiszce  
-
-- [ ] **NEURO‑10** Społeczne kodowanie predykcyjne (AI rozmowa)  
-    - Backend: model przewidywania tury (kiedy użytkownik kończy wypowiedź)  
-    - Korekcja błędów w czasie rzeczywistym (błąd predykcji = sygnał uczenia się)  
-    - Agentowie oparte na osobowości z modelowaniem Teorii Umysłu  
-
-### **Udoskonalenia neuro‑FSRS i zbieranie danych** (nowe zadania)
-
-- [x] **NEURO‑11** Zbieranie jakości snu od użytkownika  ✅
-    - Endpoint `POST /api/v1/users/{id}/sleep` zapisuje jakość snu w `User.sleep_data` (JSON: historia + `last_sleep_quality`).  \
-    - Endpoint `POST /api/v1/flashcards/{id}/review` odczytuje `last_sleep_quality` użytkownika i przekazuje do `NeuroCardState.sleep_quality` (pliki: `backend/routers/users.py`, `backend/routers/flashcards.py`).  \
-    - Testy: `backend/tests/test_users.py`, `backend/tests/test_flashcards.py`.
-
-- [x] **NEURO‑12** Obliczanie bonusu za interleaving  ✅
-    - W `review_flashcard` liczymy liczbę unikalnych `lesson_topic` wśród fiszek do powtórki (`due_cards`) i ustawiamy `interleaving_bonus = min(1.0, unikalne_tematy/10)`. Wartość trafia do `NeuroCardState` i `Flashcard.interleaving_bonus`.
-
-- [x] **NEURO‑13** Obliczanie kary za interferencję  ✅
-    - W `review_flashcard` liczymy fiszki do powtórki o tym samym `lesson_topic` co oceniana karta (`same_topic_count`) i ustawiamy `interference_penalty = min(0.3, same_topic_count/5*0.3)`. Przekazywane do `neuro_fsrs_next_interval(similar_count=same_topic_count+1)`.
-
-- [x] **NEURO‑14** Dodanie nowych osiągnięć związanych z neuro‑FSRS  ✅
-    - Nowe osiągnięcia: `sleep_tracker` (3 wpisy snu) i `neuro_tuned` (pierwsza zmiana wag) w `backend/services/achievement_service.py`. Przyznawane w `backend/routers/users.py`.
-
-- [x] **NEURO‑15** Konfigurowalne wagi neuro‑FSRS  ✅
-    - Endpointy `GET`/`PATCH /api/v1/users/{id}/neuro-weights` z walidacją zakresów. Funkcja `neuro_fsrs_params_from_user()` w `backend/services/fsrs_neuro.py` buduje `NeuroFSRSParams` z wag użytkownika; używana w `review_flashcard`.
-
-- [x] **NEURO‑16** Czujniki snu (integracja z Google Fit / Apple Health)  ✅ (szkic)
-    - Endpoint `POST /api/v1/users/{id}/sync-sleep` przyjmuje payload z `source` (`google_fit`/`apple_health`), `sleep_score` (0‑100 → normalizowane do 1‑5) lub `sleep_quality` (1‑5). Punkt integracji dla OAuth w tle (todo: `backend/services/sleep_sensor_service.py`).
-
-### Faza 2D – Pozostałe (z poprzedniej listy, bez zmian)
-
-- [ ] **NEURO‑1** … (jak wyżej)  
-- [ ] **NEURO‑2** …  
-- [ ] **NEURO‑3** …  
-- [ ] **NEURO‑4** …  
-- [ ] **NEURO‑5** …  
-- [ ] **NEURO‑6** …  
-- [ ] **NEURO‑7** …  
-- [ ] **NEURO‑8** …  
-- [ ] **NEURO‑9** …  
-- [ ] **NEURO‑10** …  
-
----
-
 ## 🔍 Audyt logiczny systemu (2026-07-12)
 
 Przeprowadzono audyt poprawności działania algorytmów i przepływu danych
@@ -471,93 +427,6 @@ Rozpiska modeli (dobrana per-zadanie dla najlepszego generowania) **istnieje**: 
 **Weryfikacja:**
 - `ruff check backend/` → **All checks passed!** ✓
 - pytest: **285 passed** (po cofnięciu ryzykownych --fix: UP042 `timezone`→`UTC` zepsuł `test_unnotified_returned_once` — przywrócono) ✓
-
----
-
-## 📊 Priorytetowa macierz wdrożenia
-
-|| Feature                              | Wysiłek | Wpływ neuronaukowy | Specyfika niemiecka | Zależności                     |
-|--------------------------------------|---------|--------------------|---------------------|--------------------------------|
-|| NEURO‑1 Harmonogram snu              | 🟢 Niski | ⭐⭐⭐⭐⭐             | Wysoki              | System powiadomień            |
-|| NEURO‑2 Generator i+1                | 🟡 Średni | ⭐⭐⭐⭐⭐             | Wysoki              | Śledzenie znanych słów        |
-|| NEURO‑3 Zmienna nagroda              | 🟢 Niski | ⭐⭐⭐               | Średni              | Serwis osiągnięć               |
-|| NEURO‑4 Shadowing                    | 🟡 Średni | ⭐⭐⭐⭐             | Wysoki              | Odtwarzacz audio               |
-|| NEURO‑5 Kotwice gestowe              | 🟡 Średni | ⭐⭐⭐⭐             | **Tylko niemiecki** | Interfejs wymowy               |
-|| NEURO‑6 3D artykulacja               | 🔴 Wysoki| ⭐⭐⭐               | Wysoki              | Three.js                       |
-|| NEURO‑7 Przeplatanie                 | 🟡 Średni | ⭐⭐⭐⭐             | Wysoki              | Serwis sesji                   |
-|| NEURO‑8 Neuro‑FSRS                   | 🔴 Wysoki| ⭐⭐⭐⭐⭐            | Średni              | Biblioteka FSRS                |
-|| NEURO‑9 Pałac pamięci                | 🔴 Wysoki| ⭐⭐⭐               | Średni              | Canvas/SVG                     |
-|| NEURO‑10 Społeczna AI                | 🔴 Bardzo wysoki | ⭐⭐⭐⭐      | Średni              | Dopasowanie LLM                |
-|| **NEURO‑11 Zbieranie snu**           | 🟢 Niski | ⭐⭐⭐⭐             | Średni              | UI prosty prompt, storage      |
-|| **NEURO‑12 Bonus interleaving**      | 🟡 Średni | ⭐⭐⭐⭐             | Średni              | Śledzenie tematów w sesji      |
-|| **NEURO‑13 Kara interferencja**      | 🟡 Średni | ⭐⭐⭐⭐             | Średni              | Porównywanie znaków fiszek     |
-|| **NEURO‑14 Osiągnięcia neuro**       | 🟢 Niski | ⭐⭐⭐               | Średni              | Rozszerzenie achievement_service|
-|| **NEURO‑15 Konfiguro wagi**          | 🟡 Średni | ⭐⭐⭐               | Średni              | Punkt końcowy ustawień użytk. |
-|| **NEURO‑16 Czujniki snu**            | 🔴 Wysoki| ⭐⭐⭐⭐             | Średni              | Integracja z Google Fit / Apple Health |
-
----
-
-## 🚀 Zalecany MVP (tygodnie 1‑4)
-
-1. **Tydzień 1**: NEURO‑1 (Harmonogram snu) + NEURO‑3 (Zmienna nagroda) + **NEURO‑11** (Zbieranie snu)  
-2. **Tydzień 2**: NEURO‑2 (Generator i+1) + NEURO‑4 (Shadowing) + **NEURO‑12** (Bonus interleaving) + **NEURO‑13** (Kara interferencja)  
-3. **Tydzień 3**: NEURO‑5 (Kotwice gestowe) + NEURO‑7 (Przeplatanie) + **NEURO‑14** (Osiągnięcia neuro)  
-4. **Tydzień 4**: NEURO‑8 (Neuro‑FSRS – już wdrożone, jedynie konfiguracja wag **NEURO‑15**) + ewaluacja oraz przygotowanie do opcjonalnej integracji **NEURO‑16** (czujniki snu)  
-
-Po zakończeniu tego cyklu podstawowe funkcje neuronaukowe będą dostępne i przetestowane, a system będzie lepiej wspierał szybkość postępów w nauce języka niemieckiego poprzez wykorzystanie mechanizmów snu, interleafingu, modulacji dopaminowej oraz motorycznego zaangażowania.
-
----
-
-## 📋 Analiza kodu (do wykonania)
-
-- [ ] Przeskanować `backend/services/lesson_generator.py` pod kątem punktów integracji i+1  
-- [ ] Przeskanować `backend/services/achievement_service.py` pod kątem rozbudowy systemu nagród (nowe NEURO‑achievements)  
-- [ ] Przeskanować `backend/models/lesson.py` pod kątem pola `session_type`  
-- [ ] Przeskanować `frontend/src/components/Playbutton.jsx` pod kątem obsługi opóźnienia (shadowing)  
-- [ ] Przeskanować `frontend/src/pages/PronunciationTrainer.jsx` pod kątem integracji gestów oraz wizualizacji 3D  
-- [ ] Przeskanować `backend/services/test_generator.py` pod kątem logiki przeplatania  
-- [ ] Przeskanować `backend/services/flashcard_service.py` pod kątem kotwic przestrzennych (`spatial_anchor`)  
-- [ ] Przejrzeć integrację biblioteki `fsrs` pod kątem parametrów Neuro‑FSRS  
-- [ ] Zaimplementować i przetestować nowe zadania **NEURO‑11** … **NEURO‑15** (powyżej)  
-
----
-
-## 🇩🇪 Niemiecko‑specyficzne adaptacje neuronaukowe
-
-|| Dziedzina                | Mechanizm neuronaukowy                | Implementacja                                     |
-|--------------------------|---------------------------------------|---------------------------------------------------|
-|| **der/die/das**          | Pamięć proceduralna (ganglia bazalne) | Tryb ćwiczeń proceduralnych, nie deklaratywnych   |
-|| **Pozycja czasownika (V2 ) | Pamięć robocza (DLPFC)                | Ćwiczenia typu n‑back                             |
-|| **Trenmbare czasowniki** | Pamięć proceduralna + pamięć robocza  | Shadowing + sekwencje ruchowe                     |
-|| **Ü/Ö/CH/R**             | Kora ruchowa + móżdżek                | Kotwice gestowe + wizualizacja 3D artykulacji     |
-|| **Przypadki (Mian/Dopełniacz/Dzierżawczy/Biernik)**| Pamięć proceduralna                 | Ćwiczenia proceduralne przeplatane               |
-
----
-
-## 📚 Źródła badań (kluczowe prace)
-
-- Diekelmann & Born (2010) – konsolidacja pamięci podczas snu  
-- Friston (2010) – kodowanie predykcyjne / zasada wolnej energii  
-- Schultz (2016) – błąd przewidywania dopaminy  
-- Pulvermüller & Fadiga (2010) – teoria ruchowa percepcji mowy  
-- Ullman (2004) – model deklaratywno/proceduralny języka  
-- Rohrer & Taylor (2007) – przeplatanie / interferencja kontekstowa  
-- Bjork & Bjork (1992) – pożądane trudności  
-- Rasch & Born (2013) – sen i konsolidacja pamięci  
-- Guenther (2016) – neuronalna kontrola produkcji mowy  
-- Krashen (1985) + walidacja współczesna – zrozumiały input (i+1)  
-
----
-
-## 📓 Rejestr zmian
-
-- **2026-07-06**: Dodano funkcje neuronaukowe (Faza)  
-- **2026-07-08**: Zaktualizowano TASKS.md – usunięto zakończone zadania, dodano szczegółowe zadania neuro‑FSRS, osiągnięcia, zbieranie danych snu, interleaving, interferencja, konfigurację wag, nowe osiągnięcia oraz analizę kodu.  
-- **2026-07-10**: Zaktualizowano TASKS.md – oznaczone jako zakończone zadania związane z dodaniem kolumny `isImportant` i automatycznym dodawaniem kolumn przy starcie SQLite oraz dodanie testów jednostkowych dla pola `isImportant`.  
-
-*Uwaga: Niniejszy plik jest źródłem prawdy dotyczącym planowanych i już zrealizowanych zadań związanych z neuronaukowo uzasadnionymi funkcjami nauki języków. Aktualizuj go po każdym zakończonym etapie pracy.*
-
----
 
 ## 🚀 Produkcja i gotowość mobilna
 

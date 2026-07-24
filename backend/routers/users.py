@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -197,3 +197,55 @@ async def sync_sleep_from_sensor(
         "quality": quality,
         "new_achievement": achievement,
     }
+
+
+# ── Profile export/import over HTTP (no SSH needed) ─────────────────────
+
+@router.get("/{user_id}/profile-export")
+def export_user_profile(user_id: int, db: Session = Depends(get_db)):
+    """Download the full learning profile as JSON (browser-friendly backup)."""
+    from fastapi.responses import JSONResponse
+
+    from backend.services.profile_backup import export_profile
+
+    user = get_user_or_404(db, user_id)
+    data = export_profile(db, user.id)
+    filename = f"linguaai_profile_{user.name}_{user.id}.json".replace(" ", "_")
+    return JSONResponse(
+        content=data,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/import-profile")
+async def import_user_profile(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Restore a profile previously downloaded via /profile-export.
+
+    Keeps the user id from the file, so localStorage on all devices still
+    matches. Idempotent: importing when the user already exists is a no-op.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from backend.services.profile_backup import import_profile
+
+    raw = await file.read()
+    try:
+        # Validate before touching the DB
+        import json as _json
+        _json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, _json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="Not a valid profile JSON file")
+
+    with tempfile.NamedTemporaryFile("wb", suffix=".json", delete=False) as tmp:
+        tmp.write(raw)
+        tmp_path = Path(tmp.name)
+    try:
+        new_id = import_profile(db, tmp_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    return {"success": True, "user_id": new_id}

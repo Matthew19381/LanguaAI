@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Newspaper, BookOpen, ChevronDown, ChevronUp, ExternalLink, Plus, CheckCircle } from 'lucide-react'
-import { getUserId, addFlashcard, addFlashcardAI, addXP, translateWord, getNews } from '../api/client'
+import { getUserId, addFlashcard, addFlashcardAI, translateWord, getNews } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
 import PlayButton from '../components/PlayButton'
@@ -63,7 +63,6 @@ export default function News() {
   const handleMarkDone = async () => {
     markTabComplete('news')
     setActivityDone(true)
-    try { await addXP(userId, 10, 'news_read') } catch {}
   }
 
   const toggleArticle = (i) => setExpanded(prev => ({ ...prev, [i]: !prev[i] }))

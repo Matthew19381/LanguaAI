@@ -4,7 +4,7 @@ import {
   BookOpen, FlaskConical, MessageSquare, LayoutGrid,
   BarChart3, Flame, Star, Brain, Timer, Newspaper, Mic,
   BookmarkPlus, X, Loader2, Video, AlertTriangle, Layers,
-  Sun, Moon, Dumbbell, Headphones
+  Sun, Moon, Dumbbell, Headphones, UserCircle
 } from 'lucide-react'
 import { getUserId, getStats, addFlashcardAI } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
@@ -80,6 +80,7 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
     { to: '/stats', label: t('nav.stats'), icon: BarChart3 },
     { to: '/errors', label: 'Błędy', icon: AlertTriangle },
     { to: '/topics', label: 'Tematy', icon: Layers },
+    { to: '/profile', label: 'Profil', icon: UserCircle },
   ]
 
   useEffect(() => {

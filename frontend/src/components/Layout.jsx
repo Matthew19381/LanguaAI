@@ -93,6 +93,16 @@ export default function Layout() {
     checkNewAchievements()
   }, [checkNewAchievements, location.pathname])
 
+  // Stale userId (user deleted from DB): client.js clears localStorage and
+  // fires 'user-not-found' → send the user to onboarding instead of looping 404s.
+  useEffect(() => {
+    const onUserNotFound = () => {
+      window.location.href = '/placement'
+    }
+    window.addEventListener('user-not-found', onUserNotFound)
+    return () => window.removeEventListener('user-not-found', onUserNotFound)
+  }, [])
+
   // Retry polling every 30 seconds to catch achievements missed by route changes
   useEffect(() => {
     if (!userId) return

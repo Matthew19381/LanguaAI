@@ -18,6 +18,8 @@ import ErrorReview from './pages/ErrorReview'
 import TopicsPage from './pages/TopicsPage'
 import Dictation from './pages/Dictation'
 import Practice from './pages/Practice'
+import Profile from './pages/Profile'
+import LoginAs from './pages/LoginAs'
 
 function App() {
   return (
@@ -41,8 +43,10 @@ function App() {
           <Route path="topics" element={<ErrorBoundary><TopicsPage /></ErrorBoundary>} />
           <Route path="dictation" element={<ErrorBoundary><Dictation /></ErrorBoundary>} />
           <Route path="practice" element={<ErrorBoundary><Practice /></ErrorBoundary>} />
+          <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
         </Route>
         <Route path="/placement" element={<ErrorBoundary><PlacementTest /></ErrorBoundary>} />
+        <Route path="/login-as" element={<ErrorBoundary><LoginAs /></ErrorBoundary>} />
       </Routes>
       </UnlockGate>
     </ErrorBoundary>

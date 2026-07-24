@@ -24,7 +24,22 @@ api.interceptors.response.use(
     if (status === 401 && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('app-locked'))
     }
-    const message = error.response?.data?.detail || error.message || 'An error occurred'
+    const detail = error.response?.data?.detail
+    // Stale userId after a DB reset: the backend says "User not found" →
+    // drop the stored id so the app falls back to onboarding instead of
+    // looping on 404s for every page. We detect it either by the URL path
+    // (/something/{userId} or ?user_id=) or by the exact backend detail text.
+    if (status === 404 && typeof window !== 'undefined') {
+      const url = error.config?.url || ''
+      const stored = localStorage.getItem('userId')
+      if (stored && url.includes(`/${stored}`) && typeof detail === 'string' && /user not found/i.test(detail)) {
+        localStorage.removeItem('userId')
+        localStorage.removeItem('userName')
+        localStorage.removeItem('userLanguage')
+        window.dispatchEvent(new CustomEvent('user-not-found'))
+      }
+    }
+    const message = detail || error.message || 'An error occurred'
     const wrapped = new Error(message)
     // Keep the status reachable: the offline queue uses it to tell a permanent
     // rejection (drop the event) from a network failure (retry it later).
@@ -172,13 +187,13 @@ export const analyzePastedConversation = (userId, pastedText) =>
   api.post('/conversation/analyze-text', { user_id: userId, pasted_text: pastedText })
 
 export const getVoiceChatPrompt = (userId) =>
-  api.get(`/voice-chat/prompt/${userId}`)
+  api.get(`/v1/voice-chat/prompt/${userId}`)
 
 export const sendVoiceMessage = (userId, message, language) =>
-  api.post('/voice-chat/conversation/voice', { user_id: userId, message, language })
+  api.post('/v1/voice-chat/conversation/voice', { user_id: userId, message, language })
 
 export const sendVoiceText = (userId, message, language) =>
-  api.post('/voice-chat/conversation/text', { user_id: userId, message, language })
+  api.post('/v1/voice-chat/conversation/text', { user_id: userId, message, language })
 
 export const askQuestion = (question, userId) =>
   api.post('/conversation/question', { question, user_id: userId })
@@ -190,9 +205,6 @@ export const translateWord = (text, fromLang, toLang, userId) =>
 
 export const getStats = (userId) =>
   api.get(`/stats/${userId}`)
-
-export const addXP = (userId, amount, reason) =>
-  api.post(`/stats/${userId}/xp`, { amount, reason })
 
 export const getDailyTips = (userId) =>
   api.get(`/tips/${userId}`)
@@ -283,6 +295,26 @@ export const searchYouTube = (userId, query = '', includePolish = false) =>
 
 export const getAchievements = (userId) =>
   api.get(`/stats/${userId}`).then(d => d.achievements)
+
+// ===== Profile (backup + phone pairing) =====
+
+export const getLoginLink = (userId) =>
+  api.get(`/v1/users/${userId}/login-link`)
+
+export const magicLogin = (key) =>
+  api.get(`/auth/magic`, { params: { key } })
+
+export const exportProfile = (userId) =>
+  axios.get(`/api/v1/users/${userId}/profile-export`, { responseType: 'blob', withCredentials: true })
+
+export const importProfile = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return axios.post('/api/v1/users/import-profile', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    withCredentials: true,
+  })
+}
 
 // ===== localStorage helpers =====
 

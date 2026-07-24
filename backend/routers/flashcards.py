@@ -16,6 +16,8 @@ from backend.models.flashcard import Flashcard
 from backend.schemas.flashcard import (
     AddFlashcardAIRequest,
     AddFlashcardRequest,
+    BatchAddRequest,
+    GenerateFromErrorsRequest,
     GenerateFromTopicRequest,
     ReviewFlashcardRequest,
 )
@@ -584,6 +586,165 @@ async def bulk_import_flashcards(
 
 
 # ── Topic-based flashcard generation ─────────────────────────────────────
+
+@router.post("/api/flashcards/generate-from-errors")
+async def generate_flashcards_from_errors(
+    request: GenerateFromErrorsRequest,
+    db: Session = Depends(get_db),
+):
+    """Generate flashcard previews from the user's recent test errors.
+
+    Frontend (TopicsPage) called this endpoint but it never existed — the
+    "from errors" generation path always 404'd. Errors are pulled from the
+    same source as /api/stats/{id}/errors (TestResult.errors JSON blobs).
+    """
+    from backend.models.test_result import TestResult
+
+    user = get_user_or_404(db, request.user_id)
+    user_id = request.user_id
+    count = max(1, min(request.count, 30))
+
+    tests = (
+        db.query(TestResult)
+        .filter(TestResult.user_id == user_id)
+        .order_by(TestResult.created_at.desc())
+        .limit(30)
+        .all()
+    )
+
+    # Collect up to ~15 recent error items (correct answers are the vocab source)
+    error_items: list[dict] = []
+    for test in tests:
+        try:
+            errors = json.loads(test.errors) if test.errors else []
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(errors, list):
+            continue
+        for err in errors:
+            if not isinstance(err, dict):
+                continue
+            correct = err.get("correct_answer") or err.get("correction") or ""
+            if correct and isinstance(correct, str):
+                error_items.append(
+                    {
+                        "correct": correct.strip()[:120],
+                        "type": err.get("type", ""),
+                        "wrong": (err.get("user_answer") or "")[:80],
+                    }
+                )
+            if len(error_items) >= 15:
+                break
+        if len(error_items) >= 15:
+            break
+
+    if not error_items:
+        return {"flashcards": [], "message": "No recent errors to learn from"}
+
+    existing_words = {
+        row[0]
+        for row in db.query(Flashcard.word)
+        .filter(Flashcard.user_id == user_id, Flashcard.language == user.target_language)
+        .all()
+    }
+
+    error_lines = "\n".join(
+        f"- correct form: \"{e['correct']}\" (learner wrote: \"{e['wrong']}\", category: {e['type']})"
+        for e in error_items
+    )
+    prompt = f"""You are helping a Polish-speaking student learn {user.target_language} at {user.cefr_level} level.
+
+The learner made these mistakes recently:
+{error_lines}
+
+Generate {count} useful vocabulary flashcards that target the words/forms in the CORRECT versions above, so the learner can drill them with spaced repetition.
+Avoid these existing words: {', '.join(list(existing_words)[:50])}
+
+For each flashcard provide:
+- word: the {user.target_language} word/phrase (from the correct forms)
+- translation: Polish translation
+- example: example sentence in {user.target_language}
+- example_translation: Polish translation of the example
+- gender: grammatical gender if the word is a German noun (der/die/das), or null
+- isImportant: boolean — true for the exact forms the learner got wrong
+
+Return ONLY valid JSON:
+{{"flashcards": [
+  {{"word": "...", "translation": "...", "example": "...", "example_translation": "...", "gender": "der"|"die"|"das"|null, "isImportant": true/false}},
+  ...
+]}}
+"""
+
+    try:
+        result = await _ai_generate_flashcard(prompt)
+        flashcards = result.get("flashcards", []) if isinstance(result, dict) else []
+    except Exception as e:
+        logger.exception("AI flashcard generation from errors failed: %s", e)
+        flashcards = []
+
+    # Drop duplicates of existing cards
+    flashcards = [f for f in flashcards if f.get("word") not in existing_words]
+    return {"flashcards": flashcards}
+
+
+@router.post("/api/flashcards/batch-add")
+async def batch_add_flashcards(
+    request: BatchAddRequest,
+    db: Session = Depends(get_db),
+):
+    """Persist a batch of previewed flashcards (from generate-from-topic/errors).
+
+    Frontend (TopicsPage) called this endpoint but it never existed — the
+    "Add selected" step always 404'd after preview generation.
+    """
+    user = get_user_or_404(db, request.user_id)
+    user_id = request.user_id
+
+    words = [f.word.strip() for f in request.flashcards if f.word.strip()]
+    existing = (
+        db.query(Flashcard.word)
+        .filter(
+            Flashcard.user_id == user_id,
+            Flashcard.language == user.target_language,
+            Flashcard.word.in_(words),
+        )
+        .all()
+        if words
+        else []
+    )
+    existing_words = {row[0] for row in existing}
+
+    created = 0
+    skipped = 0
+    for fc in request.flashcards:
+        word = fc.word.strip()
+        if not word or not fc.translation.strip():
+            continue
+        if word in existing_words:
+            skipped += 1
+            continue
+        db.add(
+            Flashcard(
+                user_id=user_id,
+                word=word,
+                translation=fc.translation.strip(),
+                example_sentence=(fc.example or None),
+                language=user.target_language,
+                cefr_level=user.cefr_level,
+                isImportant=bool(fc.isImportant),
+            )
+        )
+        existing_words.add(word)
+        created += 1
+
+    db.commit()
+    return {
+        "success": True,
+        "created": created,
+        "skipped": skipped,
+        "message": f"Added {created} flashcards, skipped {skipped} duplicates",
+    }
+
 
 @router.post("/api/flashcards/{user_id}/generate-from-topic")
 async def generate_flashcards_from_topic(

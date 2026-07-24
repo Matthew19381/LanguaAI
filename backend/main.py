@@ -18,6 +18,7 @@ from backend.routers import (
     conversation,
     exercises,
     flashcards,
+    integration,
     lessons,
     news,
     placement,
@@ -61,6 +62,7 @@ async def lifespan(app: FastAPI):
         ("users", "ALTER TABLE users ADD COLUMN language_profiles TEXT DEFAULT '{}'"),
         ("users", "ALTER TABLE users ADD COLUMN streak_freezes INTEGER DEFAULT 2"),
         ("users", "ALTER TABLE users ADD COLUMN sleep_data TEXT DEFAULT '{}'"),
+        ("users", "ALTER TABLE users ADD COLUMN login_token VARCHAR"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_id INTEGER"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_day INTEGER"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_topic TEXT"),
@@ -221,6 +223,7 @@ app.include_router(auth.router, tags=["Auth"])
 app.include_router(exercises.router, tags=["Exercises"])
 app.include_router(topics.router, prefix="/api/topics", tags=["Topics"])
 app.include_router(admin.router, tags=["Admin"])
+app.include_router(integration.router, tags=["Integration"])  # INT-1: System-Glowny
 
 # Serve audio files
 audio_dir = os.path.join(os.path.dirname(__file__), "audio")

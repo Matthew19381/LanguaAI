@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Youtube, Search, RefreshCw, ExternalLink, Play, X, BookOpen, CheckCircle, Heart, Plus, Users } from 'lucide-react'
-import { getUserId, searchYouTube, addXP } from '../api/client'
+import { getUserId, searchYouTube } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
 
@@ -133,7 +133,6 @@ export default function Videos() {
   const handleMarkDone = async () => {
     markTabComplete('videos')
     setActivityDone(true)
-    try { await addXP(userId, 10, 'activity_complete') } catch {}
   }
 
   if (loading) return <PageLoader text="Szukam filmów dopasowanych do Twojej lekcji..." />

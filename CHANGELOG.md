@@ -4,6 +4,22 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-07-20
+
+### Feat: INT-1 — integracja z Systemem Głównym (pilot ekosystemu)
+- **`backend/routers/integration.py`** — nowy `GET /api/v1/summary?user_id&date`
+  w ujednoliconym formacie ekosystemu: `{module, user_id, date, summary
+  {lessons_completed, tests_submitted, reviews_done, due_reviews, mastered_words,
+  streak, total_xp, target_language, cefr_level}, events, wellbeing_contribution}`.
+  Read-only agregacja z DB, zero wywołań AI. `wellbeing_contribution` świadomie
+  `null` do czasu Affect Engine (zakaz fabrykowanych metryk — NEURO_PLAN).
+- **`backend/main.py`** — rejestracja routera `integration`.
+- **Testy** — `backend/tests/test_integration_summary.py` (5); pełna suita
+  **375 passed**. Zweryfikowane end-to-end: System Główny (:8000) pobiera dane
+  przez swój rejestr modułów.
+
+---
+
 ## 2026-04-06
 
 ### Fix: Deployment & Unicode Resolution

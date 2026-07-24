@@ -8,7 +8,7 @@ import { useLanguage } from '../hooks/useLanguage'
 
 const CATEGORY_LABELS = {
   grammar: 'Gramatyka',
-  vocabulary: 'SĹ‚ownictwo',
+  vocabulary: 'Słownictwo',
   word_order: 'Szyk zdania',
   articles: 'Rodzajniki',
   verb_conjugation: 'Koniugacja',
@@ -17,9 +17,9 @@ const CATEGORY_LABELS = {
   pronunciation: 'Wymowa',
   case: 'Przypadki',
   comprehension: 'Rozumienie',
-  syntax: 'SkĹ‚adnia',
+  syntax: 'Składnia',
   pronunciation_spelling: 'Wymowa/Pisownia',
-  fluency: 'PĹ‚ynnoĹ›Ä‡',
+  fluency: 'Płynność',
   register: 'Rejestr',
   application: 'Zastosowanie',
   unknown: 'Inne',
@@ -53,7 +53,7 @@ export default function ErrorReview() {
         if (res.success) added++
       } catch {}
     }
-    setFlashMsg(`Dodano ${added} fiszek z bĹ‚Ä™dĂłw.`)
+    setFlashMsg(`Dodano ${added} fiszek z błędów.`)
     setFlashLoading(false)
   }
 
@@ -67,7 +67,7 @@ export default function ErrorReview() {
       localStorage.setItem(`test_cache_${userId}_${lang}_${today}`, JSON.stringify(test))
       navigate('/test')
     } catch (e) {
-      setFlashMsg('BĹ‚Ä…d generowania testu.')
+      setFlashMsg('Błąd generowania testu.')
     } finally {
       setTestLoading(false)
     }
@@ -79,20 +79,20 @@ export default function ErrorReview() {
     setvoiceChatAnalysis('')
     try {
       const lang = data?.language || targetLanguage || 'English'
-      const prompt = `Przeanalizuj poniĹĽsze podsumowanie rozmowy w jÄ™zyku ${lang}. OceĹ„:
-1. WymowÄ™/pisowniÄ™ (bĹ‚Ä™dy ortograficzne lub wymowa opisana w tekĹ›cie)
-2. GramatykÄ™ (bĹ‚Ä™dne formy, koniugacje, deklinacje)
-3. SĹ‚ownictwo (czy dobĂłr sĹ‚Ăłw jest wĹ‚aĹ›ciwy)
-4. PĹ‚ynnoĹ›Ä‡ i naturalnoĹ›Ä‡ wypowiedzi
+      const prompt = `Przeanalizuj poniższe podsumowanie rozmowy w języku ${lang}. Oceń:
+1. Wymowę/pisownię (błędy ortograficzne lub wymowa opisana w tekście)
+2. Gramatykę (błędne formy, koniugacje, deklinacje)
+3. Słownictwo (czy dobór słów jest właściwy)
+4. Płynność i naturalność wypowiedzi
 
-Podaj konkretne bĹ‚Ä™dy z korektÄ… i ogĂłlnÄ… ocenÄ™ (A/B/C). OdpowiedĹş po polsku.
+Podaj konkretne błędy z korektą i ogólną ocenę (A/B/C). Odpowiedź po polsku.
 
 Podsumowanie rozmowy:
 ${voiceChatText.trim()}`
       const res = await askQuestion(prompt, userId)
       setvoiceChatAnalysis(res.answer || 'Brak analizy.')
     } catch {
-      setvoiceChatAnalysis('BĹ‚Ä…d analizy.')
+      setvoiceChatAnalysis('Błąd analizy.')
     } finally {
       setvoiceChatLoading(false)
     }
@@ -108,7 +108,7 @@ ${voiceChatText.trim()}`
 
   const toggleGroup = (type) => setExpanded(prev => ({ ...prev, [type]: !prev[type] }))
 
-  if (loading) return <PageLoader text="Ĺadowanie bĹ‚Ä™dĂłw..." />
+  if (loading) return <PageLoader text="Ładowanie błędów..." />
   if (!data) return null
 
   return (
@@ -116,9 +116,9 @@ ${voiceChatText.trim()}`
       <div className="flex items-center gap-3 mb-6">
         <AlertTriangle className="w-7 h-7 text-yellow-400" />
         <div>
-          <h1 className="text-2xl font-bold">PrzeglÄ…d bĹ‚Ä™dĂłw</h1>
+          <h1 className="text-2xl font-bold">Przegląd błędów</h1>
           <p className="text-gray-400">
-            {data.total} bĹ‚Ä™dĂłw Ĺ‚Ä…cznie Â· {data.language}
+            {data.total} błędów łącznie · {data.language}
           </p>
         </div>
       </div>
@@ -131,7 +131,7 @@ ${voiceChatText.trim()}`
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-700/30 hover:bg-purple-700/50 border border-purple-700/40 text-purple-300 text-sm font-medium transition-colors disabled:opacity-50"
           >
             <Brain className="w-4 h-4" />
-            {flashLoading ? 'Generowanie...' : 'Generuj fiszki z bĹ‚Ä™dĂłw'}
+            {flashLoading ? 'Generowanie...' : 'Generuj fiszki z błędów'}
           </button>
           <button
             onClick={handleGenerateTest}
@@ -139,7 +139,7 @@ ${voiceChatText.trim()}`
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-700/30 hover:bg-indigo-700/50 border border-indigo-700/40 text-indigo-300 text-sm font-medium transition-colors disabled:opacity-50"
           >
             <FlaskConical className="w-4 h-4" />
-            {testLoading ? 'Generowanie...' : 'Generuj test z bĹ‚Ä™dĂłw'}
+            {testLoading ? 'Generowanie...' : 'Generuj test z błędów'}
           </button>
           {flashMsg && <span className="text-sm text-emerald-400 self-center">{flashMsg}</span>}
         </div>
@@ -148,8 +148,8 @@ ${voiceChatText.trim()}`
       {data.total === 0 ? (
         <div className="card text-center py-12">
           <BookOpen className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-          <p className="text-emerald-300 font-semibold text-lg">Brak bĹ‚Ä™dĂłw!</p>
-          <p className="text-gray-500 text-sm mt-1">ZrĂłb kilka testĂłw, ĹĽeby zobaczyÄ‡ swoje bĹ‚Ä™dy tutaj.</p>
+          <p className="text-emerald-300 font-semibold text-lg">Brak błędów!</p>
+          <p className="text-gray-500 text-sm mt-1">Zrób kilka testów, żeby zobaczyć swoje błędy tutaj.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -191,7 +191,7 @@ ${voiceChatText.trim()}`
                       {/* User answer â†’ Correct answer */}
                       <div className="flex items-center gap-3 flex-wrap mb-2">
                         <div>
-                          <span className="text-gray-500 text-xs">Twoja odpowiedĹş: </span>
+                          <span className="text-gray-500 text-xs">Twoja odpowiedź: </span>
                           <span className="text-red-400 font-medium text-sm line-through">{err.user_answer || 'â€”'}</span>
                         </div>
                         <span className="text-gray-600">â†’</span>
@@ -218,7 +218,7 @@ ${voiceChatText.trim()}`
                         return (
                           <div className="mt-2 pt-2 border-t border-gray-700/40">
                             <div className="flex items-center gap-1 mb-1.5">
-                              <p className="text-yellow-300 text-xs italic flex-1">Ä†wicz: {err.practice}</p>
+                              <p className="text-yellow-300 text-xs italic flex-1">Ćwicz: {err.practice}</p>
                               <PlayButton text={err.practice} language={data.language} />
                             </div>
                             {!ps.checked ? (
@@ -226,7 +226,7 @@ ${voiceChatText.trim()}`
                                 <input
                                   type="text"
                                   className={`flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-indigo-500`}
-                                  placeholder="Wpisz odpowiedĹş..."
+                                  placeholder="Wpisz odpowiedź..."
                                   value={ps.answer || ''}
                                   onChange={e => setPracticeState(prev => ({ ...prev, [pk]: { ...prev[pk], answer: e.target.value } }))}
                                   onKeyDown={e => e.key === 'Enter' && (ps.answer || '').trim() && checkPractice()}
@@ -236,7 +236,7 @@ ${voiceChatText.trim()}`
                                   disabled={!(ps.answer || '').trim()}
                                   className="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium disabled:opacity-40 transition-colors"
                                 >
-                                  SprawdĹş
+                                  Sprawdź
                                 </button>
                               </div>
                             ) : (
@@ -248,7 +248,7 @@ ${voiceChatText.trim()}`
                                   onClick={() => setPracticeState(prev => ({ ...prev, [pk]: {} }))}
                                   className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
                                 >
-                                  SprĂłbuj jeszcze
+                                  Spróbuj jeszcze
                                 </button>
                               </div>
                             )}
@@ -270,7 +270,7 @@ ${voiceChatText.trim()}`
           <MessageSquare className="w-5 h-5 text-indigo-400" />
           Analiza rozmowy z Voice Chat
         </h2>
-        <p className="text-gray-500 text-sm mb-3">Wklej podsumowanie rozmowy z Voice Chat â€” AI oceni wymowÄ™, gramatykÄ™ i pĹ‚ynnoĹ›Ä‡.</p>
+        <p className="text-gray-500 text-sm mb-3">Wklej podsumowanie rozmowy z Voice Chat — AI oceni wymowę, gramatykę i płynność.</p>
         <textarea
           className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm text-gray-200 resize-none h-28 focus:outline-none focus:border-indigo-500 mb-3"
           placeholder="Wklej tutaj podsumowanie rozmowy z Voice Chat..."
@@ -283,7 +283,7 @@ ${voiceChatText.trim()}`
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-50 mb-3"
         >
           <MessageSquare className="w-4 h-4" />
-          {voiceChatLoading ? 'Analizowanie...' : 'Analizuj rozmowÄ™'}
+          {voiceChatLoading ? 'Analizowanie...' : 'Analizuj rozmowę'}
         </button>
         {voiceChatAnalysis && (
           <div className="bg-gray-800/60 rounded-lg p-4 border border-indigo-700/30">
