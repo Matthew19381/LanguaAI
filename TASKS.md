@@ -128,18 +128,20 @@ _Zakres: `model_router.py`, wszystkie wywołania `@with_model`, ścieżka `gemin
       2026-07-24 — `main.py` lifespan waliduje katalog przy starcie (5 zadań ×
       `validate_model()`, log: "Model catalog OK (47 entries)"); `gemini_service`
       loguje nazwę modelu przy błędzie OpenRoutera (`model=%s`).
-- [ ] **A4. Dobór nie uwzględnia kryterium najważniejszego dla tej aplikacji: jakości generowania w języku docelowym.** DeepSeek jest mocny w reasoning/kodzie; dla poprawnego niemieckiego z polskimi objaśnieniami bezpieczniejsze są Gemini / GPT / Claude. Projekt miał już incydent tego typu (niemiecki tekst z polskimi wtrąceniami w `output_forcing`).
+- [x] **A4. Dobór nie uwzględnia kryterium najważniejszego dla tej aplikacji: jakości generowania w języku docelowym** ✅ 2026-07-25 — mapa per zadanie: lesson/conversation → claude-sonnet-4.6 (best) / gemini-2.5-flash (cheap); test → gpt-5 / deepseek-v3.2; news → gemini-2.5-pro / flash; placement → gpt-5-mini / flash-lite. Tier=best w .env. Szacunek: cheap ~$1.05/mies, best ~$6.48/mies.
 - [x] **A5. `deepseek-v3.2` to wariant „thinking"** ✅ 2026-07-24 — cheap tier
       przełączony na `deepseek-v3.2-non-thinking` (placement/lesson/conversation/test
       + domyślny tier); `reasoning` świadomie zostaje na thinking. Szybciej i taniej
-      przy tej samej jakości generowania.
+      przy tej samej jakości generowania. **UPDATE 2026-07-25:** `deepseek-v3.2-non-thinking`
+      **nie istniał na OpenRouter** (wykryte przez A9) — cheap domyślny to teraz
+      `google/gemini-2.5-flash`; mapa per zadanie w A4.
 
 ### 🟡 Średnie
 
 - [ ] **A6. Martwe mapowania zadań.** `pronunciation` (wymowa używa lokalnego faster-whisper, zero AI tekstowego), `code`, `reasoning`, `multimodal` — **nic ich nie używa**. `code` w aplikacji do nauki języka nie ma uzasadnienia. Realnie używane są tylko: `lesson`, `conversation`, `test`, `placement`, `news`.
 - [ ] **A7. Tier jest globalny.** Nie da się dać rozmowie `best`, a codziennym podpowiedziom `cheap`. `get_model_for_task(tier=...)` to obsługuje, ale nikt nie przekazuje parametru — a to najprostsza dźwignia kosztowa.
 - [ ] **A8. Klasyfikacja tierów przez podłańcuch w opisie.** `FREE/CHEAP/BEST` liczone przez `"| free " in v` na notatce tekstowej. `qwen/qwen3-coder:free` trafia jednocześnie do FREE i BEST, bo notatka brzmi „best free coding". Kruche — literówka w spacji cicho zmienia tier.
-- [ ] **A9. Katalog niezweryfikowany.** Nie ma czym sprawdzić, czy identyfikatory (`openai/gpt-5`, `anthropic/claude-opus-4-6`, `google/gemini-3.1-pro`, `deepseek/deepseek-v4-flash:free`…) faktycznie istnieją na OpenRouterze. Potrzebny skrypt/test odpytujący `GET /api/v1/models` i porównujący z katalogiem.
+- [x] **A9. Katalog niezweryfikowany** ✅ 2026-07-25 — katalog oczyszczony 47 → 17 modeli; wszystkie zweryfikowane skryptem jako ISTNIEJĄCE na OpenRouter (`GET /api/v1/models`). Usunięte 30 martwych id (m.in. `deepseek-v3.2-non-thinking`, `claude-sonnet-4-6` z mylnikiem, `llama-4-*-17b`, 13 martwych `:free`). Walidacja przy starcie (A3) pilnuje regresji.
 - [ ] **A10. Brak trybu strukturalnego wyjścia.** Prawie wszystkie wywołania to `generate_json`, ale opieramy się na prompcie („Respond ONLY with valid JSON") + zdejmowaniu znaczników. Gemini i OpenAI potrafią wymusić JSON schematem — to eliminuje całą klasę błędów parsowania.
 
 ### 📄 Audyt dokumentacji (po ponownej lekturze wszystkich dokumentów)
