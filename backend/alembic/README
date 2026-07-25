@@ -1,1 +1,44 @@
-Generic single-database configuration.
+Alembic — database migrations
+=============================
+
+Run every command from `backend/` (script_location is relative):
+
+    cd backend
+
+The target database is resolved from `DATABASE_URL` (env / backend/.env) by
+`env.py`, falling back to the value in `alembic.ini`. So the same migrations run
+against SQLite locally and PostgreSQL in deployment without editing any file:
+
+    # local (SQLite, uses the app's default DATABASE_URL)
+    python -m alembic upgrade head
+
+    # deployment (PostgreSQL)
+    DATABASE_URL=postgresql://user:pass@host/db python -m alembic upgrade head
+
+Common commands
+---------------
+    python -m alembic current            # revision the DB is at
+    python -m alembic heads              # latest revision(s) in versions/
+    python -m alembic history            # full revision graph
+    python -m alembic check              # fail if models drift from migrations
+    python -m alembic revision --autogenerate -m "add X"   # new migration
+    python -m alembic upgrade head       # apply
+    python -m alembic downgrade -1       # roll back one
+
+Existing databases (created by create_all)
+------------------------------------------
+The app still creates the schema via `Base.metadata.create_all` on startup, so a
+database that predates Alembic already has every table. Mark it as up to date so
+`upgrade head` does not try to recreate them:
+
+    python -m alembic stamp head
+
+New databases (e.g. a fresh PostgreSQL in the cloud) should instead run
+`upgrade head` to build the schema from the baseline migration.
+
+Notes
+-----
+- `env.py` imports every model so autogenerate sees the full metadata. When you
+  add a new model, add its import there too (same list as main.py's lifespan).
+- SQLite migrations use batch mode (`render_as_batch`) because SQLite cannot
+  ALTER most columns in place. No effect on PostgreSQL.

@@ -49,8 +49,17 @@ Zweryfikowane live na uvicornie + w openapi.json — wszystkie 404/405:
 ### ⚠️ Drobne
 - [x] `test_language_tutor.db` (176 KB, 0 tabel) w korzeniu repo — usunięty 2026-07-24;
       był już w .gitignore.
-- [ ] Alembic: szkielet bez `alembic.ini` — `alembic heads` nie działa
-      (schema przez `create_all`, więc bez szkody; martwy katalog).
+- [x] **Alembic: działający szkielet** ✅ 2026-07-25 — `alembic heads`/`check`/
+      `upgrade head` działają. `env.py` przepisany: importuje wszystkie 10 modeli
+      (pełne `target_metadata`), rozwiązuje cel z **`DATABASE_URL`** (env/.env) z
+      fallbackiem do ini → te same migracje na SQLite lokalnie i PostgreSQL we
+      wdrożeniu bez edycji plików; batch mode dla SQLite. Bazowa migracja
+      `ff1cf77eb17f_baseline_schema` (`down_revision=None`) autogenerowana wobec
+      pustej bazy — `alembic check` = „No new upgrade operations detected" (zero
+      dryfu wobec modeli). Zweryfikowane: `upgrade head` na czystej bazie tworzy
+      wszystkie 11 tabel. README z użyciem (m.in. `alembic stamp head` dla baz
+      sprzed Alembica — schema wciąż powstaje przez `create_all`). Odblokowuje
+      sekcję wdrożeniową (Postgres + migracje w entrypoincie kontenera).
 
 ---
 
@@ -461,8 +470,8 @@ Rozpiska modeli (dobrana per-zadanie dla najlepszego generowania) **istnieje**: 
 
 ### 📦 Przygotowanie do wdrożenia w chmurze
 - [ ] **Zewnętrz baza** – polegaj wyłącznie na zmiennej `DATABASE_URL`; usuń wszelkie wbudowane pliki SQLite z Dockerfile.  
-- [ ] **Zainicjalizuj i skonfiguruj Alembic** (`alembic init alembic`).  
-- [ ] Utwórz bazową migrację (zawiera `isImportant` oraz ewentualne przyszłe zmiany).  
+- [x] **Zainicjalizuj i skonfiguruj Alembic** ✅ 2026-07-25 — `env.py` czyta `DATABASE_URL`, importuje modele, batch mode dla SQLite (szczegóły w sekcji „⚠️ Drobne").  
+- [x] Utwórz bazową migrację ✅ 2026-07-25 — `ff1cf77eb17f_baseline_schema` (pełny schemat, `alembic check` bez dryfu).  
 - [ ] Zmodyfikuj punkt wejścia kontenera, aby uruchomił `alembic upgrade head` przed startem Uvicorn.  
 - [ ] Dodaj lokalny `docker-compose.override.yml`, który uruchamia usługę PostgreSQL i wskazuje `DATABASE_URL` na nią.  
 - [ ] Wybierz dostawcę chmury (AWS RDS, GCP Cloud SQL, Azure Database for PostgreSQL) i przygotuj instancję.  
