@@ -3,6 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from backend.services.gemini_service import (
+    _build_gemini_payload,
+    _build_openrouter_payload,
     _get_provider,
     _model_override,
     _parse_json_response,
@@ -289,6 +291,57 @@ class TestParseJsonResponse:
     def test_parse_json_strip_whitespace(self):
         result = _parse_json_response('  {"c": 3}  ')
         assert result["c"] == 3
+
+
+class TestJsonModePayload:
+    """A10: JSON calls constrain the decoder to JSON at the provider level,
+    text calls do not. _parse_json_response remains the fallback."""
+
+    def test_gemini_json_mode_sets_response_mime_type(self):
+        payload = _build_gemini_payload("hi", json_mode=True)
+        assert payload["generationConfig"]["responseMimeType"] == "application/json"
+
+    def test_gemini_default_has_no_response_mime_type(self):
+        payload = _build_gemini_payload("hi")
+        assert "responseMimeType" not in payload["generationConfig"]
+
+    def test_openrouter_json_mode_sets_response_format(self):
+        payload = _build_openrouter_payload("hi", "some/model", json_mode=True)
+        assert payload["response_format"] == {"type": "json_object"}
+
+    def test_openrouter_default_has_no_response_format(self):
+        payload = _build_openrouter_payload("hi", "some/model")
+        assert "response_format" not in payload
+
+    @pytest.mark.asyncio
+    async def test_generate_json_openrouter_enforces_json_mode(self):
+        """The JSON path must send response_format; the text path must not."""
+        with patch("backend.services.gemini_service.settings") as mock_settings, \
+             patch("backend.services.gemini_service._call_openrouter_api",
+                   new_callable=AsyncMock) as mock_call:
+            mock_settings.AI_PROVIDER = "openrouter"
+            mock_settings.OPENROUTER_API_KEY = "k"
+            mock_settings.FRONTEND_URL = "http://x"
+            mock_call.return_value = '{"ok": true}'
+
+            result = await generate_json("prompt", model="some/model")
+            assert result == {"ok": True}
+            sent_payload = mock_call.call_args[0][1]
+            assert sent_payload["response_format"] == {"type": "json_object"}
+
+    @pytest.mark.asyncio
+    async def test_generate_text_openrouter_has_no_json_mode(self):
+        with patch("backend.services.gemini_service.settings") as mock_settings, \
+             patch("backend.services.gemini_service._call_openrouter_api",
+                   new_callable=AsyncMock) as mock_call:
+            mock_settings.AI_PROVIDER = "openrouter"
+            mock_settings.OPENROUTER_API_KEY = "k"
+            mock_settings.FRONTEND_URL = "http://x"
+            mock_call.return_value = "plain text"
+
+            await generate_text("prompt", model="some/model")
+            sent_payload = mock_call.call_args[0][1]
+            assert "response_format" not in sent_payload
 
 
 class TestDefaultModelResolution:

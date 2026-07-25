@@ -72,28 +72,46 @@ def _get_openrouter_url() -> str:
     return _OPENROUTER_URL
 
 
-def _build_gemini_payload(prompt: str) -> dict:
-    """Build request payload for Gemini Direct API."""
+def _build_gemini_payload(prompt: str, json_mode: bool = False) -> dict:
+    """Build request payload for Gemini Direct API.
+
+    A10: when ``json_mode`` is set, ask Gemini to constrain the decoder to JSON
+    via ``responseMimeType`` instead of relying on the prompt + fence-stripping.
+    Supported by all Gemini 2.x models; the prompt hint stays as a belt-and-
+    suspenders and ``_parse_json_response`` remains the safety net.
+    """
+    generation_config = {
+        "temperature": 0.7,
+        "maxOutputTokens": 8192,
+    }
+    if json_mode:
+        generation_config["responseMimeType"] = "application/json"
     return {
         "contents": [
             {
                 "parts": [{"text": prompt}]
             }
         ],
-        "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": 8192,
-        }
+        "generationConfig": generation_config,
     }
 
 
-def _build_openrouter_payload(prompt: str, model: str) -> dict:
-    """Build request payload for OpenRouter API."""
-    return {
+def _build_openrouter_payload(prompt: str, model: str, json_mode: bool = False) -> dict:
+    """Build request payload for OpenRouter API.
+
+    A10: when ``json_mode`` is set, request ``response_format=json_object`` so the
+    provider enforces valid JSON at decode time. OpenRouter drops the param for
+    models that don't support it (rather than erroring), so this is safe across
+    the catalog; ``_parse_json_response`` still runs as a fallback.
+    """
+    payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "stream": False,
     }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+    return payload
 
 
 def _get_gemini_headers() -> dict:
@@ -191,7 +209,7 @@ async def _generate_json_gemini(prompt: str, model: str = None, fallback: dict =
     full_prompt = prompt + "\n\nRespond ONLY with valid JSON, no markdown, no code blocks."
     url = _get_gemini_url(model)
     headers = _get_gemini_headers()
-    payload = _build_gemini_payload(full_prompt)
+    payload = _build_gemini_payload(full_prompt, json_mode=True)
     text = await _call_gemini_api(url, payload, headers, timeout=120.0)
     return _parse_json_response(text, fallback)
 
@@ -203,7 +221,7 @@ async def _generate_json_openrouter(prompt: str, model: str = None, fallback: di
     full_prompt = prompt + "\n\nRespond ONLY with valid JSON, no markdown, no code blocks."
     url = _get_openrouter_url()
     headers = _get_openrouter_headers()
-    payload = _build_openrouter_payload(full_prompt, model)
+    payload = _build_openrouter_payload(full_prompt, model, json_mode=True)
     text = await _call_openrouter_api(url, payload, headers, timeout=120.0)
     return _parse_json_response(text, fallback)
 
