@@ -23,6 +23,7 @@ from backend.routers import (
     news,
     placement,
     pronunciation,
+    push,
     quickmode,
     settings,
     stats,
@@ -52,7 +53,7 @@ async def lifespan(app: FastAPI):
     # Startup: create database tables and required directories
     logger.info("Creating database tables...")
     # Import all models so SQLAlchemy registers them before create_all
-    from backend.models import achievement, user, lesson, test_result, study_plan, flashcard, topic, conversation_session, exercise, sync_event  # noqa
+    from backend.models import achievement, user, lesson, test_result, study_plan, flashcard, topic, conversation_session, exercise, sync_event, push_subscription  # noqa
     Base.metadata.create_all(bind=engine)
 
     _sa = __import__('sqlalchemy')
@@ -253,6 +254,7 @@ app.include_router(exercises.router, tags=["Exercises"])
 app.include_router(topics.router, prefix="/api/topics", tags=["Topics"])
 app.include_router(admin.router, tags=["Admin"])
 app.include_router(integration.router, tags=["Integration"])  # INT-1: System-Glowny
+app.include_router(push.router, tags=["Push"])
 
 # Serve audio files
 audio_dir = os.path.join(os.path.dirname(__file__), "audio")

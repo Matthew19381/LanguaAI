@@ -84,6 +84,21 @@ def get_tip_of_day() -> dict:
     return STATIC_TIPS[day_of_year % len(STATIC_TIPS)]
 
 
+def _send_web_push(db, user_id: int, title: str, body: str, url: str, tag: str):
+    """Fire a browser push alongside Discord. Never let it break the run — a
+    push failure must not stop other users' notifications."""
+    try:
+        from backend.services import push_service
+        if not push_service.push_enabled():
+            return
+        payload = push_service.build_payload(title=title, body=body, url=url, tag=tag)
+        result = push_service.send_to_user(db, user_id, payload)
+        if result.get("sent"):
+            logger.info("Web push sent to user %s (%d device(s))", user_id, result["sent"])
+    except Exception as e:
+        logger.error(f"Web push failed for user {user_id}: {e}")
+
+
 def run():
     if not DB_PATH.exists():
         logger.error(f"Database not found: {DB_PATH}")
@@ -165,6 +180,14 @@ def run():
                         "footer": {"text": f"LinguaAI · {user.target_language} · {user.cefr_level}"}
                     })
 
+                    _send_web_push(
+                        db, user.id,
+                        title="Czas na lekcję 🎓",
+                        body=f"Twoja dzisiejsza lekcja {user.target_language} czeka.",
+                        url="/lesson",
+                        tag="daily-lesson",
+                    )
+
                 user_state[morning_key] = True
 
             if is_evening and not user_state.get(evening_key):
@@ -207,6 +230,14 @@ def run():
                         "fields": fields,
                         "footer": {"text": f"LinguaAI · {user.target_language} · {user.cefr_level}"}
                     })
+
+                    _send_web_push(
+                        db, user.id,
+                        title="Czas na powtórkę 📚",
+                        body=f"{due_cards} fiszek czeka na powtórkę.",
+                        url="/flashcards",
+                        tag="due-reviews",
+                    )
 
                 user_state[evening_key] = True
 

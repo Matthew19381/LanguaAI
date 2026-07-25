@@ -391,3 +391,17 @@ export const resetTodayLesson = (userId) =>
 
 export const getLessonAudioPackage = (lessonId) =>
   axios.get(`/api/lessons/${lessonId}/audio-package`, { responseType: 'blob' })
+
+// ===== Web Push =====
+
+export const getVapidPublicKey = () =>
+  api.get('/push/vapid-public-key')
+
+export const subscribePush = (userId, subscription) =>
+  api.post('/push/subscribe', { user_id: userId, subscription })
+
+export const unsubscribePush = (endpoint) =>
+  api.post('/push/unsubscribe', { endpoint })
+
+export const sendTestPush = (userId) =>
+  api.post(`/push/test/${userId}`)

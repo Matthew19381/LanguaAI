@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     DISCORD_WEBHOOK_URL: str = ""
     NOTIFY_LESSON_HOUR: int = 8
     NOTIFY_REVIEW_HOUR: int = 18
+    # Web Push (VAPID). Empty (default) = push disabled, like DISCORD_WEBHOOK_URL.
+    # Generate a keypair with:  python -m backend.scripts.generate_vapid_keys
+    # VAPID_SUBJECT must be a mailto: or https: URL identifying the sender.
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_SUBJECT: str = "mailto:admin@linguaai.local"
     GDRIVE_FOLDER_ID: str = ""
     GDRIVE_CLIENT_SECRETS_FILE: str = "backend/gdrive_credentials.json"
     YOUTUBE_API_KEY: str = ""

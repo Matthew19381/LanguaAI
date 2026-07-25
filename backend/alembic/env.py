@@ -20,19 +20,19 @@ from backend.database import Base  # noqa: E402
 
 # Import every model so it registers with Base.metadata BEFORE autogenerate reads
 # it — otherwise a table not imported here is silently dropped from migrations.
-# Same set and order as main.py's lifespan (Achievement before User: the User
-# relationship references it).
+# Same set as main.py's lifespan; keep in sync when adding a model.
 from backend.models import (  # noqa: E402,F401
     achievement,
-    user,
-    lesson,
-    test_result,
-    study_plan,
-    flashcard,
-    topic,
     conversation_session,
     exercise,
+    flashcard,
+    lesson,
+    push_subscription,
+    study_plan,
     sync_event,
+    test_result,
+    topic,
+    user,
 )
 
 target_metadata = Base.metadata

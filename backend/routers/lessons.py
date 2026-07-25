@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query

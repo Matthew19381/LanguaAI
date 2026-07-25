@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { Smartphone, Download, Upload, Copy, Check, Loader2 } from 'lucide-react'
 import { getUserId, getLoginLink, exportProfile, importProfile } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
+import PushToggle from '../components/PushToggle'
 
 /**
  * Profile page — single-user tools:
@@ -121,6 +122,9 @@ export default function Profile() {
           </div>
         )}
       </section>
+
+      {/* Push notifications */}
+      <PushToggle />
 
       {/* Backup */}
       <section className="rounded-xl border dark:border-gray-700 p-5 space-y-3 bg-white dark:bg-gray-900">

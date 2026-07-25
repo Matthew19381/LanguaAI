@@ -259,7 +259,13 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
 - [x] `OfflineBanner` — informuje, że dane są z cache i że **zapis wymaga sieci**
 - [x] `host: true` w dev + nowa sekcja `preview` z proxy (build też sięga do API)
 - [x] **Zweryfikowane na żywo:** przy wyłączonym backendzie `/practice` renderuje komplet zadań z cache (200 z SW)
-- [ ] **Web Push (VAPID)** — powiadomienia o powtórkach; wymaga endpointu subskrypcji + workera
+- [x] **Web Push (VAPID)** ✅ 2026-07-25 — powiadomienia push na telefon o powtórkach/lekcji
+    - Backend: model `PushSubscription` (upsert po `endpoint`), `push_service` (send + prune 404/410, `push_enabled()` gdy oba klucze ustawione — graceful jak `DISCORD_WEBHOOK_URL`), router `/api/push/{vapid-public-key,subscribe,unsubscribe,test/{id}}`, config `VAPID_*` + skrypt `scripts/generate_vapid_keys.py`. `pywebpush` w deps. Migracja Alembic `5a6d111e51d9`.
+    - Notifier: wysyła web push obok Discorda (poranny → lekcja, wieczorny → zaległe fiszki); odporny (błąd push nie wywraca runa).
+    - Frontend: `push-sw.js` (handlery `push`/`notificationclick`) dołączony do wygenerowanego SW przez `workbox.importScripts`; `utils/push.js` (permission + PushManager.subscribe), `PushToggle` na stronie Profil (włącz/wyłącz per urządzenie + „Wyślij test").
+    - Testy: `test_push.py` (12: subskrypcja/upsert/422/404, vapid-key enabled/disabled, test-send 503/deliver, send+prune 410, zachowanie przy błędzie przejściowym). Backend 442 passed, frontend 67 passed, build OK.
+    - **Zweryfikowane na żywo:** `GET /api/push/vapid-public-key` z kluczami → `enabled:true` + klucz; podpisywanie VAPID (`py_vapid.sign`) działa z wygenerowanym kluczem; SW w dist zawiera `importScripts("push-sw.js")`.
+    - _Do zrobienia przez użytkownika:_ wygenerować klucze (`python -m backend.scripts.generate_vapid_keys`), wkleić do `backend/.env`, i przetestować dostarczenie na realnym telefonie przez tunel HTTPS (push wymaga HTTPS + realnego push service — nie da się zweryfikować lokalnie).
 - [x] **Offline dla zapisów — ĆWICZENIA** ✅ (2026-07-18): pakiet zadań na urządzeniu + ocena lokalna + kolejka odpowiedzi + synchronizacja po powrocie sieci
     - `GET /api/exercises/{id}/offline-pack` — zadania **z odpowiedziami** (osobny endpoint, żeby różnica wobec `/practice` była jawna; `/practice` nadal ich nie zwraca)
     - `POST /answer` przyjmuje `client_event_id` (idempotencja przez tabelę `sync_events`) i `answered_at` (harmonogram FSRS liczony od momentu odpowiedzi; zegar z przyszłości jest przycinany)

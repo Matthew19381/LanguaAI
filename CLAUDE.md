@@ -75,6 +75,7 @@ Every function in every service that calls Gemini has a hardcoded fallback dict/
 | `quickmode.py` | `/api/v1/quickmode/` | 15-minute daily activity plan |
 | `news.py` | `/api/v1/news/` | RSS fetch (feedparser) + Gemini simplification per CEFR level |
 | `pronunciation.py` | `/api/v1/pronunciation/` | faster-whisper transcription + word-level scoring |
+| `push.py` | `/api/push/` | Web Push (VAPID): public key, subscribe/unsubscribe, test send |
 
 **Adding a new router**: import it in `main.py` and call `app.include_router(...)`.
 
