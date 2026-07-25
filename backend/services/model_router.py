@@ -54,6 +54,37 @@ BEST_MODELS = {k for k, v in OPENROUTER_MODELS.items() if _tier_of(v) == "best"}
 # multimodal removed — nothing called them; re-add here when a caller exists).
 USED_TASKS = ("placement", "lesson", "conversation", "test", "news")
 
+# ── A7: per-task tier CAP ────────────────────────────────────────────────────
+# The global tier (settings.AI_MODEL_TIER) is the default for every task. A task
+# listed here is CAPPED at the given tier: never spend more than this on it, even
+# when the global tier is higher. It never *upgrades* — if the global tier is
+# already cheaper, the global wins. An explicit `tier=` passed to
+# get_model_for_task always overrides the cap.
+#
+# Principle (per user): keep `best` where quality is user-visible or one-shot
+# critical (lesson, conversation, test, placement) and drop to `cheap` only where
+# a cheaper model does the job with no visible loss.
+#   news → cheap: simplifying an article to a CEFR level is an easy transform
+#     (gemini-2.5-flash ≈ gemini-2.5-pro here) and runs on every RSS fetch, so
+#     it is the one real cost driver. Capping it is the main cost lever.
+TASK_TIER_CAP = {
+    "news": "cheap",
+}
+
+# Cost ordering used only to compare tiers for the cap (free < cheap < best).
+_TIER_RANK = {"free": 0, "cheap": 1, "best": 2}
+
+
+def _effective_tier(task: str, tier: str | None, global_tier: str) -> str:
+    """Resolve the tier for a task: explicit arg > per-task cap > global tier."""
+    if tier:
+        return tier.lower()
+    g = (global_tier or "cheap").lower()
+    cap = TASK_TIER_CAP.get(task)
+    if cap and _TIER_RANK.get(cap, 99) < _TIER_RANK.get(g, 99):
+        return cap
+    return g
+
 
 def get_model_for_task(task: str, fallback: str = None, tier: str = None) -> str:
     """
@@ -63,14 +94,17 @@ def get_model_for_task(task: str, fallback: str = None, tier: str = None) -> str
         task: Typ zadania — 'placement', 'lesson', 'conversation', 'news', 'test'
               (inne zadania nie mają wywołań w kodzie — patrz USED_TASKS)
         fallback: Model dla nieznanego taska (domyślnie zależy od providera)
-        tier: 'free', 'cheap', 'best' — nadpisuje settings.AI_MODEL_TIER
+        tier: 'free', 'cheap', 'best' — jawnie nadpisuje wszystko (globalny
+              tier i per-task cap). Bez tego tier = min(global, TASK_TIER_CAP[task])
+              w kolejności free<cheap<best (A7).
 
     Returns:
         Nazwa modelu (np. 'deepseek/deepseek-v3.2' dla openrouter
         lub 'gemini-2.0-flash' dla gemini direct)
     """
     provider = settings.AI_PROVIDER.lower()
-    effective_tier = (tier or getattr(settings, 'AI_MODEL_TIER', 'cheap')).lower()
+    global_tier = getattr(settings, 'AI_MODEL_TIER', 'cheap')
+    effective_tier = _effective_tier(task, tier, global_tier)
 
     if provider == "gemini":
         return _get_gemini_model(task, fallback, effective_tier)
