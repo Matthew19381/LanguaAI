@@ -118,7 +118,7 @@ _Zakres: `model_router.py`, wszystkie wywołania `@with_model`, ścieżka `gemin
 
 ### 🔴 Istotne
 
-- [ ] **A1. W domyślnym tierze router nie różnicuje modeli.** W `cheap` zadania `placement`, `lesson`, `conversation`, `test` rozwiązują się do **tego samego** `deepseek/deepseek-v3.2`. Rozbudowana mapa per-zadanie daje złudzenie optymalizacji, a w praktyce cała aplikacja działa na jednym modelu. Jedyny wyjątek (`news` → `gemini-2.5-flash`) nie działa — patrz A2.
+- [x] **A1. W domyślnym tierze router nie różnicuje modeli** ✅ 2026-07-25 — rozwiązane przez A4: mapa per zadanie (lesson/conversation/news → gemini/claude, test → deepseek/gpt-5, placement → flash-lite/gpt-5-mini). Żadne dwa zadania o różnych wymaganiach nie dzielą już jednego modelu w cheap tierze.
 - [x] **A2. Dwa serwisy omijają router** ✅ 2026-07-24 — `news_service.py`
       (`simplify_article`, `_generate_sample_news` → `@with_model("news")`) i
       `topic_service.py` (`extract_topics_from_lesson` → `@with_model("lesson")`)
@@ -138,9 +138,9 @@ _Zakres: `model_router.py`, wszystkie wywołania `@with_model`, ścieżka `gemin
 
 ### 🟡 Średnie
 
-- [ ] **A6. Martwe mapowania zadań.** `pronunciation` (wymowa używa lokalnego faster-whisper, zero AI tekstowego), `code`, `reasoning`, `multimodal` — **nic ich nie używa**. `code` w aplikacji do nauki języka nie ma uzasadnienia. Realnie używane są tylko: `lesson`, `conversation`, `test`, `placement`, `news`.
+- [x] **A6. Martwe mapowania zadań** ✅ 2026-07-25 — potwierdzone grepem: używane są tylko `lesson, conversation, test, placement, news`. Dodana stała `USED_TASKS` w model_router (walidacja startowa używa jej zamiast hardkodowanej listy); martwe zadania (`pronunciation`, `code`, `reasoning`, `multimodal`) usunięte z docstringów — mapowania zostają w MAPPINGS jako inertne do czasu pierwszego wywołania.
 - [ ] **A7. Tier jest globalny.** Nie da się dać rozmowie `best`, a codziennym podpowiedziom `cheap`. `get_model_for_task(tier=...)` to obsługuje, ale nikt nie przekazuje parametru — a to najprostsza dźwignia kosztowa.
-- [ ] **A8. Klasyfikacja tierów przez podłańcuch w opisie.** `FREE/CHEAP/BEST` liczone przez `"| free " in v` na notatce tekstowej. `qwen/qwen3-coder:free` trafia jednocześnie do FREE i BEST, bo notatka brzmi „best free coding". Kruche — literówka w spacji cicho zmienia tier.
+- [x] **A8. Klasyfikacja tierów przez podłańcuch w opisie** ✅ 2026-07-25 — `_tier_of()` parsuje pole `parts[2]` zamiast `"| free " in v`; zero overlapów między tierami (test: free=4, cheap=8, best=5, rozłączne).
 - [x] **A9. Katalog niezweryfikowany** ✅ 2026-07-25 — katalog oczyszczony 47 → 17 modeli; wszystkie zweryfikowane skryptem jako ISTNIEJĄCE na OpenRouter (`GET /api/v1/models`). Usunięte 30 martwych id (m.in. `deepseek-v3.2-non-thinking`, `claude-sonnet-4-6` z mylnikiem, `llama-4-*-17b`, 13 martwych `:free`). Walidacja przy starcie (A3) pilnuje regresji.
 - [ ] **A10. Brak trybu strukturalnego wyjścia.** Prawie wszystkie wywołania to `generate_json`, ale opieramy się na prompcie („Respond ONLY with valid JSON") + zdejmowaniu znaczników. Gemini i OpenAI potrafią wymusić JSON schematem — to eliminuje całą klasę błędów parsowania.
 

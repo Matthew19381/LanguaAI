@@ -41,10 +41,18 @@ OPENROUTER_MODELS = {
     "deepseek/deepseek-r1":                    "128K | reasoning | best | DeepSeek reasoning",
 }
 
-# ── Tier lookup sets ────────────────────────────────────────────────────────
-FREE_MODELS = {k for k, v in OPENROUTER_MODELS.items() if "| free " in v}
-CHEAP_MODELS = {k for k, v in OPENROUTER_MODELS.items() if "| cheap " in v}
-BEST_MODELS = {k for k, v in OPENROUTER_MODELS.items() if "| best " in v}
+# ── Tier lookup (A8: parsed field, not substring luck) ──────────────────────
+def _tier_of(info: str) -> str:
+    parts = [p.strip() for p in info.split("|")]
+    return parts[2] if len(parts) > 2 else ""
+
+FREE_MODELS = {k for k, v in OPENROUTER_MODELS.items() if _tier_of(v) == "free"}
+CHEAP_MODELS = {k for k, v in OPENROUTER_MODELS.items() if _tier_of(v) == "cheap"}
+BEST_MODELS = {k for k, v in OPENROUTER_MODELS.items() if _tier_of(v) == "best"}
+
+# Tasks actually wired via @with_model in the codebase (A6: code/reasoning/
+# multimodal removed — nothing called them; re-add here when a caller exists).
+USED_TASKS = ("placement", "lesson", "conversation", "test", "news")
 
 
 def get_model_for_task(task: str, fallback: str = None, tier: str = None) -> str:
@@ -52,8 +60,8 @@ def get_model_for_task(task: str, fallback: str = None, tier: str = None) -> str
     Zwróć nazwę modelu dla danego typu zadania, dostawcy i tieru.
 
     Args:
-        task: Typ zadania — 'placement', 'lesson', 'conversation', 'news',
-              'pronunciation', 'test', 'code', 'reasoning', 'multimodal'
+        task: Typ zadania — 'placement', 'lesson', 'conversation', 'news', 'test'
+              (inne zadania nie mają wywołań w kodzie — patrz USED_TASKS)
         fallback: Model dla nieznanego taska (domyślnie zależy od providera)
         tier: 'free', 'cheap', 'best' — nadpisuje settings.AI_MODEL_TIER
 

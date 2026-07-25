@@ -121,9 +121,10 @@ async def lifespan(app: FastAPI):
         )
 
         if _settings.AI_PROVIDER.lower() == "openrouter":
-            tasks = ["placement", "lesson", "conversation", "news", "test"]
+            from backend.services.model_router import USED_TASKS
+
             invalid = []
-            for task in tasks:
+            for task in USED_TASKS:
                 model = get_model_for_task(task)
                 if model and not validate_model(model):
                     invalid.append(f"{task} -> {model}")
