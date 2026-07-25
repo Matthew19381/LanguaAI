@@ -7,6 +7,7 @@ import {
   History, ArrowRight, HelpCircle
 } from 'lucide-react'
 import { getUserId, getTodayLesson, getLesson, completeLesson, addFlashcardAI, evaluateProduction, generateNextLesson, generateConceptFlashcards, recordExerciseError, getDailyTest, getNews, searchYouTube, exportLessonPDF, exportObsidian, resetTodayLesson, getLessonAudioPackage } from '../api/client'
+import { enqueueLessonComplete } from '../utils/offlineQueue'
 import PlayButton from '../components/PlayButton'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
@@ -159,29 +160,71 @@ export default function DailyLesson() {
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
+  // Mark the lesson tab done for today (shared with the offline path)
+  const markLessonTabDone = () => {
+    const today = new Date().toISOString().slice(0, 10)
+    try {
+      const raw = localStorage.getItem('daily_tabs')
+      const stored = raw ? JSON.parse(raw) : { date: today, tabs: [] }
+      if (stored.date !== today) stored.tabs = []
+      if (!stored.tabs.includes('lesson')) {
+        stored.tabs.push('lesson')
+        localStorage.setItem('daily_tabs', JSON.stringify({ date: today, tabs: stored.tabs }))
+      }
+    } catch {}
+  }
+
+  // Optimistically flip the cached lesson to completed so a reload/revisit while
+  // still offline shows it done (the queued event syncs the server later).
+  const markLessonCacheCompleted = () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const lang = localStorage.getItem('userLanguage') || ''
+      const cacheKey = `lesson_cache_${userId}_${lang}_${today}`
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        const data = JSON.parse(cached)
+        data.is_completed = true
+        localStorage.setItem(cacheKey, JSON.stringify(data))
+      }
+    } catch {}
+  }
+
+  const completeOffline = () => {
+    // Same idempotent pattern as exercises/flashcards: queue it, mark done
+    // locally; useOfflineSync drains the outbox on reconnect.
+    enqueueLessonComplete({ lessonId: lesson.lesson_id, userId })
+    setCompleted(true)
+    markLessonTabDone()
+    markLessonCacheCompleted()
+  }
+
   const handleComplete = async () => {
     if (!lesson) return
     setCompleting(true)
+    // Known-offline: don't even attempt the request, queue straight away
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      completeOffline()
+      setCompleting(false)
+      return
+    }
     try {
       await completeLesson(lesson.lesson_id, userId)
       setCompleted(true)
       // Clear lesson cache so next day fetches fresh lesson
       clearLessonCache()
-      // Mark lesson as completed in daily tabs
-      const today = new Date().toISOString().slice(0, 10)
-      try {
-        const raw = localStorage.getItem('daily_tabs')
-        const stored = raw ? JSON.parse(raw) : { date: today, tabs: [] }
-        if (stored.date !== today) stored.tabs = []
-        if (!stored.tabs.includes('lesson')) {
-          stored.tabs.push('lesson')
-          localStorage.setItem('daily_tabs', JSON.stringify({ date: today, tabs: stored.tabs }))
-        }
-      } catch {}
+      markLessonTabDone()
       // Reload to reflect new lesson state
       window.location.reload()
     } catch (e) {
-      setError(e.message)
+      // No HTTP status = the request never reached the server (network drop):
+      // fall back to the offline queue instead of surfacing an error.
+      const status = e?.response?.status ?? e?.status
+      if (!status) {
+        completeOffline()
+      } else {
+        setError(e.message)
+      }
     } finally {
       setCompleting(false)
     }

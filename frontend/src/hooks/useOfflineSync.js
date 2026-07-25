@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { replayAnswer, replayFlashcardReview } from '../api/client'
-import { syncQueue, queueSize, KIND_EXERCISE, KIND_FLASHCARD } from '../utils/offlineQueue'
+import { replayAnswer, replayFlashcardReview, replayLessonComplete } from '../api/client'
+import { syncQueue, queueSize, KIND_EXERCISE, KIND_FLASHCARD, KIND_LESSON } from '../utils/offlineQueue'
 
 const HANDLERS = {
   [KIND_EXERCISE]: replayAnswer,
   [KIND_FLASHCARD]: replayFlashcardReview,
+  [KIND_LESSON]: replayLessonComplete,
 }
 
 /**

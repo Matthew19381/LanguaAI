@@ -6,6 +6,11 @@ from pydantic import BaseModel
 
 class CompleteLessonRequest(BaseModel):
     user_id: Optional[int] = None
+    # Offline replay (same pattern as exercise answers / flashcard reviews):
+    # client_event_id makes the replay idempotent; completed_at pins the streak
+    # to the day the learner actually finished, not the reconnect day.
+    client_event_id: Optional[str] = None
+    completed_at: Optional[str] = None
 
 
 class SaveExerciseErrorRequest(BaseModel):

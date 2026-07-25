@@ -37,6 +37,7 @@ from backend.services.lesson_generator import (
 from backend.services.obsidian_service import save_obsidian_md
 from backend.services.pdf_service import EXPORTS_DIR, generate_lesson_pdf
 from backend.services.streak_service import calculate_streak
+from backend.services.sync_service import already_applied, parse_occurred_at, record_event
 from backend.services.topic_service import process_lesson_topics_bg
 from backend.utils import get_user_or_404
 
@@ -326,22 +327,60 @@ async def complete_lesson(
     if request.user_id and lesson.user_id != request.user_id:
         raise HTTPException(status_code=403, detail="Not authorized to complete this lesson")
 
+    # ── Offline replay: a queued completion must never be applied twice ──
+    # (double XP / a corrupted streak). Same idempotency ledger as exercise
+    # answers and flashcard reviews.
+    if already_applied(db, request.client_event_id):
+        return {
+            "success": True,
+            "duplicate": True,
+            "lesson_id": lesson.id,
+            "is_completed": lesson.is_completed,
+            "completed_at": lesson.completed_at.isoformat() if lesson.completed_at else None,
+            "xp_awarded": 0,
+            "new_achievements": [],
+        }
+
     newly_awarded = []
+    xp_awarded = 0
     if not lesson.is_completed:
+        # Completed offline yesterday, synced today → the streak must count the
+        # day it was actually finished, not the reconnect day. calculate_streak
+        # reads completed_at, so pinning it here is enough.
+        occurred = parse_occurred_at(request.completed_at)
         lesson.is_completed = True
-        lesson.completed_at = datetime.now(timezone.utc)
+        lesson.completed_at = occurred
 
         # Award XP for completing lesson
         if request.user_id:
             user = db.query(User).filter(User.id == request.user_id).first()
             if user:
                 user.total_xp += 25  # 25 XP for completing a lesson
+                xp_awarded = 25
                 # Update streak — consecutive days with at least one completed lesson (with freeze support)
                 streak, freezes_left = calculate_streak(db, user.id, user.streak_freezes)
                 user.streak_days = streak
                 user.streak_freezes = freezes_left
 
-        db.commit()
+        record_event(db, request.client_event_id,
+                     request.user_id or lesson.user_id,
+                     "lesson_complete", lesson.id, occurred)
+
+        try:
+            db.commit()
+        except IntegrityError:
+            # Two replays raced on the same client_event_id — the other one won.
+            db.rollback()
+            db.refresh(lesson)
+            return {
+                "success": True,
+                "duplicate": True,
+                "lesson_id": lesson.id,
+                "is_completed": lesson.is_completed,
+                "completed_at": lesson.completed_at.isoformat() if lesson.completed_at else None,
+                "xp_awarded": 0,
+                "new_achievements": [],
+            }
 
         # Check achievements after commit
         if request.user_id:
@@ -355,7 +394,7 @@ async def complete_lesson(
         "lesson_id": lesson.id,
         "is_completed": lesson.is_completed,
         "completed_at": lesson.completed_at.isoformat() if lesson.completed_at else None,
-        "xp_awarded": 25,
+        "xp_awarded": xp_awarded,
         "new_achievements": newly_awarded,
     }
 

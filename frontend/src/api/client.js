@@ -253,6 +253,14 @@ export const replayAnswer = (event) =>
     answered_at: event.answered_at,
   })
 
+// Replay of a lesson completion recorded while offline (idempotent server-side)
+export const replayLessonComplete = (event) =>
+  api.post(`/lessons/${event.lesson_id}/complete`, {
+    user_id: event.user_id,
+    client_event_id: event.client_event_id,
+    completed_at: event.completed_at,
+  })
+
 export const getFlashcardOfflinePack = (userId, size = 100) =>
   api.get(`/flashcards/${userId}/offline-pack`, { params: { size } })
 

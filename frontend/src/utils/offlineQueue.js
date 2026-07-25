@@ -12,6 +12,7 @@ const QUEUE_KEY = 'offlineQueue'          // shared outbox (events carry `kind`)
 
 export const KIND_EXERCISE = 'exercise_answer'
 export const KIND_FLASHCARD = 'flashcard_review'
+export const KIND_LESSON = 'lesson_complete'
 
 // ── Local grading ───────────────────────────────────────────────────────────
 // Must mirror grade_answer() in backend/services/exercise_service.py, which does
@@ -112,6 +113,18 @@ export function enqueueAnswer({ exerciseId, userId, answer, correct }) {
     answer,
     correct,
     answered_at: new Date().toISOString(),
+  }
+  writeQueue([...getQueue(), event])
+  return event
+}
+
+export function enqueueLessonComplete({ lessonId, userId }) {
+  const event = {
+    kind: KIND_LESSON,
+    client_event_id: newId(),
+    lesson_id: lessonId,
+    user_id: userId,
+    completed_at: new Date().toISOString(),
   }
   writeQueue([...getQueue(), event])
   return event

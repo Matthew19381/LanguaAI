@@ -2,15 +2,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   gradeLocally, normalizeAnswer, savePack, loadPack, clearPack,
   saveCardPack, loadCardPack, clearCardPack,
-  enqueueAnswer, enqueueFlashcardReview, pendingByKind,
+  enqueueAnswer, enqueueFlashcardReview, enqueueLessonComplete, pendingByKind,
   getQueue, queueSize, clearQueue, syncQueue,
-  KIND_EXERCISE, KIND_FLASHCARD,
+  KIND_EXERCISE, KIND_FLASHCARD, KIND_LESSON,
 } from '../offlineQueue'
 
 // Handlers map used by most sync tests
-const handlers = (exercise = vi.fn(), flashcard = vi.fn()) => ({
+const handlers = (exercise = vi.fn(), flashcard = vi.fn(), lesson = vi.fn()) => ({
   [KIND_EXERCISE]: exercise,
   [KIND_FLASHCARD]: flashcard,
+  [KIND_LESSON]: lesson,
 })
 
 beforeEach(() => {
@@ -104,6 +105,26 @@ describe('flashcard pack and queue', () => {
     expect(queueSize()).toBe(3)
     expect(pendingByKind(KIND_EXERCISE)).toBe(1)
     expect(pendingByKind(KIND_FLASHCARD)).toBe(2)
+  })
+})
+
+describe('lesson completion outbox', () => {
+  it('queues a completion with an id and timestamp', () => {
+    const e = enqueueLessonComplete({ lessonId: 42, userId: 5 })
+    expect(e.kind).toBe(KIND_LESSON)
+    expect(e.lesson_id).toBe(42)
+    expect(e.completed_at).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    expect(getQueue()[0].client_event_id).toBe(e.client_event_id)
+  })
+
+  it('routes lesson completions to their handler on sync', async () => {
+    enqueueLessonComplete({ lessonId: 42, userId: 5 })
+    const lesson = vi.fn().mockResolvedValue({})
+    const res = await syncQueue(handlers(vi.fn(), vi.fn(), lesson))
+    expect(lesson).toHaveBeenCalledTimes(1)
+    expect(lesson.mock.calls[0][0].lesson_id).toBe(42)
+    expect(res).toEqual({ synced: 1, failed: 0 })
+    expect(queueSize()).toBe(0)
   })
 })
 

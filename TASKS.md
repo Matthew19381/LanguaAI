@@ -259,7 +259,13 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
     - `hooks/useOfflineSync.js`: **synchronizacja na poziomie całej aplikacji** (w `OfflineBanner`), więc praca offline wysyła się z dowolnego ekranu; wspólny outbox z polem `kind`
     - Baner pokazuje też stan „Wysyłanie postępów: N" po powrocie sieci
     - **Zweryfikowane end-to-end:** przy martwym backendzie 3 karty ocenione offline (Dobra/Jeszcze raz/Dobra) i zakolejkowane; po restarcie kolejka pusta, `reps=1` na każdej karcie, a karta z oceną „Jeszcze raz" ma `lapses=1` (dowód, że ocena przeszła wiernie); ponowne odtworzenie → `duplicate: true`, `reps` bez zmian
-- [ ] Offline dla ukończenia lekcji (ten sam wzorzec)
+- [x] **Offline dla ukończenia lekcji** ✅ 2026-07-25 — ten sam wzorzec co fiszki/ćwiczenia
+    - `POST /api/lessons/{id}/complete` przyjmuje `client_event_id` (idempotencja przez `sync_events`) + `completed_at` (znacznik z urządzenia). Powtórka → `duplicate: true`, `xp_awarded: 0` — brak podwójnego XP/zepsutej passy. `IntegrityError` na wyścigu dwóch powtórek → też `duplicate`.
+    - **Timing passy:** `completed_at` z urządzenia trafia do `lesson.completed_at`, a `calculate_streak` czyta właśnie tę kolumnę — lekcja skończona offline wczoraj, zsynchronizowana dziś, liczy się do wczoraj. Zegar z przyszłości przycinany (`parse_occurred_at`).
+    - Kompatybilność wsteczna: online bez `client_event_id` działa jak wcześniej, zero wpisów w ledgerze. `xp_awarded` teraz odzwierciedla faktyczne przyznanie (25 tylko przy realnym ukończeniu).
+    - `frontend`: `enqueueLessonComplete` + `KIND_LESSON` w offlineQueue, `replayLessonComplete` w client.js, handler w `useOfflineSync` (drenaż app-wide w OfflineBanner). `DailyLesson.handleComplete`: offline (`navigator.onLine === false`) lub błąd sieci bez statusu → kolejkuje + optymistycznie oznacza ukończone (cache lekcji + daily_tabs); reszta bez zmian.
+    - Testy: `backend/tests/test_lesson_offline.py` (5) + `offlineQueue.test.js` (2). Backend 421 passed, frontend 67 passed, build OK.
+    - _Uwaga:_ pełny live end-to-end (samolotowy → ukończ → powrót sieci) nie odpalony, by nie palić kredytów AI na generowanie lekcji — wzorzec identyczny z już zweryfikowanym offline fiszek/ćwiczeń.
 - [ ] Prawdziwy Background Sync API (dziś synchronizacja odpala się przy zdarzeniu `online` i przy wejściu na ekran — wystarcza, ale nie działa gdy aplikacja jest zamknięta)
 - [x] **Bramka dostępu** ✅ (2026-07-19) — warunek wystawienia aplikacji na internet
     - Odkrycie: poza `/api/admin/*` **żaden endpoint nie miał uwierzytelnienia**; tunel bez ochrony = obcy może czytać/zmieniać dane i palić kredyty OpenRouter
