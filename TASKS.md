@@ -293,7 +293,14 @@ Szczegóły i uzasadnienia: `docs/NEURO_FEATURES.md` → „Funkcje wycofane i d
 
 - [~] **SCI-8 Natychmiastowy feedback korekcyjny** _(Metcalfe 2017, META)_ — poprawna odpowiedź + zdanie wyjaśnienia zamiast samego „źle". **W dużej części już działa**: ekran ćwiczeń pokazuje `expected_answer` + `feedback` przy błędzie. Do sprawdzenia: czy testy dzienne i fiszki też dają korekcyjny feedback, czy tylko wynik.
 - [ ] **SCI-9 Kolejka powtórek dnia w Systemie Głównym** _(Gollwitzer & Sheeran 2006, META)_ — FSRS publikuje liczbę zaległych → planner wstawia blok powtórek jako implementation intention. Wymaga integracji międzyprojektowej.
-- [ ] **SCI-7 Production effect** _(MacLeod et al. 2010, RCT)_ — etap „powtórz na głos" w Quick Mode; TTS już jest, w v1 bez rozpoznawania mowy (samoocena).
+- [x] **SCI-7 Production effect** ✅ 2026-07-25 _(MacLeod et al. 2010, RCT)_ —
+      etap „Powtórz na głos" w Quick Mode: `GET /api/quickmode/read-aloud/{id}`
+      (najnowsze fiszki + cache'owane TTS, `card.audio_path` zapisywane przy
+      pierwszym użyciu), strona `/read-aloud` (słuchaj → powiedz głośno → odkryj
+      → samoocena, bez rozpoznawania mowy w v1), aktywność w planie (2 min,
+      priorytet 3). Testy: `test_read_aloud.py` (6). Zweryfikowane live: endpoint
+      zwraca słowo + audio (MP3 10.6 KB, 200); plan mieści się w 20 min
+      (news 4→3 min dla bilansu).
 - [ ] **SCI-10 Wieczorna konsolidacja** — **jako hipoteza do eksperymentu n-of-1**, nie jako reguła. Zgodne z zasadą, że sen konsoliduje pamięć (META), ale przewaga pory wieczornej u konkretnej osoby wymaga zmierzenia.
 
 ### ✅ Backlog SCI: 6/6 ukończone (2026-07-18)

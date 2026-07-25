@@ -110,7 +110,7 @@ async def get_quickmode_plan(user_id: int, db: Session = Depends(get_db)):
         "id": "news",
         "title": "Newsy w języku docelowym",
         "description": f"Czytaj uproszczone wiadomości po {user.target_language}",
-        "estimated_minutes": 4,
+        "estimated_minutes": 3,
         "priority": 4,
         "route": "/news",
         "icon": "Newspaper",
@@ -145,6 +145,18 @@ async def get_quickmode_plan(user_id: int, db: Session = Depends(get_db)):
         "priority": 4,
         "route": "/dictation",
         "icon": "Headphones",
+        "completed": False,
+    })
+
+    # Read aloud (SCI-7, production effect): repeat new words out loud
+    activities.append({
+        "id": "read-aloud",
+        "title": "Powtórz na głos",
+        "description": "Posłuchaj nowych słów i powtórz je głośno",
+        "estimated_minutes": 2,
+        "priority": 3,
+        "route": "/read-aloud",
+        "icon": "Volume2",
         "completed": False,
     })
 
@@ -200,3 +212,67 @@ async def get_dictation(user_id: int, count: int = 3, db: Session = Depends(get_
 async def check_dictation(payload: DictationCheckRequest):
     """SCI-6: word-level diff between the reference sentence and what the user typed."""
     return diff_transcription(payload.reference, payload.typed)
+
+
+# ── SCI-7: Production effect — read new words ALOUD ─────────────────────
+# MacLeod et al. (2010, RCT): words read aloud are remembered better than
+# words read silently. v1: no speech recognition — self-assessment only.
+
+@router.get("/api/quickmode/read-aloud/{user_id}")
+async def get_read_aloud(user_id: int, count: int = 8, db: Session = Depends(get_db)):
+    """Newest flashcards as a read-aloud deck: hear TTS, repeat aloud, self-check.
+
+    Source: the user's most recently created active flashcards (the freshest
+    vocabulary, before FSRS spaces it out). Each item carries cached TTS audio
+    so repeating works offline-ish and doesn't re-synthesize on every visit.
+    """
+    from backend.models.flashcard import Flashcard
+
+    user = get_user_or_404(db, user_id)
+    count = max(1, min(count, 20))
+
+    cards = (
+        db.query(Flashcard)
+        .filter(
+            Flashcard.user_id == user_id,
+            Flashcard.language == user.target_language,
+            Flashcard.is_active == True,  # noqa: E712
+        )
+        .order_by(Flashcard.id.desc())
+        .limit(count)
+        .all()
+    )
+
+    items = []
+    for i, card in enumerate(cards):
+        text = card.word
+        audio_path = card.audio_path
+        if not audio_path:
+            safe = "".join(c for c in text[:24] if c.isalnum() or c == " ").strip().replace(" ", "_")
+            filename = f"readaloud_{user_id}_{card.id}_{safe}.mp3"
+            output_path = os.path.join(AUDIO_DIR, filename)
+            try:
+                if not os.path.exists(output_path):
+                    await generate_audio(text, user.target_language, output_path)
+                audio_path = f"/audio/{filename}"
+                card.audio_path = audio_path
+            except Exception as e:
+                logger.warning("Read-aloud TTS failed for card %s: %s", card.id, e)
+        items.append(
+            {
+                "flashcard_id": card.id,
+                "word": card.word,
+                "translation": card.translation,
+                "example_sentence": card.example_sentence,
+                "audio_path": audio_path,
+            }
+        )
+    db.commit()
+
+    return {
+        "user_id": user_id,
+        "target_language": user.target_language,
+        "cefr_level": user.cefr_level,
+        "items": items,
+        "instruction": "Posłuchaj słowa, powtórz je NA GŁOS, potem oceń sam siebie.",
+    }

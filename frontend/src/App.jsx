@@ -17,6 +17,7 @@ import Videos from './pages/Videos'
 import ErrorReview from './pages/ErrorReview'
 import TopicsPage from './pages/TopicsPage'
 import Dictation from './pages/Dictation'
+import ReadAloud from './pages/ReadAloud'
 import Practice from './pages/Practice'
 import Profile from './pages/Profile'
 import LoginAs from './pages/LoginAs'
@@ -42,6 +43,7 @@ function App() {
           <Route path="errors" element={<ErrorBoundary><ErrorReview /></ErrorBoundary>} />
           <Route path="topics" element={<ErrorBoundary><TopicsPage /></ErrorBoundary>} />
           <Route path="dictation" element={<ErrorBoundary><Dictation /></ErrorBoundary>} />
+          <Route path="read-aloud" element={<ErrorBoundary><ReadAloud /></ErrorBoundary>} />
           <Route path="practice" element={<ErrorBoundary><Practice /></ErrorBoundary>} />
           <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
         </Route>

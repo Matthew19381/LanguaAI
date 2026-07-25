@@ -228,6 +228,9 @@ export const getQuickMode = (userId) =>
 export const getDictation = (userId, count = 3) =>
   api.get(`/quickmode/dictation/${userId}`, { params: { count } })
 
+export const getReadAloud = (userId, count = 8) =>
+  api.get(`/quickmode/read-aloud/${userId}`, { params: { count } })
+
 // ===== Exercise bank =====
 
 export const getPracticeSet = (userId, { size = 10, topic, includeNew = false } = {}) =>
