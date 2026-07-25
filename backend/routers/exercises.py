@@ -10,12 +10,14 @@ from backend.database import get_db
 from backend.models.exercise import Exercise
 from backend.schemas.exercise import AnswerExerciseRequest, GenerateVariantsRequest
 from backend.services.exercise_service import (
+    AUTO_VARIANT_FRESH_TARGET,
     VARIANT_AFTER_TIMES_SEEN,
     build_practice_set,
     find_weak_skills,
     grade_answer,
     review_exercise,
     serialize_exercise,
+    skill_needs_auto_variant,
 )
 from backend.services.lesson_generator import generate_exercise_variants
 from backend.services.sync_service import already_applied, parse_occurred_at, record_event
@@ -201,7 +203,33 @@ async def answer_exercise(
         db.rollback()
         return {**base, "duplicate": True}
 
-    return {**base, "duplicate": False, **scheduling}
+    result = {**base, "duplicate": False, **scheduling}
+
+    # ── Auto-generate variants when the learner keeps failing this skill ──
+    # Only on a live wrong answer: a replayed offline answer (client_event_id set)
+    # must not spend AI on reconnect, and could arrive as a burst. Bounded by
+    # skill_needs_auto_variant (self-limiting) and surfaced in the response, so
+    # the "AI spend is deliberate and visible" contract holds even without a click.
+    if (
+        request.client_event_id is None
+        and not correct
+        and skill_needs_auto_variant(db, request.user_id, exercise.language, exercise.skill_tag)
+    ):
+        try:
+            user = get_user_or_404(db, request.user_id)
+            added = await _generate_and_store_variants(
+                db, user, [exercise.skill_tag], per_skill=AUTO_VARIANT_FRESH_TARGET
+            )
+            if added:
+                result["auto_generated"] = len(added)
+                result["auto_generated_skill"] = exercise.skill_tag
+                result["auto_generated_exercises"] = [serialize_exercise(e) for e in added]
+        except Exception as e:
+            # Generation is a bonus, never a reason to fail the answer.
+            logger.warning("Auto-variant generation failed for skill %s: %s",
+                           exercise.skill_tag, e)
+
+    return result
 
 
 @router.post("/api/exercises/{user_id}/generate-variants")

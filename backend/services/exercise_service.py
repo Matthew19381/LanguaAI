@@ -28,6 +28,19 @@ VARIANT_AFTER_TIMES_SEEN = 4
 # Share of a practice set reserved for interleaved items from other topics.
 INTERLEAVE_RATIO = 0.4
 
+# ── Auto-variant on a struggle streak ────────────────────────────────────────
+# When a learner keeps failing one skill we top up the bank *without* waiting for
+# them to press "generate". To keep the project's contract that AI spend is
+# deliberate and never hidden, this is bounded on three sides:
+#   1. a real track record is required (not one unlucky slip),
+#   2. accuracy must be genuinely poor ("a series of errors", not the odd miss),
+#   3. it self-limits — once unseen fresh variants for the skill exist, it stops,
+#      so a persistently-weak skill triggers one top-up, not one per wrong answer.
+# The answer endpoint also reports what it generated, so the spend stays visible.
+AUTO_VARIANT_MIN_ATTEMPTS = 3    # total attempts on the skill before we act
+AUTO_VARIANT_MAX_ACCURACY = 0.5  # "series of errors" = missing more than half
+AUTO_VARIANT_FRESH_TARGET = 2    # stop once this many unseen variants await
+
 
 def _fingerprint(prompt: str, answer: str) -> str:
     """Stable identity for dedup — same question+answer is the same item."""
@@ -200,6 +213,43 @@ def find_weak_skills(db: Session, user_id: int, language: str, limit: int = 5) -
     ]
     scored.sort(key=lambda x: x[1])
     return [skill for skill, acc in scored if acc < 0.8][:limit]
+
+
+def skill_needs_auto_variant(
+    db: Session, user_id: int, language: str, skill_tag: str | None
+) -> bool:
+    """True if a skill is being failed enough to auto-generate fresh variants.
+
+    "A series of errors" is read from the bank's aggregate accuracy for the skill
+    (no separate per-answer log): at least ``AUTO_VARIANT_MIN_ATTEMPTS`` attempts
+    with accuracy at or below ``AUTO_VARIANT_MAX_ACCURACY``. The final check is
+    the important one for cost — if the skill already has unseen fresh variants
+    waiting, the learner has new material to face, so we do not spend again.
+    """
+    if not skill_tag:
+        return False
+
+    rows = db.query(Exercise.times_seen, Exercise.times_correct).filter(
+        Exercise.user_id == user_id,
+        Exercise.language == language,
+        Exercise.skill_tag == skill_tag,
+        Exercise.is_active == True,  # noqa: E712
+    ).all()
+    seen = sum((r[0] or 0) for r in rows)
+    correct = sum((r[1] or 0) for r in rows)
+    if seen < AUTO_VARIANT_MIN_ATTEMPTS:
+        return False
+    if seen == 0 or (correct / seen) > AUTO_VARIANT_MAX_ACCURACY:
+        return False
+
+    fresh = db.query(Exercise).filter(
+        Exercise.user_id == user_id,
+        Exercise.language == language,
+        Exercise.skill_tag == skill_tag,
+        Exercise.is_active == True,  # noqa: E712
+        Exercise.times_seen == 0,
+    ).count()
+    return fresh < AUTO_VARIANT_FRESH_TARGET
 
 
 def grade_answer(expected: str, given: str) -> bool:
