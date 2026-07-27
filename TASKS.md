@@ -111,6 +111,13 @@ _Źródło: audyt własny + `backend/services/model_router.py`_
 
 ## ✅ DO SPRAWDZENIA PRZEZ UŻYTKOWNIKA
 
+- [ ] **Uruchomienie aplikacji na telefonie — wybór drogi** (pełne wyjaśnienie: `docs/PRODUCTION_AND_MOBILE.md`)
+    - **Klucz VAPID i token dostępu to DWIE różne rzeczy:** VAPID = tylko powiadomienia push (opcjonalne); `APP_ACCESS_TOKEN` = zabezpieczenie przed obcymi przy wystawieniu na internet.
+    - **Droga A (szybka, ta sama Wi-Fi, bez HTTPS):** `start.bat` → `ipconfig` (IPv4) → na telefonie `http://<IP>:5173`. Działa nauka, ale **bez instalacji jako appka i bez offline** (te wymagają HTTPS).
+    - **Droga B (pełne PWA — ikona na ekranie, offline, push):** tunel HTTPS (`cloudflared`) → adres `https://*.trycloudflare.com` → odblokuj tokenem → „Dodaj do ekranu głównego".
+    - [ ] (opcjonalnie) **Powiadomienia push:** `python -m backend.scripts.generate_vapid_keys` → wklej `VAPID_*` do `backend/.env` → na telefonie Profil → „Włącz powiadomienia" → „Wyślij test".
+    - **Decyzja do podjęcia:** czy zostajemy na Drodze A (lokalnie), czy przygotowujemy stałe wystawienie (Droga B / chmura — sekcja wdrożeniowa niżej).
+
 - [ ] **Test PWA na telefonie przez tunel HTTPS** (instrukcja: `docs/PRODUCTION_AND_MOBILE.md`)
     1. `python -c "import secrets; print(secrets.token_urlsafe(32))"` → wpisz jako `APP_ACCESS_TOKEN` w `backend/.env`
     2. `winget install --id Cloudflare.cloudflared`
