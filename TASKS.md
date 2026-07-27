@@ -1,6 +1,35 @@
 ﻿# TASKS – LinguaAI
 
-_Ostatnia aktualizacja: 2026-07-23_
+_Ostatnia aktualizacja: 2026-07-27_
+
+---
+
+## ✅ PEŁNY PRZEGLĄD NA ŻYWO W PRZEGLĄDARCE (2026-07-27)
+
+_Backend + frontend uruchomione, realna baza, przejście przez wszystkie strony i endpointy._
+
+**Zweryfikowane działające (na żywo):** odczyt (lekcja, fiszki, ćwiczenia, tematy,
+statystyki), zapis (ćwiczenie → ocena → FSRS), **generowanie AI po doładowaniu
+OpenRouter** — auto-warianty (2 realne ćwiczenia), pełna nowa lekcja (~51s best
+tier, komplet sekcji, +13 fiszek/+31 ćwiczeń w banku), test dnia (cache po 1.
+generacji), rozmowa (wieloturowa), newsy, dyktando, read-aloud, quickmode, tips,
+wymowa, add-ai. **Wszystkie 16 stron renderują się bez crashy i bez surowych kluczy.**
+
+**🐛 Naprawione bugi znalezione podczas przeglądu:**
+- [x] **Rozmowa: `sendMessage` nie wysyłał `user_id`** → backend wymaga go
+      (weryfikacja właściciela sesji) → **każda wiadomość w rozmowie dawała 422**.
+      Fix: `client.js` `sendMessage(...,  userId=getUserId())` + `user_id` w body.
+- [x] **22 brakujące klucze i18n** (lesson/flash/stats) pokazywały surowe nazwy
+      (`t()` zwraca klucz gdy brak, więc fallback `||` nie wchodził). Audyt
+      statyczny wszystkich `t('literał')` → 0 braków po naprawie.
+
+**⚠️ Do rozważenia (nie bug, obserwacja):**
+- [ ] Generacja **testu dnia i lekcji na best tier trwa >110s** — blisko/ponad
+      frontendowy timeout 120s (`client.js`). Pierwsza generacja może się rozjechać
+      z timeoutem; po wygenerowaniu jest cache. Rozważyć niższy tier dla testu/lekcji
+      albo podniesienie timeoutu, albo generowanie w tle ze statusem.
+- Efekty uboczne testów na kontach testowych (id 4 „AllTest", id 5 „Verify User"):
+  dodane lekcje/ćwiczenia/odpowiedzi — bez wpływu na konto „Mateusz" (id 6).
 
 ---
 
