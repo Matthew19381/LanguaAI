@@ -128,8 +128,13 @@ z Systemem Głównym) i znanych porządków (audyt modeli A1-A10 poniżej)._
       własnego workera VAPID (powiadomienia batched, zgodnie z MASTER_PLAN SG-7).
 
 ### Porządki przed/przy integracji
-- [ ] Ujednolicenie prefixów API do `/api/v1/*` (dziś mieszanka `/api` i `/api/v1`;
-      zrobić z aliasami przejściowymi, żeby nie zepsuć PWA cache).
+- [x] **Ujednolicenie prefixów API do `/api/v1/*`** ✅ 2026-07-27 — addytywne
+      aliasy: middleware w `main.py` przepisuje `/api/v1/X` → `/api/X` przed
+      routingiem, więc **każdy endpoint jest osiągalny pod `/api/v1/*`**, a
+      istniejące `/api/*` działają bez zmian (frontend, PWA cache, testy nietknięte).
+      Natywne trasy v1 (`users`, `voice-chat`, `summary`) są **auto-wykrywane z
+      `app.routes`** przy starcie (bez twardej listy — nowe trasy v1 nie wymagają
+      edycji). Testy: `test_api_v1_alias.py` (5). 447 passed.
 - [ ] Audyt modeli A1–A10 (sekcja niżej) — minimum A2+A3 przed INT-2 (koszty).
 - [ ] **NIE wydzielać jeszcze FSRS jako wspólnej usługi** — to faza 3 MASTER_PLAN;
       LinguaAI pozostaje implementacją referencyjną do tego czasu.

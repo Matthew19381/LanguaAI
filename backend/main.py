@@ -234,6 +234,35 @@ async def rate_limit_middleware(request: Request, call_next):
             _ai_rate_limits[client_ip].append(now)
     return await call_next(request)
 
+# ── /api/v1 alias ────────────────────────────────────────────────────────────
+# Routers historically mount under a mix of /api/* and /api/v1/* (users,
+# voice-chat and the integration summary are v1-native). Rather than rewrite
+# every decorator and risk breaking the frontend, the PWA runtime cache and the
+# test suite (all of which call /api/*), this middleware makes EVERY /api/*
+# endpoint ALSO reachable under /api/v1/* by rewriting the path back to /api/*
+# before routing. Existing /api/* paths keep working unchanged; new integration
+# code can standardise on /api/v1/*.
+#
+# The native /api/v1/* segments (users, voice-chat, summary, …) are discovered
+# from the router table at startup — see _V1_NATIVE_SEGMENTS below — so a request
+# to a genuine v1 route is left alone and new ones need no edit here. Registered
+# last so it is the outermost middleware; the rewritten path is what the rate
+# limiter and access gate then see.
+_V1_NATIVE_SEGMENTS: set[str] = set()
+
+
+@app.middleware("http")
+async def api_v1_alias_middleware(request: Request, call_next):
+    path = request.url.path
+    if path.startswith("/api/v1/"):
+        segment = path[len("/api/v1/"):].split("/", 1)[0]
+        if segment and segment not in _V1_NATIVE_SEGMENTS:
+            new_path = "/api/" + path[len("/api/v1/"):]
+            request.scope["path"] = new_path
+            request.scope["raw_path"] = new_path.encode("utf-8")
+    return await call_next(request)
+
+
 # Include all routers (paths are already defined with /api/... prefix)
 app.include_router(placement.router, tags=["Placement"])
 app.include_router(lessons.router, tags=["Lessons"])
@@ -255,6 +284,15 @@ app.include_router(topics.router, prefix="/api/topics", tags=["Topics"])
 app.include_router(admin.router, tags=["Admin"])
 app.include_router(integration.router, tags=["Integration"])  # INT-1: System-Glowny
 app.include_router(push.router, tags=["Push"])
+
+# Discover the /api/v1/* segments that are genuinely native (users, voice-chat,
+# summary, …) so the alias middleware never rewrites a real v1 route onto a
+# non-existent /api/* path. Computed once here, after every router is mounted.
+for _route in app.routes:
+    _p = getattr(_route, "path", "")
+    if _p.startswith("/api/v1/"):
+        _V1_NATIVE_SEGMENTS.add(_p[len("/api/v1/"):].split("/", 1)[0])
+logger.info("v1-native segments (not aliased): %s", sorted(_V1_NATIVE_SEGMENTS))
 
 # Serve audio files
 audio_dir = os.path.join(os.path.dirname(__file__), "audio")
