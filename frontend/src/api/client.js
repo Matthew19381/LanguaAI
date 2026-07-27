@@ -177,8 +177,10 @@ export const batchAddFlashcards = (userId, flashcards) =>
 export const startConversation = (userId, topic) =>
   api.post(`/conversation/start/${userId}`, { topic })
 
-export const sendMessage = (sessionId, userMessage) =>
-  api.post('/conversation/message', { session_id: sessionId, user_message: userMessage })
+// user_id is required by the backend (it verifies session ownership). Defaults
+// to the stored id so existing callers keep working without change.
+export const sendMessage = (sessionId, userMessage, userId = getUserId()) =>
+  api.post('/conversation/message', { session_id: sessionId, user_message: userMessage, user_id: userId })
 
 export const analyzeConversation = (sessionId, userId) =>
   api.post('/conversation/analyze', { session_id: sessionId, user_id: userId })
