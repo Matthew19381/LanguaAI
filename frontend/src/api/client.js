@@ -5,7 +5,11 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 120000, // 120 seconds for AI generation calls
+  // 240s: best-tier lesson/daily-test generation can run >110s (multi-section
+  // prompts). A long timeout is low-risk here — the backend has hardcoded
+  // fallbacks that return fast on a real AI failure, so this only bites on a
+  // slow-but-working generation, not a hang.
+  timeout: 240000,
   withCredentials: true, // carry the access-gate cookie
 })
 
