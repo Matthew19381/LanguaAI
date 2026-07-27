@@ -4,7 +4,13 @@
  * Offline the device grades locally and queues the result; on reconnect the
  * queue is replayed to the server, which applies FSRS scheduling. Each queued
  * answer carries a UUID so a retried replay cannot count the review twice.
+ *
+ * The outbox lives in localStorage and is drained by useOfflineSync when the app
+ * is open (online / focus). Every event is ALSO mirrored to IndexedDB so the
+ * service worker can replay it via the Background Sync API while the app is
+ * closed — see outboxDB.js and public/sync-sw.js.
  */
+import { mirrorPut, mirrorDelete, requestBackgroundSync } from './outboxDB'
 
 const PACK_KEY = 'offlinePack'            // exercises
 const CARD_PACK_KEY = 'offlineCardPack'   // flashcards
@@ -13,6 +19,13 @@ const QUEUE_KEY = 'offlineQueue'          // shared outbox (events carry `kind`)
 export const KIND_EXERCISE = 'exercise_answer'
 export const KIND_FLASHCARD = 'flashcard_review'
 export const KIND_LESSON = 'lesson_complete'
+
+/** Mirror a freshly queued event to IndexedDB and ask for a background sync.
+ * Best-effort and non-blocking so enqueue stays synchronous. */
+function afterEnqueue(event) {
+  mirrorPut(event)
+  requestBackgroundSync()
+}
 
 // ── Local grading ───────────────────────────────────────────────────────────
 // Must mirror grade_answer() in backend/services/exercise_service.py, which does
@@ -115,6 +128,7 @@ export function enqueueAnswer({ exerciseId, userId, answer, correct }) {
     answered_at: new Date().toISOString(),
   }
   writeQueue([...getQueue(), event])
+  afterEnqueue(event)
   return event
 }
 
@@ -127,6 +141,7 @@ export function enqueueLessonComplete({ lessonId, userId }) {
     completed_at: new Date().toISOString(),
   }
   writeQueue([...getQueue(), event])
+  afterEnqueue(event)
   return event
 }
 
@@ -140,6 +155,7 @@ export function enqueueFlashcardReview({ flashcardId, userId, rating }) {
     reviewed_at: new Date().toISOString(),
   }
   writeQueue([...getQueue(), event])
+  afterEnqueue(event)
   return event
 }
 
@@ -183,6 +199,7 @@ export async function syncQueue(handlers) {
     try {
       await handler(event)
       synced += 1
+      mirrorDelete(event.client_event_id)  // keep the IndexedDB mirror in step
     } catch (err) {
       // The API client wraps errors, so read the status from either shape
       const status = err?.response?.status ?? err?.status
@@ -195,6 +212,7 @@ export async function syncQueue(handlers) {
       if (status && status >= 400 && status < 500) {
         // Permanently rejected (deleted card, bad payload) — retrying forever
         // would block everything behind it.
+        mirrorDelete(event.client_event_id)
         continue
       }
       remaining.push(event)
@@ -203,4 +221,44 @@ export async function syncQueue(handlers) {
 
   writeQueue(remaining)
   return { synced, failed: remaining.length }
+}
+
+/**
+ * Map a queued event to the HTTP request that replays it. Pure and exported so
+ * it can be unit-tested. **public/sync-sw.js keeps an identical copy** (a service
+ * worker cannot import app modules) — change both together.
+ */
+export function replayRequestFor(event) {
+  switch (event.kind) {
+    case KIND_EXERCISE:
+      return {
+        url: `/api/exercises/${event.exercise_id}/answer`,
+        body: {
+          user_id: event.user_id,
+          answer: event.answer,
+          client_event_id: event.client_event_id,
+          answered_at: event.answered_at,
+        },
+      }
+    case KIND_FLASHCARD:
+      return {
+        url: `/api/flashcards/${event.flashcard_id}/review?user_id=${event.user_id}`,
+        body: {
+          rating: event.rating,
+          client_event_id: event.client_event_id,
+          reviewed_at: event.reviewed_at,
+        },
+      }
+    case KIND_LESSON:
+      return {
+        url: `/api/lessons/${event.lesson_id}/complete`,
+        body: {
+          user_id: event.user_id,
+          client_event_id: event.client_event_id,
+          completed_at: event.completed_at,
+        },
+      }
+    default:
+      return null
+  }
 }

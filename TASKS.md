@@ -328,7 +328,21 @@ _Polecenie: sprawdź spójność logiczną mechanizmów nauki i ich zgodność z
     - `frontend`: `enqueueLessonComplete` + `KIND_LESSON` w offlineQueue, `replayLessonComplete` w client.js, handler w `useOfflineSync` (drenaż app-wide w OfflineBanner). `DailyLesson.handleComplete`: offline (`navigator.onLine === false`) lub błąd sieci bez statusu → kolejkuje + optymistycznie oznacza ukończone (cache lekcji + daily_tabs); reszta bez zmian.
     - Testy: `backend/tests/test_lesson_offline.py` (5) + `offlineQueue.test.js` (2). Backend 421 passed, frontend 67 passed, build OK.
     - _Uwaga:_ pełny live end-to-end (samolotowy → ukończ → powrót sieci) nie odpalony, by nie palić kredytów AI na generowanie lekcji — wzorzec identyczny z już zweryfikowanym offline fiszek/ćwiczeń.
-- [ ] Prawdziwy Background Sync API (dziś synchronizacja odpala się przy zdarzeniu `online` i przy wejściu na ekran — wystarcza, ale nie działa gdy aplikacja jest zamknięta)
+- [x] **Prawdziwy Background Sync API** ✅ 2026-07-27 — SW odtwarza kolejkę offline
+      przy zamkniętej aplikacji (Chromium). Podejście najniższego ryzyka: **nie
+      ruszam zweryfikowanej ścieżki localStorage** (page-driven sync działa jak
+      wcześniej), tylko **lustro w IndexedDB** (`utils/outboxDB.js`), bo SW nie
+      czyta localStorage. Każdy enqueue mirroruje zdarzenie i rejestruje sync
+      (`requestBackgroundSync`); `public/sync-sw.js` (dołączony przez
+      `workbox.importScripts`) na zdarzeniu `sync` odtwarza z IndexedDB przez
+      `fetch` (mapa `replayRequestFor`, wspólna logika z offlineQueue). Podwójne
+      odtworzenie (page + SW) nieszkodliwe dzięki idempotencji `client_event_id`;
+      każda strona sprząta swoje. Bezpieczne degradacje: bez IndexedDB/SyncManager
+      (Firefox/Safari/iOS) → stary sync online/focus. Testy: `outboxDB.test.js`
+      (4, fake-indexeddb) + `replayRequestFor` (4). 75 frontend passed, build OK,
+      SW w dist zawiera `importScripts("push-sw.js","sync-sw.js")`.
+      _Uwaga:_ samo zdarzenie `sync` przy zamkniętej apce weryfikowalne tylko na
+      realnym urządzeniu (Chromium + HTTPS + zmiana sieci).
 - [x] **Bramka dostępu** ✅ (2026-07-19) — warunek wystawienia aplikacji na internet
     - Odkrycie: poza `/api/admin/*` **żaden endpoint nie miał uwierzytelnienia**; tunel bez ochrony = obcy może czytać/zmieniać dane i palić kredyty OpenRouter
     - `APP_ACCESS_TOKEN` w configu (pusty = bramka wyłączona, localhost bez zmian); middleware chroni `/api/*` i `/audio/*`, otwarte zostają `/api/health` i `/api/auth/*`

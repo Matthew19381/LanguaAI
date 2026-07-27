@@ -34,9 +34,10 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: '/index.html',
-        // Web Push handlers (push / notificationclick). Pulled into the generated
-        // service worker so all the runtime caching below stays intact.
-        importScripts: ['push-sw.js'],
+        // Custom SW code pulled into the generated service worker so all the
+        // runtime caching below stays intact: push (push-sw.js) and the
+        // Background Sync outbox replay (sync-sw.js).
+        importScripts: ['push-sw.js', 'sync-sw.js'],
         // API responses are cached read-only. Writes (answering exercises,
         // completing lessons) still need the network — see TASKS.md.
         runtimeCaching: [

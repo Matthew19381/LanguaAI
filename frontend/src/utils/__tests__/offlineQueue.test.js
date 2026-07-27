@@ -3,7 +3,7 @@ import {
   gradeLocally, normalizeAnswer, savePack, loadPack, clearPack,
   saveCardPack, loadCardPack, clearCardPack,
   enqueueAnswer, enqueueFlashcardReview, enqueueLessonComplete, pendingByKind,
-  getQueue, queueSize, clearQueue, syncQueue,
+  getQueue, queueSize, clearQueue, syncQueue, replayRequestFor,
   KIND_EXERCISE, KIND_FLASHCARD, KIND_LESSON,
 } from '../offlineQueue'
 
@@ -125,6 +125,34 @@ describe('lesson completion outbox', () => {
     expect(lesson.mock.calls[0][0].lesson_id).toBe(42)
     expect(res).toEqual({ synced: 1, failed: 0 })
     expect(queueSize()).toBe(0)
+  })
+})
+
+describe('replayRequestFor (shared with sync-sw.js)', () => {
+  it('maps an exercise answer to its endpoint + payload', () => {
+    const e = enqueueAnswer({ exerciseId: 7, userId: 5, answer: 'habe', correct: true })
+    const r = replayRequestFor(e)
+    expect(r.url).toBe('/api/exercises/7/answer')
+    expect(r.body).toMatchObject({ user_id: 5, answer: 'habe', client_event_id: e.client_event_id })
+    expect(r.body.answered_at).toBe(e.answered_at)
+  })
+
+  it('maps a flashcard review with user_id as a query param', () => {
+    const e = enqueueFlashcardReview({ flashcardId: 9, userId: 5, rating: 3 })
+    const r = replayRequestFor(e)
+    expect(r.url).toBe('/api/flashcards/9/review?user_id=5')
+    expect(r.body).toMatchObject({ rating: 3, client_event_id: e.client_event_id })
+  })
+
+  it('maps a lesson completion', () => {
+    const e = enqueueLessonComplete({ lessonId: 42, userId: 5 })
+    const r = replayRequestFor(e)
+    expect(r.url).toBe('/api/lessons/42/complete')
+    expect(r.body).toMatchObject({ user_id: 5, client_event_id: e.client_event_id })
+  })
+
+  it('returns null for an unknown kind', () => {
+    expect(replayRequestFor({ kind: 'from_the_future' })).toBeNull()
   })
 })
 
