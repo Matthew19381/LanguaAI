@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
 import NavBar from './NavBar'
+import { PageLoader } from './LoadingSpinner'
 import NotificationManager from './NotificationManager'
 import OfflineBanner from './OfflineBanner'
 import { getUserId, getStats, askQuestion, translateWord, addFlashcard } from '../api/client'
@@ -135,7 +136,11 @@ export default function Layout() {
       <NavBar dailyTabs={dailyTabs} dark={dark} onToggleDark={toggleDark} />
       <NotificationManager />
       <main className="flex-1">
-        <Outlet />
+        {/* Suspense here (not above the nav) so lazy page chunks only reload the
+            content area, keeping the navbar steady during navigation. */}
+        <Suspense fallback={<PageLoader />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       {/* Timer Badge */}

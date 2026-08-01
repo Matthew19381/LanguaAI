@@ -1,26 +1,33 @@
+import { Suspense, lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import ErrorBoundary from './components/ErrorBoundary'
 import Layout from './components/Layout'
 import UnlockGate from './components/UnlockGate'
-import Home from './pages/Home'
-import PlacementTest from './pages/PlacementTest'
-import DailyLesson from './pages/DailyLesson'
-import DailyTest from './pages/DailyTest'
-import Flashcards from './pages/Flashcards'
-import Conversation from './pages/Conversation'
-import Stats from './pages/Stats'
-import QuickMode from './pages/QuickMode'
-import News from './pages/News'
-import PronunciationTrainer from './pages/PronunciationTrainer'
-import LessonHistory from './pages/LessonHistory'
-import Videos from './pages/Videos'
-import ErrorReview from './pages/ErrorReview'
-import TopicsPage from './pages/TopicsPage'
-import Dictation from './pages/Dictation'
-import ReadAloud from './pages/ReadAloud'
-import Practice from './pages/Practice'
-import Profile from './pages/Profile'
-import LoginAs from './pages/LoginAs'
+import { PageLoader } from './components/LoadingSpinner'
+
+// Pages are code-split: each becomes its own chunk, loaded on first visit.
+// This keeps the initial bundle small — important for first load on a phone.
+// The navbar (Layout) stays eager; a Suspense boundary inside Layout shows the
+// loader only in the content area during navigation.
+const Home = lazy(() => import('./pages/Home'))
+const PlacementTest = lazy(() => import('./pages/PlacementTest'))
+const DailyLesson = lazy(() => import('./pages/DailyLesson'))
+const DailyTest = lazy(() => import('./pages/DailyTest'))
+const Flashcards = lazy(() => import('./pages/Flashcards'))
+const Conversation = lazy(() => import('./pages/Conversation'))
+const Stats = lazy(() => import('./pages/Stats'))
+const QuickMode = lazy(() => import('./pages/QuickMode'))
+const News = lazy(() => import('./pages/News'))
+const PronunciationTrainer = lazy(() => import('./pages/PronunciationTrainer'))
+const LessonHistory = lazy(() => import('./pages/LessonHistory'))
+const Videos = lazy(() => import('./pages/Videos'))
+const ErrorReview = lazy(() => import('./pages/ErrorReview'))
+const TopicsPage = lazy(() => import('./pages/TopicsPage'))
+const Dictation = lazy(() => import('./pages/Dictation'))
+const ReadAloud = lazy(() => import('./pages/ReadAloud'))
+const Practice = lazy(() => import('./pages/Practice'))
+const Profile = lazy(() => import('./pages/Profile'))
+const LoginAs = lazy(() => import('./pages/LoginAs'))
 
 function App() {
   return (
@@ -47,8 +54,13 @@ function App() {
           <Route path="practice" element={<ErrorBoundary><Practice /></ErrorBoundary>} />
           <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
         </Route>
-        <Route path="/placement" element={<ErrorBoundary><PlacementTest /></ErrorBoundary>} />
-        <Route path="/login-as" element={<ErrorBoundary><LoginAs /></ErrorBoundary>} />
+        {/* Routes outside the Layout need their own Suspense boundary. */}
+        <Route path="/placement" element={
+          <ErrorBoundary><Suspense fallback={<PageLoader />}><PlacementTest /></Suspense></ErrorBoundary>
+        } />
+        <Route path="/login-as" element={
+          <ErrorBoundary><Suspense fallback={<PageLoader />}><LoginAs /></Suspense></ErrorBoundary>
+        } />
       </Routes>
       </UnlockGate>
     </ErrorBoundary>
