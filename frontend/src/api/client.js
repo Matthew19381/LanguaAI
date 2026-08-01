@@ -159,8 +159,10 @@ export const bulkImportFlashcards = (userId, file) => {
   })
 }
 
+// The backend takes user_id as a QUERY param (like replayFlashcardReview); sending
+// it in the body 422s and silently drops the FSRS review. Keep them consistent.
 export const reviewFlashcard = (flashcardId, rating, userId) =>
-  api.post(`/flashcards/${flashcardId}/review`, { rating, user_id: userId })
+  api.post(`/flashcards/${flashcardId}/review`, { rating }, { params: { user_id: userId } })
 
 export const exportAnki = (userId) =>
   api.post(`/flashcards/${userId}/export-anki`, {}, { responseType: 'blob' })
