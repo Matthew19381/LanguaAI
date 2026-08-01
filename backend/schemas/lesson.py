@@ -13,21 +13,6 @@ class CompleteLessonRequest(BaseModel):
     completed_at: Optional[str] = None
 
 
-class SaveExerciseErrorRequest(BaseModel):
-    question: Optional[str] = None
-    user_answer: Optional[str] = None
-    correct_answer: Optional[str] = None
-    exercise_type: Optional[str] = None
-
-
-class ExerciseErrorRequest(BaseModel):
-    user_id: int
-    question: str
-    user_answer: str
-    correct_answer: str
-    exercise_type: Optional[str] = "unknown"
-
-
 class EvaluateProductionRequest(BaseModel):
     user_id: int
     user_answer: str

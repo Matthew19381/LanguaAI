@@ -19,7 +19,6 @@ from backend.models.user import User
 from backend.schemas.lesson import (
     CompleteLessonRequest,
     EvaluateProductionRequest,
-    ExerciseErrorRequest,
 )
 from backend.services.audio_service import (
     generate_full_lesson_audio,
@@ -798,40 +797,6 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
         "cefr_level": lesson.cefr_level,
         "created_at": lesson.created_at.isoformat()
     }
-
-
-@router.post("/api/lessons/{lesson_id}/exercise-error")
-async def record_exercise_error(
-    lesson_id: int,
-    request: ExerciseErrorRequest,
-    db: Session = Depends(get_db)
-):
-    """Record an exercise error into the lesson's content blob (user_exercise_errors list)."""
-    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
-    if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
-
-    # Verify ownership
-    if request.user_id and lesson.user_id != request.user_id:
-        raise HTTPException(status_code=403, detail="Not authorized to modify this lesson")
-
-    try:
-        content = json.loads(lesson.content)
-    except (json.JSONDecodeError, TypeError):
-        content = {}
-
-    errors = content.get("user_exercise_errors", [])
-    errors.append({
-        "question": request.question,
-        "user_answer": request.user_answer,
-        "correct_answer": request.correct_answer,
-        "exercise_type": request.exercise_type,
-    })
-    content["user_exercise_errors"] = errors
-    lesson.content = json.dumps(content)
-    db.commit()
-
-    return {"success": True, "total_errors": len(errors)}
 
 
 @router.delete("/api/lessons/reset-today/{user_id}")

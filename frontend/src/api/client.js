@@ -120,9 +120,6 @@ export const generateConceptFlashcards = (lessonId, userId) =>
 export const getLessonConcepts = (userId) =>
   api.get(`/lessons/latest/${userId}/concepts`)
 
-export const recordExerciseError = (lessonId, data) =>
-  api.post(`/lessons/${lessonId}/exercise-error`, data)
-
 // ===== Tests =====
 
 export const getDailyTest = (userId) =>

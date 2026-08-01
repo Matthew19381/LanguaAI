@@ -16,9 +16,7 @@ from backend.schemas.lesson import (
     CompleteLessonRequest,
     ConceptFlashcardRequest,
     EvaluateProductionRequest,
-    ExerciseErrorRequest,
     NextLessonRequest,
-    SaveExerciseErrorRequest,
 )
 from backend.schemas.placement import (
     CreateUserRequest,
@@ -47,8 +45,6 @@ __all__ = [
     "AnalyzePastedRequest",
     "TranslateRequest",
     "CompleteLessonRequest",
-    "SaveExerciseErrorRequest",
-    "ExerciseErrorRequest",
     "EvaluateProductionRequest",
     "NextLessonRequest",
     "ConceptFlashcardRequest",

@@ -10,7 +10,6 @@ vi.mock("../../api/client", () => ({
   completeLesson: vi.fn(() => Promise.resolve({})),
   generateNextLesson: vi.fn(() => Promise.resolve({})),
   evaluateProduction: vi.fn(() => Promise.resolve({})),
-  recordExerciseError: vi.fn(() => Promise.resolve({})),
   getLesson: vi.fn(() => Promise.resolve({})),
   generateTTS: vi.fn(() => Promise.resolve({})),
 }))

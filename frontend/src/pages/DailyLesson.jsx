@@ -6,7 +6,7 @@ import {
   RefreshCw, Eye, EyeOff, FileText, BookmarkPlus, Loader2,
   History, ArrowRight, HelpCircle
 } from 'lucide-react'
-import { getUserId, getTodayLesson, getLesson, completeLesson, addFlashcardAI, evaluateProduction, generateNextLesson, generateConceptFlashcards, recordExerciseError, getDailyTest, getNews, searchYouTube, exportLessonPDF, exportObsidian, resetTodayLesson, getLessonAudioPackage } from '../api/client'
+import { getUserId, getTodayLesson, getLesson, completeLesson, addFlashcardAI, evaluateProduction, generateNextLesson, generateConceptFlashcards, getDailyTest, getNews, searchYouTube, exportLessonPDF, exportObsidian, resetTodayLesson, getLessonAudioPackage } from '../api/client'
 import { enqueueLessonComplete } from '../utils/offlineQueue'
 import PlayButton from '../components/PlayButton'
 import { PageLoader } from '../components/LoadingSpinner'
@@ -1282,14 +1282,6 @@ function ExerciseCard({ exercise, number, language, lessonId, t }) {
     const correct_ = given === correct || correct.includes(given) || given.includes(correct)
     setIsCorrect(correct_)
     setChecked(true)
-    if (!correct_ && lessonId) {
-      recordExerciseError(lessonId, {
-        question: exercise.content || exercise.instruction,
-        user_answer: userAnswer.trim(),
-        correct_answer: String(exercise.answer || ''),
-        exercise_type: exercise.type || 'exercise'
-      }).catch(() => {})
-    }
   }
 
   const answerWords = exercise.answer ? String(exercise.answer).split(' ') : []
