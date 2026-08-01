@@ -4,7 +4,6 @@ import json
 
 from backend.models.user import User
 
-
 # ── Profile export over HTTP ─────────────────────────────────────────────
 
 def test_profile_export_downloads_json(client, sample_user):

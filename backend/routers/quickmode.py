@@ -244,7 +244,7 @@ async def get_read_aloud(user_id: int, count: int = 8, db: Session = Depends(get
     )
 
     items = []
-    for i, card in enumerate(cards):
+    for card in cards:
         text = card.word
         audio_path = card.audio_path
         if not audio_path:

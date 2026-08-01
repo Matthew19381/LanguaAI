@@ -223,10 +223,10 @@ def main():
     parser.add_argument("--out", type=str, default=str(DEFAULT_PATH), help="Output path for export")
     args = parser.parse_args()
 
-    from backend.database import SessionLocal
     # Import all models so every relationship on User resolves (standalone CLI
     # has no FastAPI lifespan to do it for us).
     import backend.models  # noqa: F401
+    from backend.database import SessionLocal
 
     db = SessionLocal()
     try:
