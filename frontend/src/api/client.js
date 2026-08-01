@@ -393,8 +393,10 @@ export const getTopicStats = (userId, language) =>
 export const getTopicDetail = (topicId) =>
   api.get(`/topics/detail/${topicId}`)
 
-export const reviewTopic = (topicId, rating) =>
-  api.post(`/topics/${topicId}/review`, { rating })
+// Backend ReviewRequest requires user_id in the body — without it the FSRS topic
+// review 422s and never applies. Default to the stored id so callers stay simple.
+export const reviewTopic = (topicId, rating, userId = getUserId()) =>
+  api.post(`/topics/${topicId}/review`, { rating, user_id: userId })
 
 // ===== Lesson Utilities =====
 
