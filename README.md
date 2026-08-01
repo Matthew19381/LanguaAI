@@ -13,10 +13,12 @@ Aplikacja do nauki języków obcych wspierana przez AI. Interfejs w języku pols
 
 ## Dokumentacja
 
-- [TASKS.md](TASKS.md) — lista zadań i backlog
-- [docs/NEURO_FEATURES.md](docs/NEURO_FEATURES.md) — funkcje neuronaukowe (Faza 2)
-- [docs/](docs/) — szczegółowa dokumentacja (wdrożenie, API, architektura itp.)
-- [CHANGELOG.md](CHANGELOG.md) — historia zmian
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — pełna dokumentacja systemu** (architektura, przepływy, pedagogika, model danych, offline/PWA, push, bezpieczeństwo)
+- [CLAUDE.md](CLAUDE.md) — wskazówki pracy z kodem
+- [docs/PRODUCTION_AND_MOBILE.md](docs/PRODUCTION_AND_MOBILE.md) — telefon, tunel HTTPS, PWA
+- [docs/deployment.md](docs/deployment.md) — wdrożenie chmurowe
+- [docs/NEURO_FEATURES.md](docs/NEURO_FEATURES.md) — podstawy naukowe funkcji (backlog SCI)
+- [TASKS.md](TASKS.md) — lista zadań i backlog · [CHANGELOG.md](CHANGELOG.md) — historia zmian
 
 ## Tech Stack
 
@@ -29,15 +31,17 @@ Aplikacja do nauki języków obcych wspierana przez AI. Interfejs w języku pols
 - Test poziomujący CEFR (20 pytań)
 - Codzienne lekcje z AI (słownictwo, gramatyka, i+1 input, przeplatanie, wymuszona produkcja)
 - System fiszek FSRS v6 — czysty, bez mnożników; telemetria kontekstu (pora dnia, sen, interleaving) jest zbierana do analizy, nie wpływa na harmonogram
-- Bank ćwiczeń z powtórkami FSRS + warianty na słabe umiejętności
+- Bank ćwiczeń z powtórkami FSRS + auto-warianty na **serię błędów** i na **zapamiętanie** (te same ćwiczenia reużywane, nowe tworzone tylko w potrzebie)
 - Konwersacja z AI (tekst/głos)
 - Analiza wymowy (word-level scoring)
 - Czytanie nieuprzedzonych artykułów (RSS + AI upraszczanie)
 - System punktów (XP) i poziomów (50 poziomów, kwadratowa krzywa)
 - Osiągnięcia (w tym za telemetrię snu i regularność)
-- Tryb szybki (5-120 min) z niezależnym timerem + dyktando
-- PWA: instalacja na telefonie, fiszki i ćwiczenia offline z synchronizacją po powrocie sieci
+- Tryb szybki (5-120 min) z niezależnym timerem + dyktando + „powtórz na głos"
+- PWA: instalacja na telefonie, fiszki/ćwiczenia/ukończenie lekcji offline z synchronizacją; **Background Sync** (odtwarzanie kolejki nawet przy zamkniętej apce)
+- **Powiadomienia push (Web Push/VAPID)** o powtórkach i lekcji
 - Bramka dostępu (APP_ACCESS_TOKEN) — warunek wystawienia na internet
+- Aliasy API `/api/v1/*` dla wszystkich endpointów
 - Eksport do Anki, PDF, audio TTS, Obsidian, CSV; profil do JSON (telefon/nowe urządzenie)
 - Kopie zapasowe (lokalne i Google Drive)
 
@@ -56,10 +60,10 @@ API Docs: http://localhost:8001/docs
 ## Testy
 
 ```bash
-# Backend (393 testów)
+# Backend (457 testów)
 py -3.11 -m pytest backend/tests/ -v
 
-# Frontend (65 testów, Vitest)
+# Frontend (75 testów, Vitest)
 cd frontend && npm test
 
 # E2E (Playwright)
