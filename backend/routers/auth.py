@@ -9,8 +9,12 @@ plain ``<audio src="/audio/...">`` requests carry it automatically.
 """
 import logging
 import secrets
+import time
+from collections import defaultdict
+from threading import Lock
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -22,6 +26,15 @@ router = APIRouter()
 
 COOKIE_NAME = "linguaai_access"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 180  # 180 days — this is a personal device
+
+# Throttle brute-force on the unlock endpoint. The token has ~256 bits of entropy
+# so guessing is infeasible anyway, but a lockout is cheap defense-in-depth and
+# stops an attacker hammering the endpoint. Only FAILED attempts count; a correct
+# unlock clears the counter for that IP.
+_UNLOCK_ATTEMPTS: dict[str, list[float]] = defaultdict(list)
+_UNLOCK_LOCK = Lock()
+UNLOCK_MAX_ATTEMPTS = 5
+UNLOCK_WINDOW_SECONDS = 300  # 5 minutes
 
 
 class UnlockRequest(BaseModel):
@@ -57,14 +70,29 @@ async def auth_status(request: Request):
 
 
 @router.post("/api/auth/unlock")
-async def unlock(payload: UnlockRequest, response: Response):
+async def unlock(payload: UnlockRequest, request: Request, response: Response):
     """Exchange the shared secret for a long-lived HttpOnly cookie."""
     if not gate_enabled():
         return {"success": True, "gate_enabled": False}
 
-    if not secrets.compare_digest(payload.token or "", settings.APP_ACCESS_TOKEN):
-        logger.warning("Failed unlock attempt")
-        return Response(status_code=401)
+    ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    with _UNLOCK_LOCK:
+        recent = [t for t in _UNLOCK_ATTEMPTS[ip] if t > now - UNLOCK_WINDOW_SECONDS]
+        _UNLOCK_ATTEMPTS[ip] = recent
+        if len(recent) >= UNLOCK_MAX_ATTEMPTS:
+            logger.warning("Unlock rate-limited for %s", ip)
+            return JSONResponse(status_code=429,
+                                content={"detail": "Too many attempts. Please wait and try again."})
+
+        if not secrets.compare_digest(payload.token or "", settings.APP_ACCESS_TOKEN):
+            recent.append(now)
+            _UNLOCK_ATTEMPTS[ip] = recent
+            logger.warning("Failed unlock attempt from %s", ip)
+            return JSONResponse(status_code=401, content={"detail": "Invalid token"})
+
+        # Correct secret — clear the failed-attempt counter for this device.
+        _UNLOCK_ATTEMPTS.pop(ip, None)
 
     response.set_cookie(
         key=COOKIE_NAME,

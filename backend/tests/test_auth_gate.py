@@ -2,9 +2,18 @@
 import pytest
 
 from backend.config import settings
-from backend.routers.auth import COOKIE_NAME
+from backend.routers.auth import _UNLOCK_ATTEMPTS, COOKIE_NAME, UNLOCK_MAX_ATTEMPTS
 
 TOKEN = "test-access-token-1234567890"
+
+
+@pytest.fixture(autouse=True)
+def _clear_unlock_throttle():
+    """The unlock throttle keys on client IP, and TestClient always uses the same
+    one — reset it between tests so counters don't leak across cases."""
+    _UNLOCK_ATTEMPTS.clear()
+    yield
+    _UNLOCK_ATTEMPTS.clear()
 
 
 @pytest.fixture
@@ -73,6 +82,27 @@ def test_unlock_with_wrong_secret_is_rejected(client, gated):
     r = client.post("/api/auth/unlock", json={"token": "wrong"})
     assert r.status_code == 401
     assert COOKIE_NAME not in r.cookies
+
+
+def test_unlock_throttles_brute_force(client, gated):
+    """After too many wrong guesses the endpoint returns 429, not 401 — a hammer
+    on the token gets locked out instead of running forever."""
+    for _ in range(UNLOCK_MAX_ATTEMPTS):
+        assert client.post("/api/auth/unlock", json={"token": "wrong"}).status_code == 401
+    # The next attempt is rate-limited even with the RIGHT token
+    blocked = client.post("/api/auth/unlock", json={"token": TOKEN})
+    assert blocked.status_code == 429
+    assert COOKIE_NAME not in blocked.cookies
+
+
+def test_unlock_success_clears_the_counter(client, gated):
+    """A correct unlock resets the failed-attempt counter for the device."""
+    for _ in range(UNLOCK_MAX_ATTEMPTS - 1):
+        client.post("/api/auth/unlock", json={"token": "wrong"})
+    ok = client.post("/api/auth/unlock", json={"token": TOKEN})
+    assert ok.status_code == 200
+    # Counter cleared → a fresh wrong attempt is a plain 401, not 429
+    assert client.post("/api/auth/unlock", json={"token": "wrong"}).status_code == 401
 
 
 def test_status_reports_locked_then_unlocked(client, gated):
