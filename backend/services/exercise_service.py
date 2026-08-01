@@ -11,7 +11,6 @@ Design notes:
      rule (Schmidt & Bjork 1992 — variability of practice).
 """
 import hashlib
-import json
 import logging
 from datetime import datetime, timezone
 
@@ -215,16 +214,31 @@ def find_weak_skills(db: Session, user_id: int, language: str, limit: int = 5) -
     return [skill for skill, acc in scored if acc < 0.8][:limit]
 
 
+def _has_fresh_variants(db: Session, user_id: int, language: str, skill_tag: str) -> bool:
+    """True if the skill already has unseen fresh variants waiting in the bank.
+
+    The shared cost guard for both auto-variant triggers: if fresh material
+    exists, the learner has something new to face, so we do not spend on more.
+    """
+    fresh = db.query(Exercise).filter(
+        Exercise.user_id == user_id,
+        Exercise.language == language,
+        Exercise.skill_tag == skill_tag,
+        Exercise.is_active == True,  # noqa: E712
+        Exercise.times_seen == 0,
+    ).count()
+    return fresh >= AUTO_VARIANT_FRESH_TARGET
+
+
 def skill_needs_auto_variant(
     db: Session, user_id: int, language: str, skill_tag: str | None
 ) -> bool:
-    """True if a skill is being failed enough to auto-generate fresh variants.
+    """Failure trigger: a skill is being failed enough to warrant fresh variants.
 
     "A series of errors" is read from the bank's aggregate accuracy for the skill
     (no separate per-answer log): at least ``AUTO_VARIANT_MIN_ATTEMPTS`` attempts
-    with accuracy at or below ``AUTO_VARIANT_MAX_ACCURACY``. The final check is
-    the important one for cost — if the skill already has unseen fresh variants
-    waiting, the learner has new material to face, so we do not spend again.
+    with accuracy at or below ``AUTO_VARIANT_MAX_ACCURACY``, and no fresh variants
+    already waiting (the cost guard).
     """
     if not skill_tag:
         return False
@@ -241,15 +255,21 @@ def skill_needs_auto_variant(
         return False
     if seen == 0 or (correct / seen) > AUTO_VARIANT_MAX_ACCURACY:
         return False
+    return not _has_fresh_variants(db, user_id, language, skill_tag)
 
-    fresh = db.query(Exercise).filter(
-        Exercise.user_id == user_id,
-        Exercise.language == language,
-        Exercise.skill_tag == skill_tag,
-        Exercise.is_active == True,  # noqa: E712
-        Exercise.times_seen == 0,
-    ).count()
-    return fresh < AUTO_VARIANT_FRESH_TARGET
+
+def skill_memorized_needs_variant(
+    db: Session, user_id: int, language: str, skill_tag: str | None, item_times_seen: int
+) -> bool:
+    """Memorization trigger: an item has been seen so often that the learner may
+    be recalling the specific answer rather than applying the rule (Schmidt &
+    Bjork 1992 — variability of practice). Spawn a fresh same-skill variant so
+    the skill is re-practised on new surface forms — unless fresh material for
+    the skill is already waiting (the shared cost guard).
+    """
+    if not skill_tag or (item_times_seen or 0) < VARIANT_AFTER_TIMES_SEEN:
+        return False
+    return not _has_fresh_variants(db, user_id, language, skill_tag)
 
 
 def grade_answer(expected: str, given: str) -> bool:
@@ -303,15 +323,3 @@ def review_exercise(
         "times_correct": exercise.times_correct,
         "needs_variant": exercise.times_seen >= VARIANT_AFTER_TIMES_SEEN,
     }
-
-
-def parse_lesson_exercise_errors(lesson_content_raw: str | None) -> list[dict]:
-    """Read the ``user_exercise_errors`` list stored inside a lesson's content blob."""
-    if not lesson_content_raw:
-        return []
-    try:
-        content = json.loads(lesson_content_raw)
-    except (json.JSONDecodeError, TypeError):
-        return []
-    errors = content.get("user_exercise_errors")
-    return errors if isinstance(errors, list) else []

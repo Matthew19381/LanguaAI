@@ -17,6 +17,7 @@ from backend.services.exercise_service import (
     grade_answer,
     review_exercise,
     serialize_exercise,
+    skill_memorized_needs_variant,
     skill_needs_auto_variant,
 )
 from backend.services.lesson_generator import generate_exercise_variants
@@ -205,16 +206,27 @@ async def answer_exercise(
 
     result = {**base, "duplicate": False, **scheduling}
 
-    # ── Auto-generate variants when the learner keeps failing this skill ──
-    # Only on a live wrong answer: a replayed offline answer (client_event_id set)
-    # must not spend AI on reconnect, and could arrive as a burst. Bounded by
-    # skill_needs_auto_variant (self-limiting) and surfaced in the response, so
-    # the "AI spend is deliberate and visible" contract holds even without a click.
-    if (
-        request.client_event_id is None
-        and not correct
-        and skill_needs_auto_variant(db, request.user_id, exercise.language, exercise.skill_tag)
-    ):
+    # ── Auto-generate fresh variants when the skill needs new surface forms ──
+    # Two triggers, both bounded by the shared fresh-variant guard and surfaced
+    # in the response so the "AI spend is deliberate and visible" contract holds
+    # without a click:
+    #   • struggle  — a wrong answer on a skill the learner keeps failing
+    #   • mastery   — a correct answer on an item seen so often it may be memorised
+    #                 (recalling the answer, not the rule) → practise it anew
+    # Only on a live answer: a replayed offline answer (client_event_id set) must
+    # not spend AI on reconnect and could arrive as a burst.
+    reason = None
+    if request.client_event_id is None and exercise.skill_tag:
+        if not correct and skill_needs_auto_variant(
+            db, request.user_id, exercise.language, exercise.skill_tag
+        ):
+            reason = "struggle"
+        elif correct and skill_memorized_needs_variant(
+            db, request.user_id, exercise.language, exercise.skill_tag, exercise.times_seen
+        ):
+            reason = "mastery"
+
+    if reason:
         try:
             user = get_user_or_404(db, request.user_id)
             added = await _generate_and_store_variants(
@@ -223,6 +235,7 @@ async def answer_exercise(
             if added:
                 result["auto_generated"] = len(added)
                 result["auto_generated_skill"] = exercise.skill_tag
+                result["auto_generated_reason"] = reason
                 result["auto_generated_exercises"] = [serialize_exercise(e) for e in added]
         except Exception as e:
             # Generation is a bonus, never a reason to fail the answer.

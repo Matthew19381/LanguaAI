@@ -129,7 +129,11 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
 
     study_plan_data = json.loads(study_plan.plan_data)
 
-    # Get recent errors to incorporate in lesson
+    # Recent TEST errors give the lesson a coarse sense of assessed weaknesses.
+    # Fine-grained remediation of individual exercise mistakes is NOT done here —
+    # it lives in the exercise bank (a failed/over-familiar skill spawns fresh
+    # variants), so the lesson stays about introducing material, not drilling
+    # specific past slips.
     user_errors = get_recent_errors(user_id, db)
 
     # Get recent topics for interleaving (last 7 days)
@@ -698,7 +702,9 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
     ).order_by(Lesson.day_number.desc()).first()
     next_day = (latest_lesson.day_number + 1) if latest_lesson else 1
 
-    # Get recent errors
+    # Recent TEST errors only (coarse, assessed weaknesses). Individual exercise
+    # mistakes are handled by the exercise bank's variant system, not fed into
+    # lesson generation — see get_today_lesson.
     user_errors = get_recent_errors(user_id, db)
 
     # Get recent topics for interleaving
@@ -708,15 +714,6 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
         Lesson.created_at >= week_ago
     ).order_by(Lesson.created_at.desc()).limit(7).all()
     recent_topics = [l.topic for l in recent_lessons if l.topic] if recent_lessons else None
-
-    # Get exercise errors from recent lessons to pass to prompt
-    exercise_errors = []
-    if latest_lesson and latest_lesson.content:
-        try:
-            latest_content = json.loads(latest_lesson.content)
-            exercise_errors = latest_content.get("user_exercise_errors", [])
-        except (json.JSONDecodeError, TypeError):
-            pass
 
     # RAG: fetch user's vocabulary and topic strengths for next lesson too
     # SCI-1: mastered words first (most reliable "known" input for i+1).
@@ -739,7 +736,7 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
         user_id=user_id,
         day_number=next_day,
         study_plan_data=study_plan_data,
-        user_errors=user_errors + exercise_errors,
+        user_errors=user_errors,
         cefr_level=user.cefr_level,
         target_language=user.target_language,
         native_language=user.native_language,
