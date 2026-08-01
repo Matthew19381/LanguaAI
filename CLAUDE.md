@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Lokalizacja i backup (WAŻNE)
+
+Projekt **musi** żyć poza folderem synchronizowanym z chmurą (Google Drive / OneDrive / Dropbox). Kanoniczna ścieżka: **`C:\Projects\LinguaAI`**. Trzymanie projektu w Google Drive (`C:\GoogleDriveSync\...`) powoduje, że sterownik chmury śledzi/synchronizuje ~24 000 plików `node_modules` → cold build rośnie z ~2 s do **>2 min**, a `start.bat` wisi na „Frontend jeszcze się kompiluje". Backup kodu zapewnia **git → GitHub**, nie chmura plikowa.
+
+Backup bazy (postęp/wygenerowane treści) do chmury: `backend/scripts/backup_to_cloud.ps1` kopiuje `lingua_ai.db` (setki KB) do `C:\GoogleDriveSync\LinguaAI-backup\` (mały, szybko-synchronizujący się folder). Uruchamiane codziennie przez zadanie `LinguaAI-DB-Backup` (Harmonogram zadań, 20:00). Rejestracja/usunięcie:
+```bash
+schtasks /Create /TN "LinguaAI-DB-Backup" /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\Projects\LinguaAI\backend\scripts\backup_to_cloud.ps1" /SC DAILY /ST 20:00 /F
+schtasks /Delete /TN "LinguaAI-DB-Backup" /F
+```
+
 ## Starting the App
 
 Run from the **project root** (`C:\Projects\LinguaAI\`). Never `cd` into `backend/` first — the backend must be launched from the root so that `backend.*` absolute imports resolve correctly.
