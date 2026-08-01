@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import io
 import json
@@ -35,6 +36,32 @@ from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Offline audio pre-generation (see get_flashcards_offline_pack).
+_OFFLINE_AUDIO_CAP = 40          # cards per pack build to synthesize at most
+_OFFLINE_AUDIO_CONCURRENCY = 6   # simultaneous edge-tts jobs
+
+
+async def _fill_missing_audio(db: Session, cards: list) -> None:
+    """Synthesize and persist audio_path for cards that lack it. Bounded,
+    concurrent, best-effort — a failure just leaves that card without audio."""
+    missing = [c for c in cards if not c.audio_path][:_OFFLINE_AUDIO_CAP]
+    if not missing:
+        return
+    sem = asyncio.Semaphore(_OFFLINE_AUDIO_CONCURRENCY)
+
+    async def _one(card):
+        async with sem:
+            return await generate_flashcard_audio(card.word, card.language, card.id)
+
+    paths = await asyncio.gather(*[_one(c) for c in missing], return_exceptions=True)
+    changed = False
+    for card, path in zip(missing, paths, strict=False):
+        if isinstance(path, str) and path:
+            card.audio_path = path
+            changed = True
+    if changed:
+        db.commit()
 
 
 @router.get("/api/flashcards/{user_id}")
@@ -138,6 +165,13 @@ async def get_flashcards_offline_pack(user_id: int, size: int = 100, db: Session
         Flashcard.language == user.target_language,
         Flashcard.is_active == True,  # noqa: E712
     ).order_by(Flashcard.next_review_date.asc()).limit(size).all()
+
+    # Offline pronunciation: cards ship with audio_path so the service worker can
+    # pre-cache the mp3 (CacheFirst on /audio/*). Generate it (edge-tts, free) for
+    # any card that lacks it — bounded, concurrent and best-effort so the pack
+    # build stays quick and a TTS failure never breaks the download. Files are
+    # reused across builds (generate_flashcard_audio is idempotent).
+    await _fill_missing_audio(db, cards)
 
     return {
         "user_id": user_id,

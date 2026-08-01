@@ -61,6 +61,10 @@ export const getAuthStatus = () =>
 export const unlockApp = (token) =>
   api.post('/auth/unlock', { token })
 
+// Forget this device (clear the access-gate cookie) — used by the Profile "lock" button
+export const lockDevice = () =>
+  api.post('/auth/lock')
+
 // ===== User / Placement =====
 
 export const createUser = (data) =>

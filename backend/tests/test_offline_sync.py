@@ -1,5 +1,6 @@
 """Offline practice: answer replay must be idempotent and time-aware."""
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
 
 from backend.models.exercise import Exercise
 from backend.models.sync_event import SyncEvent
@@ -174,7 +175,10 @@ def _card(db, uid, word="Hund"):
 def test_flashcard_offline_pack_has_content_and_schedule(client, db, sample_user):
     uid = sample_user["user_id"]
     _card(db, uid)
-    r = client.get(f"/api/flashcards/{uid}/offline-pack")
+    # Mock TTS so the pack build never touches the network in tests
+    with patch("backend.routers.flashcards.generate_flashcard_audio",
+               new=AsyncMock(return_value="/audio/flashcard_1_Hund.mp3")):
+        r = client.get(f"/api/flashcards/{uid}/offline-pack")
     assert r.status_code == 200
     cards = r.json()["flashcards"]
     assert len(cards) == 1
@@ -182,6 +186,47 @@ def test_flashcard_offline_pack_has_content_and_schedule(client, db, sample_user
     # audio_path lets the service worker pre-cache pronunciation
     assert "audio_path" in cards[0]
     assert "next_review_date" in cards[0]
+
+
+def test_flashcard_offline_pack_fills_missing_audio(client, db, sample_user):
+    """A card that lacks audio gets it synthesized and persisted, so offline
+    review still has pronunciation."""
+    uid = sample_user["user_id"]
+    card = _card(db, uid, word="Katze")
+    assert card.audio_path is None
+    with patch("backend.routers.flashcards.generate_flashcard_audio",
+               new=AsyncMock(return_value="/audio/flashcard_x.mp3")) as mock_tts:
+        r = client.get(f"/api/flashcards/{uid}/offline-pack")
+    assert r.status_code == 200
+    mock_tts.assert_awaited()  # generation was attempted for the card lacking audio
+    db.expire_all()
+    from backend.models.flashcard import Flashcard
+    assert db.get(Flashcard, card.id).audio_path == "/audio/flashcard_x.mp3"
+
+
+def test_flashcard_offline_pack_tolerates_tts_failure(client, db, sample_user):
+    """If TTS fails the pack still ships (audio just stays absent)."""
+    uid = sample_user["user_id"]
+    _card(db, uid, word="Vogel")
+    with patch("backend.routers.flashcards.generate_flashcard_audio",
+               new=AsyncMock(return_value=None)):
+        r = client.get(f"/api/flashcards/{uid}/offline-pack")
+    assert r.status_code == 200
+    assert r.json()["flashcards"][0]["audio_path"] is None
+
+
+def test_flashcard_offline_pack_skips_generation_when_audio_present(client, db, sample_user):
+    """A card that already has audio is not regenerated (idempotent, no spend)."""
+    uid = sample_user["user_id"]
+    card = _card(db, uid, word="Baum")
+    card.audio_path = "/audio/existing.mp3"
+    db.commit()
+    with patch("backend.routers.flashcards.generate_flashcard_audio",
+               new=AsyncMock(return_value="/audio/new.mp3")) as mock_tts:
+        r = client.get(f"/api/flashcards/{uid}/offline-pack")
+    assert r.status_code == 200
+    mock_tts.assert_not_awaited()
+    assert r.json()["flashcards"][0]["audio_path"] == "/audio/existing.mp3"
 
 
 def test_flashcard_offline_pack_user_not_found(client):

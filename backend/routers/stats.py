@@ -13,7 +13,6 @@ from backend.database import get_db
 from backend.models.flashcard import Flashcard
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
-from backend.models.user import User
 from backend.services.analytics_service import analyze_best_study_time
 from backend.services.lesson_generator import generate_daily_tips
 from backend.utils import get_user_or_404
@@ -176,34 +175,6 @@ async def get_daily_tips(user_id: int, db: Session = Depends(get_db)):
     except Exception:
         logger.exception("Unexpected error getting daily tips")
         raise HTTPException(status_code=500, detail="Failed to generate tips")
-
-
-@router.get("/api/stats/{user_id}/leaderboard")
-async def get_leaderboard_position(user_id: int, db: Session = Depends(get_db)):
-    """Get the user's position among all users by XP."""
-    user = get_user_or_404(db, user_id)
-
-    # Get top 5 users by XP (efficient — only loads 5 rows)
-    top_users = db.query(User).order_by(User.total_xp.desc()).limit(5).all()
-    total_users = db.query(User).count()
-
-    # Calculate user position efficiently via count of users with higher XP
-    position = db.query(User).filter(User.total_xp > user.total_xp).count() + 1
-
-    return {
-        "user_id": user_id,
-        "position": position,
-        "total_users": total_users,
-        "xp": user.total_xp,
-        "top_users": [
-            {
-                "name": u.name,
-                "xp": u.total_xp,
-                "cefr_level": u.cefr_level
-            }
-            for u in top_users
-        ]
-    }
 
 
 @router.get("/api/stats/{user_id}/best-study-time")

@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react'
-import { Smartphone, Download, Upload, Copy, Check, Loader2 } from 'lucide-react'
-import { getUserId, getLoginLink, exportProfile, importProfile } from '../api/client'
+import { useState, useRef, useEffect } from 'react'
+import { Smartphone, Download, Upload, Copy, Check, Loader2, Lock } from 'lucide-react'
+import { getUserId, getLoginLink, exportProfile, importProfile, getAuthStatus, lockDevice } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
 import PushToggle from '../components/PushToggle'
 
@@ -18,7 +18,25 @@ export default function Profile() {
   const [busyExport, setBusyExport] = useState(false)
   const [busyImport, setBusyImport] = useState(false)
   const [message, setMessage] = useState('')
+  const [gateEnabled, setGateEnabled] = useState(false)
+  const [locking, setLocking] = useState(false)
   const fileRef = useRef(null)
+
+  // Show the "lock this device" control only when the access gate is on
+  useEffect(() => {
+    getAuthStatus().then(s => setGateEnabled(!!s?.gate_enabled)).catch(() => {})
+  }, [])
+
+  const lockThisDevice = async () => {
+    setLocking(true)
+    try {
+      await lockDevice()
+      window.location.reload()  // UnlockGate re-locks once the cookie is gone
+    } catch (e) {
+      setMessage('Nie udało się zablokować: ' + e.message)
+      setLocking(false)
+    }
+  }
 
   const showLoginLink = async () => {
     setBusyLink(true)
@@ -158,6 +176,29 @@ export default function Profile() {
           </label>
         </div>
       </section>
+
+      {/* Lock this device — only meaningful when the access gate is enabled */}
+      {gateEnabled && (
+        <section className="rounded-xl border dark:border-gray-700 p-5 space-y-3 bg-white dark:bg-gray-900">
+          <div className="flex items-center gap-2">
+            <Lock className="w-5 h-5 text-amber-500" />
+            <h2 className="font-semibold dark:text-white">Bezpieczeństwo</h2>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Zablokuj to urządzenie — usuwa dostęp (ciasteczko bramki). Następne
+            wejście będzie wymagało ponownego podania tokenu. Przydatne, gdy
+            udostępniasz lub oddajesz urządzenie.
+          </p>
+          <button
+            onClick={lockThisDevice}
+            disabled={locking}
+            className="px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {locking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+            Zablokuj to urządzenie
+          </button>
+        </section>
+      )}
 
       {message && (
         <p className="text-sm p-3 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">

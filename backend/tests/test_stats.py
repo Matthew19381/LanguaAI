@@ -70,44 +70,6 @@ def test_xp_only_via_legitimate_paths(client, sample_user):
 
 
 # ---------------------------------------------------------------------------
-# GET /api/stats/{user_id}/leaderboard
-# ---------------------------------------------------------------------------
-
-def test_leaderboard_single_user(client, sample_user):
-    uid = sample_user["user_id"]
-    r = client.get(f"/api/stats/{uid}/leaderboard")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["user_id"] == uid
-    assert data["position"] == 1
-    assert data["total_users"] == 1
-    assert len(data["top_users"]) == 1
-
-
-def test_leaderboard_ranking(client, db):
-    """User with more XP should rank higher."""
-    from backend.models.user import User
-
-    # Create users directly with different XP
-    u1 = User(name="Alice", target_language="German", native_language="Polish",
-              cefr_level="A1", total_xp=100)
-    u2 = User(name="Bob", target_language="German", native_language="Polish",
-              cefr_level="A1", total_xp=10)
-    db.add_all([u1, u2])
-    db.commit()
-
-    r1 = client.get(f"/api/stats/{u1.id}/leaderboard").json()
-    r2 = client.get(f"/api/stats/{u2.id}/leaderboard").json()
-
-    assert r1["position"] < r2["position"]  # Alice ranks higher
-
-
-def test_leaderboard_not_found(client):
-    r = client.get("/api/stats/99999/leaderboard")
-    assert r.status_code == 404
-
-
-# ---------------------------------------------------------------------------
 # GET /api/tips/{user_id}  (AI call mocked)
 # ---------------------------------------------------------------------------
 
