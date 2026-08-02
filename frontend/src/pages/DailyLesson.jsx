@@ -433,6 +433,11 @@ export default function DailyLesson() {
 
   const content = lesson.content || {}
   const normExercises = normalizeExercises(content.exercises)
+  // Grammar lives in content.grammar.{explanation,rule,examples,topic}; the old
+  // code read content.explanation (top-level) which the generator never emits,
+  // so the section rendered empty. Fall back to the legacy field just in case.
+  const grammar = content.grammar || {}
+  const grammarExplanation = grammar.explanation || content.explanation || ''
 
   return (
     <div className="page-container">
@@ -562,13 +567,31 @@ export default function DailyLesson() {
         expanded={expandedSections.explanation}
         onToggle={() => toggleSection('explanation')}
       >
+        {grammar.topic && (
+          <p className="text-indigo-300 font-semibold mb-2">{grammar.topic}</p>
+        )}
         <div className="prose prose-invert max-w-none">
-          {renderMarkdown(content.explanation)}
+          {renderMarkdown(grammarExplanation)}
         </div>
-        {content.explanation && (
+        {grammar.rule && (
+          <div className="mt-3 p-3 rounded-lg bg-indigo-900/20 border border-indigo-700/30 text-indigo-200 text-sm">
+            <span className="font-semibold">📌 </span>{grammar.rule}
+          </div>
+        )}
+        {Array.isArray(grammar.examples) && grammar.examples.length > 0 && (
+          <div className="mt-3 space-y-1.5">
+            {grammar.examples.map((ex, i) => (
+              <div key={i} className="p-2 rounded bg-gray-800/60 text-sm">
+                <span className="text-gray-100">{ex.sentence || ex.text}</span>
+                {ex.translation && <span className="text-gray-400"> — {ex.translation}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+        {grammarExplanation && (
           <div className="mt-2 flex items-center gap-2">
             <PlayButton
-              text={content.explanation
+              text={grammarExplanation
                 .replace(/#{1,6}\s*/g, '')
                 .replace(/\*\*(.+?)\*\*/g, '$1')
                 .replace(/\*(.+?)\*/g, '$1')
