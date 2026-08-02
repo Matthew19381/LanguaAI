@@ -13,6 +13,7 @@ from backend.database import get_db
 from backend.models.flashcard import Flashcard
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
+from backend.models.topic import Topic
 from backend.services.analytics_service import analyze_best_study_time
 from backend.services.lesson_generator import generate_daily_tips
 from backend.utils import get_user_or_404
@@ -156,11 +157,25 @@ async def get_stats(user_id: int, db: Session = Depends(get_db)):
 async def get_daily_tips(user_id: int, db: Session = Depends(get_db)):
     user = get_user_or_404(db, user_id)
 
+    # Ground tips in the learner's actual topics: newest ones they're studying
+    # and the weakest (low mastery) ones, so advice is personal not generic.
+    topics = db.query(Topic).filter(
+        Topic.user_id == user_id,
+        Topic.language == user.target_language,
+    ).all()
+    recent_topics = [t.name for t in sorted(
+        topics, key=lambda x: x.created_at or datetime.min, reverse=True)[:8]]
+    weak_topics = [t.name for t in sorted(
+        topics, key=lambda x: x.memory_strength or 0.0)
+        if (t.memory_strength or 0.0) < 0.5][:6]
+
     try:
         tips = await generate_daily_tips(
             cefr_level=user.cefr_level,
             language=user.target_language,
-            native_language=user.native_language
+            native_language=user.native_language,
+            recent_topics=recent_topics or None,
+            weak_topics=weak_topics or None,
         )
         return {
             "success": True,

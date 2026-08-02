@@ -33,8 +33,24 @@ async def generate_daily_tips(
     cefr_level: str,
     language: str,
     native_language: str,
+    recent_topics: list[str] | None = None,
+    weak_topics: list[str] | None = None,
 ) -> dict:
+    # Ground the tips in what the learner is actually studying, so they feel
+    # personal instead of generic. At least half the tips should reference these.
+    context = ""
+    if recent_topics:
+        context += f"\nThe learner is CURRENTLY studying these topics: {', '.join(recent_topics[:8])}."
+    if weak_topics:
+        context += f"\nThey are WEAKEST at (low mastery): {', '.join(weak_topics[:6])}."
+    if context:
+        context += (
+            f"\nAt least 2 of the 4 tips MUST directly target these current/weak"
+            f" topics — name the topic and give a concrete {language} example from it."
+        )
+
     prompt = f"""Generate 4 helpful daily language learning tips for a {native_language} speaker learning {language} at CEFR level {cefr_level}.
+{context}
 
 CRITICAL: You MUST write the "title" and "content" fields ENTIRELY in {native_language}. Do NOT use English in these fields. The "source" field can be in English.
 
