@@ -173,9 +173,17 @@ function FlashcardPreview({ fc, index, onToggle, selected }) {
 
 // ── Topic detail panel ─────────────────────────────────────────────────────
 function TopicDetail({ topicId, onClose }) {
+  const navigate = useNavigate();
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState(false);
+
+  // "Rozpocznij naukę" — jump from a material straight into it.
+  const startItem = (item) => {
+    if (item.type === 'lesson') navigate(`/lesson/${item.item_id}`);
+    else if (item.type === 'test') navigate('/test');
+    else navigate('/practice');
+  };
 
   // Flashcard generation state
   const [fcCount, setFcCount] = useState(10);
@@ -435,14 +443,23 @@ function TopicDetail({ topicId, onClose }) {
                   </span>
                   <span className="truncate max-w-[200px]">{item.title || `#${item.item_id}`}</span>
                 </div>
-                {item.score != null && (
-                  <span className={`text-xs font-medium ${
-                    item.score >= 4 ? 'text-green-600' :
-                    item.score >= 3 ? 'text-yellow-600' : 'text-red-600'
-                  }`}>
-                    {item.score}/5
-                  </span>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                  {item.score != null && (
+                    <span className={`text-xs font-medium ${
+                      item.score >= 4 ? 'text-green-600' :
+                      item.score >= 3 ? 'text-yellow-600' : 'text-red-600'
+                    }`}>
+                      {item.score}/5
+                    </span>
+                  )}
+                  <button
+                    onClick={() => startItem(item)}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
+                    title="Rozpocznij naukę z tego materiału"
+                  >
+                    Ucz się →
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -517,7 +534,10 @@ export default function TopicsPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Layers className="text-indigo-600" size={28} />
-          <h1 className="text-2xl font-bold">Tematy</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Bank wiedzy</h1>
+            <p className="text-xs text-gray-500">Tematy → materiały, z opanowaniem i powtórkami</p>
+          </div>
         </div>
         <button
           onClick={fetchData}

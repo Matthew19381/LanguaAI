@@ -79,7 +79,7 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
     { to: '/quickmode', label: t('nav.quickmode'), icon: Timer },
     { to: '/stats', label: t('nav.stats'), icon: BarChart3 },
     { to: '/errors', label: 'Błędy', icon: AlertTriangle },
-    { to: '/topics', label: 'Tematy', icon: Layers },
+    { to: '/topics', label: 'Bank wiedzy', icon: Layers },
     { to: '/profile', label: 'Profil', icon: UserCircle },
   ]
 
