@@ -149,15 +149,21 @@ async def send_message(request: MessageRequest, db: Session = Depends(get_db)):
         for msg in history[-10:]  # Last 10 messages for context
     ])
 
+    ai_role = scenario.get('ai_role', 'conversation partner')
     prompt = f"""{system_prompt}
 
 Conversation so far:
 {history_text}
 
-Continue the conversation. Respond as the {scenario.get('ai_role', 'conversation partner')}.
-Keep the response appropriate for CEFR {cefr_level} level.
-If the student makes a grammatical error, naturally incorporate the correct form in your response without explicitly correcting them harshly.
-Response should be 1-3 sentences in {language}."""
+You are {ai_role}. Reply naturally in {language}, staying in character.
+- Keep it at CEFR {cefr_level}: simple, clear, natural phrasing.
+- Be warm and engaging, and ALWAYS end your reply with a question or a small
+  prompt that invites the student to keep talking, so the conversation keeps
+  flowing instead of dying out.
+- If the student made a grammar or word-choice error, model the correct form
+  naturally inside your own reply — never lecture or break character.
+- 1–3 short sentences. Reply ONLY with what {ai_role} actually says, no
+  narration, no translations, no meta-commentary."""
 
     try:
         ai_response = await _ai_conversation_reply(prompt)
