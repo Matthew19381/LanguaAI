@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FlaskConical, ChevronRight, CheckCircle, XCircle,
-  AlertTriangle, Trophy, RotateCcw
+  AlertTriangle, Trophy, BookOpen
 } from 'lucide-react'
 import { getUserId, getDailyTest, submitTest, getTestFromErrors } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
@@ -433,7 +433,7 @@ function TestResults({ results, onRetry, onRegenerateFromErrors, t }) {
           className="btn-primary w-full py-3 flex items-center justify-center gap-2"
           onClick={onRetry}
         >
-          <RotateCcw className="w-4 h-4" />
+          <BookOpen className="w-4 h-4" />
           {t('test.goToLesson')}
         </button>
       </div>
