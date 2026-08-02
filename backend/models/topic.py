@@ -47,6 +47,9 @@ class Topic(Base):
     description = Column(Text, nullable=True)           # AI-generated summary
     cefr_level = Column(String, nullable=True)          # A1-C2
 
+    # Hierarchy: null = main topic; set = subtopic under another topic.
+    parent_id = Column(Integer, ForeignKey("topics.id"), nullable=True, index=True)
+
     # ── FSRS Spaced Repetition ──
     difficulty = Column(Float, default=5.0)             # FSRS difficulty (0-10, lower=easier)
     stability = Column(Float, default=0.0)              # FSRS stability (days)
@@ -96,6 +99,9 @@ class Topic(Base):
     # ── Relationships ──
     user = relationship("User", back_populates="topics")
     items = relationship("TopicItem", back_populates="topic", cascade="all, delete-orphan")
+    # Self-referential hierarchy (main topic → subtopics)
+    parent = relationship("Topic", remote_side=[id], back_populates="subtopics")
+    subtopics = relationship("Topic", back_populates="parent")
 
     def calculate_memory_strength(self) -> float:
         """

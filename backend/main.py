@@ -78,6 +78,8 @@ async def lifespan(app: FastAPI):
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN correct_recall_sessions INTEGER DEFAULT 0"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN last_recall_date TIMESTAMP"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN is_mastered BOOLEAN NOT NULL DEFAULT 0"),
+        # Knowledge bank hierarchy: subtopics point at a parent topic.
+        ("topics", "ALTER TABLE topics ADD COLUMN parent_id INTEGER REFERENCES topics(id)"),
     ]
     with engine.connect() as conn:
         # Create conversation_sessions table if it doesn't exist
