@@ -432,6 +432,7 @@ export default function DailyLesson() {
   if (!lesson) return null
 
   const content = lesson.content || {}
+  const normExercises = normalizeExercises(content.exercises)
 
   return (
     <div className="page-container">
@@ -724,15 +725,15 @@ export default function DailyLesson() {
       )}
 
       {/* Exercises */}
-      {content.exercises?.length > 0 && (
+      {normExercises.length > 0 && (
         <Section
-          title={`${t('lesson.exercises')} (${content.exercises.length})`}
+          title={`${t('lesson.exercises')} (${normExercises.length})`}
           icon={<PenTool className="w-5 h-5" />}
           expanded={expandedSections.exercises}
           onToggle={() => toggleSection('exercises')}
         >
           <div className="space-y-4">
-            {content.exercises.map((ex, i) => (
+            {normExercises.map((ex, i) => (
               <ExerciseCard key={i} exercise={ex} number={i + 1} language={lesson.language} lessonId={lesson.lesson_id} t={t} />
             ))}
           </div>
@@ -1244,6 +1245,58 @@ function OutputForcingCard({ instruction, text, translation, language, t }) {
       )}
     </div>
   )
+}
+
+// The generator returns exercises as blocks: { type, instruction, skill_tag,
+// items: [{prompt, answer}], feedback }. ExerciseCard renders a single question
+// (content/answer), so each block's items must be flattened into individual
+// cards and the field names mapped. Without this the card reads exercise.content
+// (undefined) and shows an empty sentence — "nothing to fill in".
+// Handles the block shape and any already-flat legacy shape; drops empty items.
+function normalizeExercises(blocks) {
+  if (!Array.isArray(blocks)) return []
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const out = []
+  for (const b of blocks) {
+    if (!b || typeof b !== 'object') continue
+    const type = b.type || b.exercise_type
+    const items = Array.isArray(b.items) ? b.items : null
+    if (items && items.length) {
+      if (type && /match/i.test(type)) {
+        const pairs = items
+          .map(it => ({ left: String(it?.prompt ?? '').trim(), right: String(it?.answer ?? '').trim() }))
+          .filter(p => p.left || p.right)
+        if (pairs.length) {
+          out.push({ type, instruction: b.instruction, pairs, skill_tag: b.skill_tag,
+            answer: pairs.map(p => `${p.left} = ${p.right}`).join(', '), explanation: b.feedback })
+        }
+        continue
+      }
+      for (const it of items) {
+        if (!it || typeof it !== 'object') continue
+        const answer = String(it.answer ?? '').trim()
+        let content = String(it.prompt ?? it.content ?? '').trim()
+        if (!content && !answer) continue
+        // fill-in-the-blank must show a blank; if the model omitted it, blank out
+        // the answer inside the prompt, else append a blank marker.
+        if (type && /fill|blank/i.test(type) && content && !content.includes('___')) {
+          if (answer && content.toLowerCase().includes(answer.toLowerCase())) {
+            content = content.replace(new RegExp(esc(answer), 'i'), '___')
+          } else {
+            content = `${content} ___`
+          }
+        }
+        out.push({ type, instruction: b.instruction, content, answer,
+          explanation: b.feedback, skill_tag: b.skill_tag })
+      }
+    } else {
+      const answer = String(b.answer ?? '').trim()
+      const content = String(b.content ?? b.prompt ?? '').trim()
+      if (!content && !answer && !b.pairs) continue
+      out.push({ ...b, content, answer })
+    }
+  }
+  return out
 }
 
 function ExerciseCard({ exercise, number, language, lessonId, t }) {
