@@ -10,6 +10,7 @@ import {
 } from '../api/client'
 import { savePack, loadPack, gradeLocally, enqueueAnswer } from '../utils/offlineQueue'
 import { PageLoader } from '../components/LoadingSpinner'
+import SpecialChars from '../components/SpecialChars'
 import { useLanguage } from '../hooks/useLanguage'
 import { useOfflineSync } from '../hooks/useOfflineSync'
 
