@@ -567,7 +567,7 @@ export default function Conversation() {
             </button>
             <button
               className="btn-primary px-4 flex items-center justify-center"
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={!inputText.trim() || aiTyping}
             >
               <Send className="w-4 h-4" />
