@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Dumbbell, Check, X, ArrowRight, Sparkles, Loader2, Shuffle, RotateCcw,
@@ -32,7 +32,8 @@ export default function Practice() {
   const [offlineMode, setOfflineMode] = useState(false)
   const navigate = useNavigate()
   const userId = getUserId()
-  const { t } = useLanguage()
+  const { t, targetLanguage } = useLanguage()
+  const answerRef = useRef(null)
   const { pending, syncing, lastSynced, refresh: refreshPending } = useOfflineSync()
 
   /** Build a practice set out of the locally stored pack. */
@@ -294,6 +295,7 @@ export default function Practice() {
           <p className="text-gray-100 text-lg mb-4">{current.prompt}</p>
 
           <input
+            ref={answerRef}
             type="text"
             value={typed}
             onChange={e => setTyped(e.target.value)}
@@ -302,6 +304,9 @@ export default function Practice() {
             placeholder={t('practice.placeholder')}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-gray-100 focus:outline-none focus:border-indigo-600 disabled:opacity-70"
           />
+          {!result && (
+            <SpecialChars language={targetLanguage} inputRef={answerRef} value={typed} onChange={setTyped} />
+          )}
 
           {!result ? (
             <button

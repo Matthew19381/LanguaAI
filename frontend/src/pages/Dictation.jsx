@@ -4,6 +4,7 @@ import { Headphones, Volume2, Check, ArrowRight, RotateCcw, Loader2 } from 'luci
 import { getUserId, getDictation, checkDictation } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
+import SpecialChars from '../components/SpecialChars'
 
 export default function Dictation() {
   const [items, setItems] = useState(null)
@@ -15,7 +16,8 @@ export default function Dictation() {
   const audioRef = useRef(null)
   const navigate = useNavigate()
   const userId = getUserId()
-  const { t } = useLanguage()
+  const { t, targetLanguage } = useLanguage()
+  const dictRef = useRef(null)
 
   useEffect(() => {
     if (!userId) { navigate('/placement'); return }
@@ -104,6 +106,7 @@ export default function Dictation() {
           </div>
 
           <textarea
+            ref={dictRef}
             value={typed}
             onChange={e => setTyped(e.target.value)}
             disabled={!!result}
@@ -111,6 +114,9 @@ export default function Dictation() {
             placeholder={t('dictation.placeholder')}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-gray-100 focus:outline-none focus:border-sky-600 disabled:opacity-70"
           />
+          {!result && (
+            <SpecialChars language={targetLanguage} inputRef={dictRef} value={typed} onChange={setTyped} />
+          )}
 
           {!result ? (
             <button

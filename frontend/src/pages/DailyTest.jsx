@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FlaskConical, ChevronRight, CheckCircle, XCircle,
@@ -7,6 +7,7 @@ import {
 import { getUserId, getDailyTest, submitTest, getTestFromErrors } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
+import SpecialChars from '../components/SpecialChars'
 
 const STEPS = {
   LOADING: 'loading',
@@ -23,9 +24,10 @@ export default function DailyTest() {
   const [results, setResults] = useState(null)
   const [error, setError] = useState('')
   const [textInputs, setTextInputs] = useState({})
+  const testInputRef = useRef(null)
   const navigate = useNavigate()
   const userId = getUserId()
-  const { t } = useLanguage()
+  const { t, targetLanguage } = useLanguage()
 
   useEffect(() => {
     if (!userId) {
@@ -254,6 +256,7 @@ export default function DailyTest() {
           <div>
             <input
               key={currentQuestion.id}
+              ref={testInputRef}
               type="text"
               className="input-field"
               placeholder={t('test.typeAnswer')}
@@ -263,6 +266,12 @@ export default function DailyTest() {
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck="false"
+            />
+            <SpecialChars
+              language={targetLanguage}
+              inputRef={testInputRef}
+              value={textInputs[currentQuestion.id] || ''}
+              onChange={v => handleTextInput(currentQuestion.id, v)}
             />
             {currentQuestion.hint && (
               <div className="mt-2">
