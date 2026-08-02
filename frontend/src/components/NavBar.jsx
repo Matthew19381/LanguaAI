@@ -4,7 +4,7 @@ import {
   BookOpen, FlaskConical, MessageSquare, LayoutGrid,
   BarChart3, Flame, Star, Brain, Timer, Newspaper, Mic,
   BookmarkPlus, X, Loader2, Video, AlertTriangle, Layers,
-  Sun, Moon, Dumbbell, Headphones, UserCircle
+  Sun, Moon, Dumbbell, Headphones, UserCircle, Volume2, History
 } from 'lucide-react'
 import { getUserId, getStats, addFlashcardAI } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
@@ -73,6 +73,7 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
     // Practice + dictation work offline, so they matter most on a phone
     { to: '/practice', label: t('nav.practice'), icon: Dumbbell },
     { to: '/dictation', label: t('nav.dictation'), icon: Headphones },
+    { to: '/read-aloud', label: 'Czytaj', icon: Volume2 },
     { to: '/test', label: t('nav.test'), icon: FlaskConical },
     { to: '/news', label: t('nav.news'), icon: Newspaper },
     { to: '/videos', label: t('nav.videos'), icon: Video },
@@ -80,6 +81,7 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
     { to: '/stats', label: t('nav.stats'), icon: BarChart3 },
     { to: '/errors', label: 'Błędy', icon: AlertTriangle },
     { to: '/topics', label: 'Bank wiedzy', icon: Layers },
+    { to: '/lesson/history', label: 'Historia', icon: History },
     { to: '/profile', label: 'Profil', icon: UserCircle },
   ]
 
