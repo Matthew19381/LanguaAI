@@ -10,6 +10,7 @@ import { getUserId, getTodayLesson, getLesson, completeLesson, addFlashcardAI, e
 import { enqueueLessonComplete } from '../utils/offlineQueue'
 import PlayButton from '../components/PlayButton'
 import { PageLoader } from '../components/LoadingSpinner'
+import SpecialChars from '../components/SpecialChars'
 import { useLanguage } from '../hooks/useLanguage'
 
 function renderMarkdown(text) {
@@ -96,6 +97,7 @@ export default function DailyLesson() {
   const [flashToast, setFlashToast] = useState('')
   const [regenerating, setRegenerating] = useState(false)
   const [productionAnswer, setProductionAnswer] = useState('')
+  const productionRef = useRef(null)
   const [evaluating, setEvaluating] = useState(false)
   const [productionResult, setProductionResult] = useState(null)
   const [generatingNext, setGeneratingNext] = useState(false)
@@ -754,12 +756,13 @@ export default function DailyLesson() {
             )}
           </div>
           <textarea
+            ref={productionRef}
             className="input-field mt-3 h-24 resize-none"
             placeholder={t('lesson.writeResponse')}
             value={productionAnswer}
             onChange={e => setProductionAnswer(e.target.value)}
           />
-          <SpecialCharHelper language={lesson.language} onInsert={ch => setProductionAnswer(a => a + ch)} />
+          <SpecialChars language={lesson.language} inputRef={productionRef} value={productionAnswer} onChange={setProductionAnswer} />
           <p className="text-xs text-gray-500 mb-2">{t('lesson.aiWillEvaluate')}</p>
           <button
             onClick={handleEvaluateProduction}
@@ -1146,6 +1149,7 @@ function OutputForcingCard({ instruction, text, translation, language, t }) {
   const [revealedCount, setRevealedCount] = useState(0)
   const [recallMode, setRecallMode] = useState(false)
   const [userRecall, setUserRecall] = useState('')
+  const recallRef = useRef(null)
   const [showFull, setShowFull] = useState(false)
 
   const similarity = () => {
@@ -1214,12 +1218,13 @@ function OutputForcingCard({ instruction, text, translation, language, t }) {
         <div>
           <p className="text-gray-400 text-sm mb-2">{t('lesson.recallText')}</p>
           <textarea
+            ref={recallRef}
             className="input-field h-24 resize-none mb-2"
             placeholder={t('lesson.writeRemember')}
             value={userRecall}
             onChange={e => setUserRecall(e.target.value)}
           />
-          <SpecialCharHelper language={language} onInsert={ch => setUserRecall(r => r + ch)} />
+          <SpecialChars language={language} inputRef={recallRef} value={userRecall} onChange={setUserRecall} />
           <div className="flex items-center gap-3 flex-wrap mt-1">
             {score !== null && (
               <span className={`text-sm font-bold ${
@@ -1237,32 +1242,6 @@ function OutputForcingCard({ instruction, text, translation, language, t }) {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-const SPECIAL_CHARS = {
-  German: ['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'],
-  Spanish: ['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ü', '¿', '¡'],
-  Russian: null, // Cyrillic — keyboard handles it
-  Chinese: null,
-}
-
-function SpecialCharHelper({ language, onInsert }) {
-  const chars = SPECIAL_CHARS[language]
-  if (!chars) return null
-  return (
-    <div className="flex flex-wrap gap-1 mt-1">
-      {chars.map(ch => (
-        <button
-          key={ch}
-          type="button"
-          onClick={() => onInsert(ch)}
-          className="px-2 py-0.5 rounded bg-gray-700 hover:bg-indigo-700 text-gray-200 text-sm font-mono transition-colors"
-        >
-          {ch}
-        </button>
-      ))}
     </div>
   )
 }
@@ -1419,17 +1398,11 @@ function ExerciseCard({ exercise, number, language, lessonId, t }) {
             </p>
           )}
           {!isAllRevealed && (
-            <SpecialCharHelper
+            <SpecialChars
               language={language}
-              onInsert={(ch) => {
-                const el = inputRef.current
-                const pos = el ? el.selectionStart : userAnswer.length
-                const newVal = userAnswer.slice(0, pos) + ch + userAnswer.slice(pos)
-                setUserAnswer(newVal)
-                setTimeout(() => {
-                  if (el) { el.selectionStart = pos + 1; el.selectionEnd = pos + 1; el.focus() }
-                }, 0)
-              }}
+              inputRef={inputRef}
+              value={userAnswer}
+              onChange={(v) => { setUserAnswer(v); setChecked(false); setIsCorrect(null) }}
             />
           )}
         </div>
