@@ -154,7 +154,21 @@ export default function Practice() {
         .then(s => setWeakSkills(s.weak_skills || []))
         .catch(() => {})
     }
+    // Refocus the (now re-enabled) answer field so typing can continue at once.
+    requestAnimationFrame(() => answerRef.current?.focus())
   }
+
+  // Two-stage Enter: the first Enter (in the enabled input) submits the answer;
+  // once a result is shown the input is disabled, so a document-level listener
+  // makes the second Enter advance to the next exercise.
+  useEffect(() => {
+    if (!result) return
+    const onKey = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); next() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [result])
 
   const handleGenerate = async () => {
     setGenerating(true)
