@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Newspaper, BookOpen, ChevronDown, ChevronUp, ExternalLink, Plus, CheckCircle } from 'lucide-react'
+import { Newspaper, BookOpen, ChevronDown, ChevronUp, ExternalLink, Plus, CheckCircle, Loader2 } from 'lucide-react'
 import { getUserId, addFlashcard, addFlashcardAI, translateWord, getNews } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
@@ -226,27 +226,57 @@ export default function News() {
 }
 
 function ClickableText({ text, userId, language }) {
-  const [addedWords, setAddedWords] = useState({})
+  // Two-step flow: clicking a word SELECTS it (persistent green highlight) and
+  // fetches its translation into a list at the bottom. Nothing is saved until
+  // the learner presses "Dodaj zaznaczone" — then all selected words are added
+  // to flashcards at once. Click a selected word again to deselect it.
+  const [selected, setSelected] = useState({}) // clean -> { display, translation, loading }
+  const [added, setAdded] = useState({})       // clean -> true (already saved this session)
+  const [batchAdding, setBatchAdding] = useState(false)
   const [translations, setTranslations] = useState({})
   const [loadingTrans, setLoadingTrans] = useState({})
-  const [selectionPopup, setSelectionPopup] = useState(null) // { text, x, y }
-  const containerRef = useRef(null)
 
   const sentences = text
     ? text.match(/[^.!?]+[.!?]*/g)?.map(s => s.trim()).filter(Boolean) || [text]
     : []
 
-  const handleWordClick = async (word) => {
-    const clean = word.replace(/[^a-zA-ZäöüßÄÖÜáéíóúñàâêîôùûçőőűéàèìòù]/gi, '').toLowerCase()
-    if (!clean || clean.length < 3 || addedWords[clean]) return
-    setAddedWords(prev => ({ ...prev, [clean]: 'loading' }))
-    try {
-      await addFlashcardAI(userId, clean)
-      setAddedWords(prev => ({ ...prev, [clean]: 'done' }))
-      setTimeout(() => setAddedWords(prev => { const n = { ...prev }; delete n[clean]; return n }), 2000)
-    } catch {
-      setAddedWords(prev => { const n = { ...prev }; delete n[clean]; return n })
+  const cleanOf = w => w.replace(/[^a-zA-ZäöüßÄÖÜáéíóúñàâêîôùûçœ]/gi, '').toLowerCase()
+
+  const toggleWord = async (token) => {
+    const clean = cleanOf(token)
+    if (!clean || clean.length < 2 || added[clean]) return
+    if (selected[clean]) {
+      setSelected(prev => { const n = { ...prev }; delete n[clean]; return n })
+      return
     }
+    setSelected(prev => ({ ...prev, [clean]: { display: clean, translation: '', loading: true } }))
+    try {
+      const res = await translateWord(clean, language, 'Polish', userId)
+      setSelected(prev => prev[clean] ? { ...prev, [clean]: { ...prev[clean], translation: res.translation || '—', loading: false } } : prev)
+    } catch {
+      setSelected(prev => prev[clean] ? { ...prev, [clean]: { ...prev[clean], translation: '—', loading: false } } : prev)
+    }
+  }
+
+  const removeSelected = (clean) => setSelected(prev => { const n = { ...prev }; delete n[clean]; return n })
+
+  const addSelectedToFlashcards = async () => {
+    const words = Object.keys(selected)
+    if (!words.length) return
+    setBatchAdding(true)
+    for (const clean of words) {
+      try {
+        const tr = selected[clean].translation
+        if (tr && tr !== '—') {
+          await addFlashcard(userId, { word: clean, translation: tr, example_sentence: '' })
+        } else {
+          await addFlashcardAI(userId, clean)
+        }
+        setAdded(prev => ({ ...prev, [clean]: true }))
+      } catch { /* skip the ones that fail; keep going */ }
+    }
+    setSelected({})
+    setBatchAdding(false)
   }
 
   const handleTranslate = async (sentence, idx) => {
@@ -262,60 +292,28 @@ function ClickableText({ text, userId, language }) {
     }
   }
 
-  // Text selection handler
-  const handleMouseUp = () => {
-    const sel = window.getSelection()
-    const selectedText = sel.toString().trim()
-    if (selectedText.length >= 2) {
-      const range = sel.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
-      const containerRect = containerRef.current?.getBoundingClientRect()
-      if (containerRect) {
-        setSelectionPopup({
-          text: selectedText,
-          x: rect.left - containerRect.left + rect.width / 2,
-          y: rect.top - containerRect.top - 10,
-        })
-      }
-    } else {
-      setSelectionPopup(null)
-    }
-  }
-
-  const handleSelectionFlashcard = async () => {
-    if (!selectionPopup) return
-    const word = selectionPopup.text
-    setSelectionPopup(null)
-    const clean = word.replace(/[^a-zA-ZäöüßÄÖÜáéíóúñàâêîôùûçőőűéàèìòù]/gi, '').toLowerCase()
-    setAddedWords(prev => ({ ...prev, [clean]: 'loading' }))
-    try {
-      await addFlashcardAI(userId, clean)
-      setAddedWords(prev => ({ ...prev, [clean]: 'done' }))
-      setTimeout(() => setAddedWords(prev => { const n = { ...prev }; delete n[clean]; return n }), 2000)
-    } catch {
-      setAddedWords(prev => { const n = { ...prev }; delete n[clean]; return n })
-    }
-  }
+  const selectedList = Object.entries(selected)
 
   return (
-    <div className="flex-1 leading-relaxed space-y-2 relative" ref={containerRef} onMouseUp={handleMouseUp}>
+    <div className="flex-1 leading-relaxed space-y-2 relative">
       {sentences.map((sentence, idx) => (
         <div key={idx}>
           <span>
             {sentence.split(/(\s+)/).map((token, ti) => {
               if (/^\s+$/.test(token)) return <span key={ti}>{token}</span>
-              const clean = token.replace(/[^a-zA-ZäöüßÄÖÜáéíóúñàâêîôùûç]/gi, '').toLowerCase()
-              const status = addedWords[clean]
+              const clean = cleanOf(token)
+              const isSel = !!selected[clean]
+              const isAdded = !!added[clean]
               return (
                 <span
                   key={ti}
-                  onClick={() => handleWordClick(token)}
+                  onClick={() => toggleWord(token)}
                   className={`cursor-pointer rounded px-0.5 transition-colors ${
-                    status === 'done' ? 'text-emerald-400 bg-emerald-900/20' :
-                    status === 'loading' ? 'text-gray-500' :
+                    isAdded ? 'text-emerald-500 bg-emerald-900/30' :
+                    isSel ? 'text-emerald-300 bg-emerald-800/40 ring-1 ring-emerald-600/50' :
                     'text-gray-200 hover:text-indigo-300 hover:bg-indigo-900/20'
                   }`}
-                  title="Kliknij aby dodać do fiszek"
+                  title={isAdded ? 'Dodane do fiszek' : isSel ? 'Kliknij, aby odznaczyć' : 'Kliknij, aby zaznaczyć'}
                 >
                   {token}
                 </span>
@@ -336,42 +334,31 @@ function ClickableText({ text, userId, language }) {
         </div>
       ))}
 
-      {/* Selection popup */}
-      {selectionPopup && (
-        <div
-          className="absolute z-50 transform -translate-x-1/2 -translate-y-full"
-          style={{ left: selectionPopup.x, top: selectionPopup.y }}
-          onMouseLeave={() => setSelectionPopup(null)}
-        >
-          <div className="bg-gray-800 border border-indigo-500/50 rounded-lg shadow-xl p-2 flex items-center gap-2 whitespace-nowrap">
-            <span className="text-xs text-gray-400 max-w-[120px] truncate">{selectionPopup.text}</span>
-            <button
-              onClick={handleSelectionFlashcard}
-              className="flex items-center gap-1 px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-colors"
-              title="Dodaj do fiszek"
-            >
-              <Plus className="w-3 h-3" /> Fiszka
-            </button>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(selectionPopup.text)
-                setSelectionPopup(null)
-              }}
-              className="flex items-center gap-1 px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs transition-colors"
-              title="Kopiuj"
-            >
-              📋
-            </button>
-            <button
-              onClick={() => setSelectionPopup(null)}
-              className="text-gray-500 hover:text-gray-300 text-xs"
-            >
-              ✕
-            </button>
+      {/* Selection basket — appears once at least one word is picked */}
+      {selectedList.length > 0 && (
+        <div className="mt-3 p-3 rounded-lg bg-gray-900/60 border border-emerald-800/40">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-emerald-300">Zaznaczone słowa ({selectedList.length})</span>
+            <button onClick={() => setSelected({})} className="text-xs text-gray-500 hover:text-gray-300">Wyczyść</button>
           </div>
-          <div className="flex justify-center">
-            <div className="w-2 h-2 bg-gray-800 border-r border-b border-indigo-500/50 transform rotate-45 -mt-1" />
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {selectedList.map(([clean, info]) => (
+              <span key={clean} className="inline-flex items-center gap-1.5 bg-gray-800 border border-gray-700 rounded-full pl-2.5 pr-1 py-1 text-sm">
+                <span className="text-emerald-200 font-medium">{info.display}</span>
+                <span className="text-gray-500">→</span>
+                <span className="text-gray-300">{info.loading ? '…' : info.translation}</span>
+                <button onClick={() => removeSelected(clean)} className="ml-0.5 w-4 h-4 rounded-full hover:bg-gray-700 text-gray-500 hover:text-gray-200 text-xs flex items-center justify-center" title="Usuń">✕</button>
+              </span>
+            ))}
           </div>
+          <button
+            onClick={addSelectedToFlashcards}
+            disabled={batchAdding}
+            className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            {batchAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            Dodaj zaznaczone do fiszek ({selectedList.length})
+          </button>
         </div>
       )}
     </div>
