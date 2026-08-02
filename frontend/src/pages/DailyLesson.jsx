@@ -1174,17 +1174,28 @@ function OutputForcingCard({ instruction, text, translation, language, t }) {
   const [recallMode, setRecallMode] = useState(false)
   const [userRecall, setUserRecall] = useState('')
   const recallRef = useRef(null)
-  const [showFull, setShowFull] = useState(false)
+  const [checked, setChecked] = useState(false)
 
-  const similarity = () => {
-    if (!userRecall || !text) return 0
-    const a = userRecall.toLowerCase().split(/\s+/)
-    const b = text.toLowerCase().split(/\s+/)
-    const matches = a.filter(w => b.includes(w)).length
-    return Math.round((matches / b.length) * 100)
+  const normWord = w => w.toLowerCase().replace(/[.,!?;:„”"«»()]/g, '')
+
+  // Order-independent word diff of the learner's recall against the target text.
+  // Each correct word is matched (and consumed) against the learner's tokens;
+  // unmatched correct words are "missing", leftover learner tokens are "extra".
+  const buildDiff = () => {
+    const correctWords = words
+    const userTokens = userRecall.trim() ? userRecall.trim().split(/\s+/) : []
+    const remaining = userTokens.map(normWord)
+    const marked = correctWords.map(w => {
+      const idx = remaining.indexOf(normWord(w))
+      if (idx !== -1) { remaining[idx] = null; return { w, ok: true } }
+      return { w, ok: false }
+    })
+    const extras = userTokens.filter((_, i) => remaining[i] !== null)
+    const hits = marked.filter(m => m.ok).length
+    const score = correctWords.length ? Math.round((hits / correctWords.length) * 100) : 0
+    return { marked, extras, score }
   }
-
-  const score = recallMode && userRecall ? similarity() : null
+  const diff = checked ? buildDiff() : null
 
   const revealNextWord = () => {
     if (revealedCount < words.length) setRevealedCount(r => r + 1)
@@ -1246,24 +1257,50 @@ function OutputForcingCard({ instruction, text, translation, language, t }) {
             className="input-field h-24 resize-none mb-2"
             placeholder={t('lesson.writeRemember')}
             value={userRecall}
-            onChange={e => setUserRecall(e.target.value)}
+            onChange={e => { setUserRecall(e.target.value); setChecked(false) }}
           />
-          <SpecialChars language={language} inputRef={recallRef} value={userRecall} onChange={setUserRecall} />
-          <div className="flex items-center gap-3 flex-wrap mt-1">
-            {score !== null && (
-              <span className={`text-sm font-bold ${
-                score >= 70 ? 'text-emerald-400' : score >= 40 ? 'text-yellow-400' : 'text-red-400'
-              }`}>
-                {t('lesson.similarity')} {score}%
-              </span>
-            )}
+          <SpecialChars language={language} inputRef={recallRef} value={userRecall} onChange={v => { setUserRecall(v); setChecked(false) }} />
+
+          <div className="flex items-center gap-2 flex-wrap mt-2">
+            <button
+              onClick={() => setChecked(true)}
+              disabled={!userRecall.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm transition-colors"
+            >
+              <Eye className="w-4 h-4" /> Sprawdź
+            </button>
             <button
               onClick={() => { setRecallMode(false); setRevealedCount(0) }}
               className="flex items-center gap-1 text-gray-400 hover:text-gray-200 text-sm"
             >
-              <Eye className="w-4 h-4" /> {t('lesson.showOriginal')}
+              <EyeOff className="w-4 h-4" /> {t('lesson.showOriginal')}
             </button>
           </div>
+
+          {/* Result: word-by-word diff + correct text. The learner's own text
+              above is never cleared, so they can compare and edit. */}
+          {diff && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className={`text-sm font-bold ${diff.score >= 70 ? 'text-emerald-400' : diff.score >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {t('lesson.similarity')} {diff.score}%
+                </span>
+                <PlayButton text={text} language={language} />
+                {translation && <TranslationReveal translation={translation} />}
+              </div>
+              <div className="p-3 rounded-lg bg-gray-900/40 border border-gray-700">
+                <p className="text-xs text-gray-400 mb-1">Poprawny tekst (zielone = trafione, czerwone = pominięte):</p>
+                <p className="leading-relaxed">
+                  {diff.marked.map((m, i) => (
+                    <span key={i} className={m.ok ? 'text-emerald-400' : 'text-red-400 underline decoration-red-500/60'}>{m.w} </span>
+                  ))}
+                </p>
+              </div>
+              {diff.extras.length > 0 && (
+                <p className="text-xs text-amber-400">Twoje dodatkowe/niepasujące słowa: {diff.extras.join(', ')}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
