@@ -11,13 +11,24 @@
   animation: timer-blink 0.5s step-end infinite;
 }
 
+/* ── Light theme: warm cream surfaces instead of blinding pure white ──
+   Unlayered (outside @layer) so these win over Tailwind's utility layer.
+   Only applies under .light (dark mode adds .dark instead), so dark is
+   untouched. Pure #fff and near-white grays become soft, warm off-whites. */
+.light body { background-color: #f2ece0; }
+.light .bg-white { background-color: #fcf9f3; }
+.light .card { background-color: #fcf9f3; }
+.light .bg-gray-50 { background-color: #f7f2e8; }
+.light .bg-gray-100 { background-color: #efe8db; }
+
 @layer base {
   * {
     box-sizing: border-box;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 min-h-screen;
+    @apply text-gray-900 min-h-screen;
+    background-color: #f2ece0; /* warm cream — light mode base, not blinding white */
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     transition: background-color 0.2s, color 0.2s;
   }
