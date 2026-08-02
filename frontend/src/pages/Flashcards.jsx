@@ -562,25 +562,33 @@ export default function Flashcards() {
                 </div>
               )}
 
-              {/* Review buttons (only for due tab) */}
-              {tab === TABS.DUE && isFlipped && currentCard && (
-                <div className="grid grid-cols-4 gap-2 mb-4">
-                  {[
-                    { rating: 1, labelKey: 'flash.again', color: 'bg-red-700 hover:bg-red-600 text-white', desc: '<1d', ariaKey: 'flash.again' },
-                    { rating: 2, labelKey: 'flash.hard', color: 'bg-orange-700 hover:bg-orange-600 text-white', desc: '~3d', ariaKey: 'flash.hard' },
-                    { rating: 3, labelKey: 'flash.good', color: 'bg-blue-700 hover:bg-blue-600 text-white', desc: '~7d', ariaKey: 'flash.good' },
-                    { rating: 4, labelKey: 'flash.easy', color: 'bg-emerald-700 hover:bg-emerald-600 text-white', desc: '~14d', ariaKey: 'flash.easy' },
-                  ].map(({ rating, labelKey, color, desc, ariaKey }) => (
-                    <button
-                      key={rating}
-                      className={`${color} rounded-lg py-2 text-sm font-medium transition-colors`}
-                      onClick={() => handleReview(rating)}
-                      aria-label={`${t(ariaKey)} — ${desc}`}
-                    >
-                      <div>{t(labelKey)}</div>
-                      <div className="text-xs opacity-75">{desc}</div>
-                    </button>
-                  ))}
+              {/* Self-rating — shown whenever a card is revealed, on ANY tab.
+                  Previously gated to the DUE tab, which is why browsing "All"
+                  cards offered only flip+next with no way to mark recall.
+                  Rating any card is a valid FSRS review and auto-advances. */}
+              {isFlipped && currentCard && (
+                <div className="mb-4">
+                  <p className="text-center text-gray-400 text-sm mb-2">
+                    {t('flash.howWell') || 'Jak dobrze pamiętałeś? (klawisze 1–4)'}
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { rating: 1, labelKey: 'flash.again', color: 'bg-red-700 hover:bg-red-600 text-white', desc: '<1d', ariaKey: 'flash.again' },
+                      { rating: 2, labelKey: 'flash.hard', color: 'bg-orange-700 hover:bg-orange-600 text-white', desc: '~3d', ariaKey: 'flash.hard' },
+                      { rating: 3, labelKey: 'flash.good', color: 'bg-blue-700 hover:bg-blue-600 text-white', desc: '~7d', ariaKey: 'flash.good' },
+                      { rating: 4, labelKey: 'flash.easy', color: 'bg-emerald-700 hover:bg-emerald-600 text-white', desc: '~14d', ariaKey: 'flash.easy' },
+                    ].map(({ rating, labelKey, color, desc, ariaKey }) => (
+                      <button
+                        key={rating}
+                        className={`${color} rounded-lg py-2 text-sm font-medium transition-colors`}
+                        onClick={() => handleReview(rating)}
+                        aria-label={`${t(ariaKey)} — ${desc}`}
+                      >
+                        <div>{t(labelKey)}</div>
+                        <div className="text-xs opacity-75">{desc}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
