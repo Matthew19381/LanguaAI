@@ -4,6 +4,7 @@ Admin router — protected endpoints for maintenance operations.
 Requires ADMIN_API_KEY header for all endpoints.
 """
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
@@ -72,8 +73,9 @@ async def admin_restore_backup(
 ):
     """Restore database from a backup file. Requires admin api key. Creates safety backup first."""
     try:
-        restore_backup(str(BACKUP_DIR / backup_filename))
-        return {"success": True, "restored_from": backup_filename}
+        safe_name = Path(backup_filename).name
+        restore_backup(str(BACKUP_DIR / safe_name))
+        return {"success": True, "restored_from": safe_name}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
