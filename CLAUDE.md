@@ -42,26 +42,29 @@ Model selection is centralized in `backend/services/model_router.py` (curated Op
 
 ## Architecture
 
+**Full, maintained architecture reference: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** —
+router table (20 routers), service list, data model, pedagogy, offline/PWA, security.
+This CLAUDE.md section intentionally does NOT duplicate that table anymore (a stale
+copy of it here previously drifted out of sync with the code — see CHANGELOG 2026-08-07).
+Only stable, quick-reference facts live here; if in doubt, ARCHITECTURE.md wins.
+
 ### Backend
 
-**Stack**: FastAPI · SQLAlchemy (SQLite) · Google Gemini 2.0 Flash · edge-tts · fpdf2 · feedparser · faster-whisper
+**Stack**: FastAPI · SQLAlchemy (SQLite, Postgres-ready) · OpenRouter (default) or Google Gemini Direct · edge-tts · fpdf2 · feedparser · faster-whisper
 
 **Request flow**:
 ```
 Router → Service → SQLAlchemy Session (get_db dependency)
 ```
 
-**`backend/services/gemini_service.py`** is the single point of contact with Gemini. Two functions only:
-- `generate_json(prompt)` — appends "Respond ONLY with valid JSON" and strips markdown fences before parsing
-- `generate_text(prompt)` — raw string response
-
-Every function in every service that calls Gemini has a hardcoded fallback dict/string so the app degrades gracefully when the API fails.
+**`backend/services/gemini_service.py`** is the single point of contact with the AI provider. Two functions only:
+- `generate_json(prompt, fallback=None)` — forces JSON at the provider level, strips markdown fences, parses. On failure returns `fallback` **only if the caller passed one** — most call sites don't, and get a raised `ValueError` instead. Don't assume every AI call degrades gracefully; check the call site.
+- `generate_text(prompt)` — raw string response.
+- Model choice is centralized in `backend/services/model_router.py` (tiered `free`/`cheap`/`best` catalog, per-task mapping) via the `@with_model("<task>")` decorator — never hardcode a model id.
 
 **`backend/schemas/`** — Pydantic models for request/response validation (unified standard across ecosystem).
 
-**`backend/services/lesson_generator.py`** contains all AI prompt logic: placement test, study plan, daily lesson, daily/weekly tests, conversation, tips. `generate_daily_lesson()` accepts `recent_topics` (list of strings from the last 7 days of lessons) to produce an `interleaved_review` section in the output.
-
-**Adding a new router**: import it in `main.py` with `prefix="/api/v1"` and call `app.include_router(...)`.
+**`backend/services/lesson_generator/`** (package) contains all AI prompt logic: placement test, study plan, daily lesson, daily/weekly tests, conversation, tips. `generate_daily_lesson()` accepts `recent_topics` (list of strings from the last 7 days of lessons) to produce an `interleaved_review` section in the output.
 
 **`backend/services/test_generator.py`** is a non-router service layer that wraps lesson_generator calls for test creation/submission. It handles XP award on submit (`score × 0.5`, max 50 XP) and writes `TestResult` rows.
 
@@ -72,26 +75,11 @@ Every function in every service that calls Gemini has a hardcoded fallback dict/
 
 **Lesson content storage**: `Lesson.content` is a JSON blob (SQLAlchemy `Text` column). All lesson sections — including newer ones (`comprehensible_input`, `interleaved_review`, `output_forcing`) — live inside this blob. No migration is needed when adding new sections; the frontend just checks for their presence before rendering.
 
-**Routers** (`backend/routers/`):
-
-| File | API prefix | Responsibility |
-|---|---|---|
-| `placement.py` | `/api/v1/placement/` | User creation, 20-question CEFR test, study plan generation |
-| `lessons.py` | `/api/v1/lessons/` | Daily lesson get/create, complete (+25 XP), audio, PDF export |
-| `tests.py` | `/api/v1/tests/` | Daily/weekly test get + submit (delegates to `test_generator`) |
-| `flashcards.py` | `/api/v1/flashcards/` | Spaced repetition review, Anki deck export |
-| `conversation.py` | `/api/v1/conversation/` | AI conversation sessions and analysis |
-| `stats.py` | `/api/v1/stats/`, `/api/v1/tips/` | XP/level, achievements, leaderboard, daily tips |
-| `quickmode.py` | `/api/v1/quickmode/` | 15-minute daily activity plan |
-| `news.py` | `/api/v1/news/` | RSS fetch (feedparser) + Gemini simplification per CEFR level |
-| `pronunciation.py` | `/api/v1/pronunciation/` | faster-whisper transcription + word-level scoring |
-| `push.py` | `/api/push/` | Web Push (VAPID): public key, subscribe/unsubscribe, test send |
-
-**Adding a new router**: import it in `main.py` and call `app.include_router(...)`.
+**Adding a new router**: import it in `main.py` and call `app.include_router(...)`. Update the router table in `docs/ARCHITECTURE.md §6`, not here.
 
 ### Frontend
 
-**Stack**: React 18 · React Router v6 · Axios · Tailwind CSS · Vite · lucide-react
+**Stack**: React 19 · React Router 7 · Axios · Tailwind CSS · Vite · lucide-react
 
 **`frontend/src/api/client.js`** — all API calls. The `api` Axios instance has a response interceptor that unwraps `response.data`. **Exception**: PDF export (`exportLessonPDF`) and pronunciation analysis use raw `axios` directly to support `responseType: 'blob'` and `multipart/form-data` respectively.
 
@@ -111,7 +99,7 @@ Every function in every service that calls Gemini has a hardcoded fallback dict/
 | Lesson completion XP | +25 | `routers/lessons.py` |
 | Test submission XP | `score × 0.5` (max 50) | `services/test_generator.py` |
 | Level curve | `(n-1)² × 20` XP, 50 levels | `services/achievement_service.py` |
-| Gemini model | `gemini-2.0-flash` | `services/gemini_service.py` |
+| AI model | tiered catalog (`free`/`cheap`/`best`), per-task mapping — no fixed model id | `services/model_router.py` |
 | Whisper model | `tiny` (~75 MB, CPU, int8) | `services/pronunciation_service.py` |
 | API timeout (frontend) | 240 s | `api/client.js` (best-tier lekcja/test dnia bywa >110s; baseURL: `/api` — routery montują pełne ścieżki `/api/...`; wyjątek: `users` pod `/api/v1/users`) |
 | Backend port | `8001` (unified standard) | `start.bat`, `docker-compose.yml` |

@@ -1,6 +1,6 @@
 # Dokumentacja funkcji LinguaAI — i ich wpływ na naukę języka
 
-_Ostatnia aktualizacja: 2026-07-15 (po audycie kompleksowym)._
+_Ostatnia aktualizacja: 2026-08-07 (poprawiona nieprawdziwa wzmianka o „neuro-wagach" w sekcji Settings)._
 
 Ten dokument opisuje wszystkie główne funkcje backendu (FastAPI), serwisy i modele
 oraz wyjaśnia, **w jaki sposób każda z nich wspiera skuteczną naukę języka** według
@@ -112,7 +112,7 @@ jest `generate-variants`** — reszta praktyki jest darmowa.
 - **YouTube**: wyszukiwanie materiałów → autentyczny input wideo.
 - **Voice-Chat**: rozmowa głosowa → płynność.
 - **QuickMode**: 15-min plan → **dostępność** (małe sesje = wyższa regularność).
-- **Settings**: zmiana języka/API key/neuro-wag → personalizacja.
+- **Settings** (`routers/settings.py`): tłumaczenie UI na język docelowy + Google Drive OAuth. Zmiana języka nauki to osobny endpoint (`updateUserLanguage`, wystawiony na froncie na stronie `/settings`), nie żyje w tym routerze. (Funkcja „neuro-wagi" została usunięta — patrz `NEURO_FEATURES.md` §3, „Funkcje wycofane".)
 
 ---
 

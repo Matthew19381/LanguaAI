@@ -2,7 +2,7 @@
 
 This document consolidates the steps needed to:
 
-1. Fix the current development blocker (missing `isImportant` column).
+1. ~~Fix the current development blocker (missing `isImportant` column).~~ **Resolved** — see note in section 1.
 2. Prepare the application for a cloud‑hosted production deployment.
 3. Enable a solid mobile experience (PWA → optional native wrapper).
 
@@ -10,7 +10,12 @@ This document consolidates the steps needed to:
 
 ## 1. Immediate Fix – Missing `isImportant` column
 
-**Problem**  
+> **Status: resolved long ago.** The column and its auto-migration are in production
+> (`backend/main.py`'s startup `ALTER TABLE` list, documented in `CLAUDE.md`). This
+> section is kept only as a reference for the migration pattern used elsewhere in
+> `main.py` — it does not describe a current blocker.
+
+**Problem** (historical)
 On startup the backend tries to read `flashcards.isImportant` which does not exist in the local SQLite DB, causing an `OperationalError`.
 
 **Solution** – Add the column automatically on start‑up (dev) and via a migration script (prod).

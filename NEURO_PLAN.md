@@ -29,8 +29,8 @@ data-driven · SCI-6 dyktando. Podstawy naukowe — w NEURO_FEATURES sekcja 4.
 ### Rozszerzenia (priorytet 2, do przejścia przez proces NEURO_FEATURES §4)
 | ID | Funkcja | Podstawa naukowa | Poziom |
 |---|---|---|---|
-| SCI-7 | **Production effect**: głośne wypowiadanie nowych słów podczas nauki (TTS jest — dodać etap "powtórz na głos" w Quick Mode; bez rozpoznawania mowy w v1, samoocena) | MacLeod et al. 2010: materiał czytany na głos pamiętany lepiej niż czytany cicho | RCT |
-| SCI-8 | **Feedback korekcyjny natychmiastowy** przy błędnej odpowiedzi: poprawna odpowiedź + 1 zdanie wyjaśnienia (nie sama informacja błąd/dobrze) | Metcalfe 2017 (przegląd: uczenie się z błędów wymaga korekcyjnego feedbacku) | META |
+| SCI-7 | ✅ **Zaimplementowane 2026-07-25** — Production effect: etap „powtórz na głos" w Quick Mode (`routers/quickmode.py` `get_read_aloud`), bez rozpoznawania mowy, samoocena | MacLeod et al. 2010: materiał czytany na głos pamiętany lepiej niż czytany cicho | RCT |
+| SCI-8 | ✅ **Zamknięte 2026-08-07** — zweryfikowane w kodzie: `DailyTest.jsx`, `Practice.jsx` i `Conversation.jsx` już pokazują poprawną odpowiedź + wyjaśnienie po błędzie. Fiszki celowo bez tego — przepływ Anki pokazuje odpowiedź *przed* oceną, więc nie ma momentu, do którego odnosi się poniższy cytat | Metcalfe 2017 (przegląd: uczenie się z błędów wymaga korekcyjnego feedbacku) | META |
 | SCI-9 | **Kolejka powtórek dnia w Systemie Głównym**: FSRS publikuje liczbę zaległych fiszek → planner wstawia blok powtórek jako implementation intention | Gollwitzer & Sheeran 2006 (META) + spacing | META |
 | SCI-10 | **Konsolidacja przez sen — przypomnienie wieczorne** (opcjonalne): sesja powtórek przed snem jako *hipoteza* testowana eksperymentem n-of-1 (SG-18), nie jako reguła | sen konsoliduje pamięć (Diekelmann & Born 2010, META), ale przewaga pory wieczornej u konkretnej osoby = do zmierzenia | HIPOTEZA |
 
@@ -44,7 +44,11 @@ godzinowych, loot-boxów, fabrykowanych liczb w tipach.
 - **Subskrybuje**: plan dnia (kiedy blok nauki), tryb przetrwania (redukcja
   dziennego celu do 5 min), sen z Affect Engine.
 
-## 6. Fazy
-1. SCI-1…SCI-3 (największy wpływ na retencję przy małym koszcie).
-2. SCI-8 + SCI-9 (integracja z ekosystemem).
-3. SCI-4…SCI-7, SCI-10 po zebraniu danych.
+## 6. Fazy (plan pierwotny) → rzeczywista kolejność wykonania
+
+Plan zakładał kolejność 1) SCI-1…SCI-3, 2) SCI-8+SCI-9, 3) SCI-4…SCI-7+SCI-10.
+W praktyce zrealizowano **SCI-1…SCI-7 w całości** (2026-07-18…07-25) przed
+dotknięciem SCI-8/9/10 — SCI-8 jest częściowe, SCI-9 i SCI-10 wciąż otwarte
+(wymagają integracji z Systemem Głównym / eksperymentu n-of-1). Ten plan
+fazowania ma wartość historyczną; aktualny stan i kolejność napraw — w
+[`TASKS.md`](TASKS.md).

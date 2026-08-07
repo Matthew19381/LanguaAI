@@ -5,7 +5,7 @@ startu zobacz [README.md](../README.md); dla wskazówek pracy z kodem —
 [CLAUDE.md](../CLAUDE.md); dla wdrożenia — [deployment.md](deployment.md) i
 [PRODUCTION_AND_MOBILE.md](PRODUCTION_AND_MOBILE.md).
 
-_Ostatnia aktualizacja: 2026-07-27 · Backend: 457 testów · Frontend: 75 testów._
+_Ostatnia aktualizacja: 2026-08-07 (dodano stronę Settings) · Backend: 457 testów · Frontend: 75 testów._
 
 ---
 
@@ -83,7 +83,8 @@ backend/
   notifier.py          # standalone scheduler (Discord + Web Push)
   tests/               # 45 plików testowych
 frontend/
-  src/pages/           # 19 stron (route = funkcja)
+  src/pages/           # 20 stron (route = funkcja), w tym Settings.jsx (2026-08-06:
+                       # przełącznik języka UI + zmiana języka nauki, wcześniej w Stats.jsx)
   src/components/       # Layout, NavBar, OfflineBanner, PushToggle, UnlockGate, ...
   src/api/client.js     # wszystkie wywołania API (axios, interceptor)
   src/utils/            # offlineQueue, outboxDB, push, i18n
@@ -247,9 +248,12 @@ AI jest jawny i samoograniczający się.
 - **Passa:** kolejne dni z ukończoną lekcją, z „freezes" na pojedyncze luki.
 
 ### Backlog naukowy (SCI)
-SCI-1…SCI-7 zaimplementowane (successive relearning, pretesting, walidator
-pokrycia i+1, semantic spacing, najlepsza pora nauki, dyktando, production
-effect). SCI-8…SCI-10 częściowo/hipotezy — patrz [NEURO_FEATURES.md](NEURO_FEATURES.md).
+SCI-1…SCI-8 zaimplementowane/zamknięte (successive relearning, pretesting, walidator
+pokrycia i+1, semantic spacing, najlepsza pora nauki, dyktando, production effect,
+feedback korekcyjny — SCI-8 zweryfikowany 2026-08-07 jako już kompletny w
+teście/ćwiczeniach/konwersacji). SCI-9/SCI-10 otwarte (integracja z Systemem
+Głównym / hipoteza wieczornej konsolidacji) — patrz [NEURO_FEATURES.md](NEURO_FEATURES.md)
+i [TASKS.md](../TASKS.md) (propozycje SCI-12…SCI-14).
 
 ---
 

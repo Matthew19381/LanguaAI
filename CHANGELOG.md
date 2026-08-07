@@ -4,6 +4,32 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-08-07
+
+### Docs: audyt dokumentacji + zgodności naukowej (DOC-2…DOC-6)
+- **CLAUDE.md** — sekcja Architecture przepisana: usunięta zdezaktualizowana tabela
+  10 routerów (realnie jest 20, linkuje teraz do `docs/ARCHITECTURE.md §6`); stack
+  poprawiony na React 19/Router 7 (było: 18/v6); „Google Gemini 2.0 Flash"/
+  `gemini-2.0-flash` zastąpione opisem tierowanego katalogu `model_router.py`;
+  doprecyzowany fallback `generate_json` jako opt-in (`fallback=`), nie uniwersalny.
+- **`docs/API_FUNCTIONS.md`** — usunięta nieprawdziwa wzmianka o „neuro-wagach"
+  (funkcja usunięta miesiąc temu) i „zmianie API key" (nie istnieje) w opisie Settings.
+- **`docs/NEURO_FEATURES.md`** — SCI-1…SCI-7 przeniesione z backlogu (§4) do „Stan
+  faktyczny" (§1) jako ✅ Produkcja; dokument sam siebie nazywa źródłem prawdy, ale
+  nie był aktualizowany od 3 tygodni mimo wdrożenia tych funkcji.
+- **`NEURO_PLAN.md`** — SCI-7 oznaczone jako zaimplementowane (nie „do dodania"),
+  SCI-8 jako częściowe; sekcja „Fazy" opisana jako plan pierwotny + rzeczywista
+  kolejność wykonania (odjechały od siebie).
+- **`docs/ARCHITECTURE.md`** — liczba stron frontendu 19→20 (doszła `Settings.jsx`,
+  2026-08-06).
+- **`docs/PRODUCTION_AND_MOBILE.md`** — otwierający „current development blocker"
+  (brakująca kolumna `isImportant`) oznaczony jako rozwiązany od dawna; treść
+  zostawiona jako referencja wzorca migracji, nie jako aktualny problem.
+- Kontekst: pełny audyt (dokumentacja + regresja naukowa SCI-1…SCI-7 + 4 nowe
+  propozycje SCI-11…SCI-14) w `TASKS.md`.
+
+---
+
 ## 2026-07-24
 
 ### Docs: audyt dokumentacji D1-D6

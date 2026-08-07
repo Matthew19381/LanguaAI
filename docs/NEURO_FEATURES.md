@@ -2,6 +2,8 @@
 
 > **Zasada projektowa**: każda funkcja wpływająca na naukę musi mieć (a) wsparcie w recenzowanych badaniach, (b) implementację zgodną z tym, co badania faktycznie pokazują. Konkretne stałe liczbowe bez podstawy empirycznej traktujemy jako hipotezy do zweryfikowania na danych — nie jako fakty.
 
+_Ostatnia aktualizacja: 2026-08-07 — SCI-1…SCI-7 przeniesione z backlogu (sekcja 4) do „Stan faktyczny" (sekcja 1), zgodnie z rzeczywistym stanem kodu._
+
 ## Spis treści
 1. [Stan faktyczny — co jest zaimplementowane](#stan)
 2. [Podstawy naukowe zaimplementowanych mechanizmów](#nauka)
@@ -20,6 +22,13 @@
 | **Comprehensible input (i+1)** | ✅ Produkcja — tekst z ≥95% znanego słownictwa + 3-5 nowych słów | `daily_lesson.py` (`generate_iplus1_content`) |
 | **Telemetria kontekstu powtórki** (NEURO-11/12/13) | 📊 Zbieranie danych — `session_type`, `sleep_quality`, `interleaving_bonus`, `interference_penalty` zapisywane przy każdej powtórce. **Nie wpływają na scheduler** — służą przyszłej analizie | `backend/routers/flashcards.py`, `backend/models/flashcard.py` |
 | **Dziennik snu** (NEURO-11/14/16) | 📊 Zbieranie danych — ręczny wpis 1-5 + endpoint synchronizacji z sensorów; osiągnięcie `sleep_tracker` | `backend/routers/users.py` |
+| **SCI-1 Successive relearning** | ✅ Produkcja (2026-07-18) — słowo „opanowane" dopiero po 3 poprawnych przypomnieniach w odrębne dni; do tego czasu interwał FSRS capowany | `backend/services/flashcard_service.py` (`advance_relearning_criterion`) |
+| **SCI-2 Pretesting** | ✅ Produkcja (2026-07-18) — zgadywanki o nowe słowa przed lekcją, bez kar | `backend/services/lesson_generator/daily_lesson.py` (`_sanitize_pretest`) |
+| **SCI-3 Walidator pokrycia leksykalnego** | ✅ Produkcja (2026-07-18) — mierzy % znanych słów w tekście i+1, regeneruje przy <95% (max 2 próby) | `daily_lesson.py` (`lexical_coverage`) |
+| **SCI-4 Rozpraszanie klastrów semantycznych** | ✅ Produkcja (2026-07-18) — nowe fiszki tej samej kategorii dostają rozsunięte daty pierwszej powtórki | `flashcard_service.py` (`assign_cluster_offsets`) |
+| **SCI-5 Pora nauki dopasowana do rytmu** | ✅ Produkcja (2026-07-25) — sugestia data-driven, dopiero po ≥8 próbkach (≥3/przedział) | `backend/services/analytics_service.py` (`analyze_best_study_time`) |
+| **SCI-6 Dyktando** | ✅ Produkcja (2026-07-25) — odsłuch TTS + zapis ze słuchu, word-level diff | `backend/services/dictation_service.py` |
+| **SCI-7 Production effect** | ✅ Produkcja (2026-07-25) — „powtórz na głos" w Quick Mode, samoocena | `backend/routers/quickmode.py` (`get_read_aloud`) |
 
 ## 2. Podstawy naukowe zaimplementowanych mechanizmów <a name="nauka"></a>
 
@@ -41,17 +50,11 @@
 
 ## 4. Zaplanowane funkcje (backlog, poparte badaniami) <a name="backlog"></a>
 
-Ponumerowane od SCI-1, w kolejności proponowanej implementacji:
-
-| ID | Funkcja | Podstawa naukowa | Szkic implementacji |
-|----|---------|------------------|---------------------|
-| SCI-1 | **Successive relearning** — słowo liczy się jako „opanowane" dopiero po 3 poprawnych przypomnieniach rozłożonych na ≥2 sesje; do tego czasu wraca w kolejce mimo oceny „Good" | Rawson & Dunlosky (2011): kryterialne ponowne uczenie się daje duże, trwałe zyski retencji | Pole `correct_recall_sessions` na fiszce; status „mastered" sterujący statystykami i doborem słów do i+1 |
-| SCI-2 | **Pretesting** — 3-5 pytań-zgadywanek o nowe słowa *przed* lekcją; błędne odpowiedzi są oczekiwane i nieszkodliwe | Efekt pretestingu: nieudane próby odpowiedzi przed nauką poprawiają późniejsze zapamiętanie (Kornell, Hays & Bjork 2009; Richland et al. 2009) | Sekcja `pretest` w treści lekcji, renderowana przed `vocabulary`; bez kar XP |
-| SCI-3 | **Walidator pokrycia leksykalnego** — po wygenerowaniu tekstu i+1 backend liczy, jaki % tokenów należy do znanego słownictwa; przy <95% regeneruje (max 2 próby) | Hu & Nation (2000), Nation (2006): pokrycie 95-98% to warunek zrozumiałości — warto je *mierzyć*, nie tylko deklarować w promptcie | Funkcja `lexical_coverage(text, known_words)` w `lesson_generator`; prosty tokenizer + porównanie lematów |
-| SCI-4 | **Rozpraszanie podobnych słów** — przy tworzeniu fiszek z lekcji słowa z tej samej kategorii semantycznej (kolory, dni tygodnia, bliskoznaczne) dostają rozsunięte `next_review_date`, zamiast wchodzić do kolejki razem | Interferencja przy uczeniu klastrów semantycznych (Tinkham 1993; Nakata & Suzuki 2019) | Przy batchu nowych fiszek: prompt klasyfikujący kategorie + przesunięcie startowych dat o 1-2 dni wewnątrz klastra |
-| SCI-5 | **Przypomnienia dopasowane do osobistego rytmu** — zamiast sztywnych okien godzinowych: po zebraniu ≥200 powtórek analiza skuteczności per pora dnia (z istniejącej telemetrii `session_type`) i sugestia najlepszej pory nauki dla *tego* użytkownika | Synchrony effect — szczyt sprawności poznawczej zależy od chronotypu (May & Hasher 1998; Goldstein et al. 2007); podejście data-driven zamiast uniwersalnych stałych | Endpoint `GET /stats/{user_id}/best-study-time` liczący accuracy per przedział godzinowy z historii powtórek; wykorzystywany przez notifier |
-| SCI-6 | **Dyktando** — odsłuch zdania TTS (istniejący edge-tts) i zapis ze słuchu, z diffem błędów | Dekodowanie ze słuchu wspiera słuchanie i pisownię (Nation & Newton 2009) | Nowa aktywność w Quick Mode; porównanie tekstu po normalizacji + podświetlenie różnic |
+SCI-1…SCI-7 zostały zaimplementowane — patrz sekcja 1 dla statusu i odnośników do kodu.
+Aktualny backlog nowych funkcji (SCI-8 i dalej, w tym rozszerzenia ekosystemowe) jest
+prowadzony w [`NEURO_PLAN.md`](../NEURO_PLAN.md) i w [`TASKS.md`](../TASKS.md), żeby
+status funkcji nie żył w dwóch rozjeżdżających się miejscach naraz.
 
 ---
 
-*Ten dokument jest źródłem prawdy o funkcjach „learning science" w LinguaAI. Aktualizuj tabelę statusu po każdej zmianie. Nowe funkcje wpływające na naukę muszą przejść przez sekcję 4 (z cytowaniem źródła) zanim trafią do kodu.*
+*Ten dokument jest źródłem prawdy o funkcjach „learning science" w LinguaAI. Aktualizuj tabelę statusu po każdej zmianie. Nowe funkcje wpływające na naukę muszą przejść przez `NEURO_PLAN.md`/`TASKS.md` (z cytowaniem źródła) zanim trafią do kodu — a po wdrożeniu wracają tutaj jako wiersz w sekcji 1.*
