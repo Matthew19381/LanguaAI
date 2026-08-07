@@ -4,7 +4,7 @@ import {
   BookOpen, FlaskConical, MessageSquare, LayoutGrid,
   BarChart3, Flame, Star, Brain, Timer, Newspaper, Mic,
   BookmarkPlus, X, Loader2, Video, AlertTriangle, Layers,
-  Sun, Moon, Dumbbell, Headphones, UserCircle, Volume2, History
+  Sun, Moon, Dumbbell, Headphones, UserCircle, Volume2, History, Settings
 } from 'lucide-react'
 import { getUserId, getStats, addFlashcardAI } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
@@ -83,6 +83,7 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
     { to: '/topics', label: 'Bank wiedzy', icon: Layers },
     { to: '/lesson/history', label: 'Historia', icon: History },
     { to: '/profile', label: 'Profil', icon: UserCircle },
+    { to: '/settings', label: 'Ustawienia', icon: Settings },
   ]
 
   useEffect(() => {

@@ -27,6 +27,7 @@ const Dictation = lazy(() => import('./pages/Dictation'))
 const ReadAloud = lazy(() => import('./pages/ReadAloud'))
 const Practice = lazy(() => import('./pages/Practice'))
 const Profile = lazy(() => import('./pages/Profile'))
+const Settings = lazy(() => import('./pages/Settings'))
 const LoginAs = lazy(() => import('./pages/LoginAs'))
 
 function App() {
@@ -53,6 +54,7 @@ function App() {
           <Route path="read-aloud" element={<ErrorBoundary><ReadAloud /></ErrorBoundary>} />
           <Route path="practice" element={<ErrorBoundary><Practice /></ErrorBoundary>} />
           <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
+          <Route path="settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
         </Route>
         {/* Routes outside the Layout need their own Suspense boundary. */}
         <Route path="/placement" element={
