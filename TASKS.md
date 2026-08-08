@@ -4,6 +4,42 @@ _Ostatnia aktualizacja: 2026-08-08_
 
 ---
 
+## 🔴 Nawigacja: WSZYSTKIE funkcje trwale widoczne, bez wyjątku (2026-08-08)
+
+**Kontekst:** P3-1 z `docs/BACKLOG_UX_2026-08.md` był zgłaszany wielokrotnie i
+tylko **połowicznie** naprawiony wcześniej — commit "feat(P3-1)" dodał
+brakujące strony do menu (Czytaj, Historia), ale nie ruszył sedna problemu:
+etykiety wciąż znikały poniżej `md` (same ikony), a 18 pozycji żyło w jednym,
+poziomo przewijanym rzędzie. Użytkownik to zauważył od razu po realnym
+przejściu po stronie.
+
+**Naprawa (`frontend/src/components/NavBar.jsx`):**
+- Usunięty `hidden md:block` na etykietach — **każda pozycja ma trwale
+  widoczny tekst, na każdej szerokości ekranu**, zweryfikowane realnym
+  `element.innerText` (nie samą obecnością w DOM) na 1280px i 375px (telefon).
+- Usunięty poziomy scroll (`overflow-x-auto`) — zastąpiony `flex-wrap`: przy
+  wąskim ekranie pozycje zawijają się na kolejne linie zamiast znikać albo
+  wymagać przewijania.
+- 18 funkcji pogrupowanych w 5 widocznych, podpisanych kategorii (zgodnie z
+  pierwotną specyfikacją P3-1): **Nauka** (Główna/Lekcja/Test/Mów/Wymowa/
+  Newsy/Bank wiedzy), **Ćwiczenia** (Fiszki/Ćwiczenia/Dyktando/Czytaj/Timer),
+  **Media** (Filmy), **Postępy** (Statystyki/Błędy/Historia), **Konto**
+  (Profil/Ustawienia). Żadna z nich nie jest schowana za dropdownem/hoverem —
+  świadoma decyzja, bo to i tak byłoby "ukrywanie", tylko za inną nazwą.
+- Testy: `NavBar.test.jsx` +2 — regresja-lock sprawdzający, że żaden label nie
+  siedzi w elemencie z klasą zawierającą `hidden` (dokładnie ten bug, który
+  wrócił), oraz że wszystkie 5 nagłówków kategorii są widoczne. 9/9 passed.
+- **Przy okazji naprawione:** `start.bat` uruchamiał backend przez gołe
+  `python`, które (jak ustalono 2026-08-05/07 w tej samej sesji) w wielu
+  środowiskach nie ma zainstalowanych zależności projektu — użytkownik trafił
+  na dokładnie ten `ModuleNotFoundError: sqlalchemy` po odpaleniu skrótu z
+  pulpitu. Zmienione na `py -3.11`, zgodnie z już poprawnym `start.ps1`.
+- **Weryfikacja:** frontend 83/83 passed, lint 0 błędów, oraz ręczna kontrola
+  `document.querySelector('nav').innerText` w realnej przeglądarce na 1280px
+  i 375px — wszystkie 18 etykiet obecne na obu.
+
+---
+
 ## 🔧 Naprawa: TTS (edge-tts) zwracał 403 na każde żądanie audio (2026-08-08)
 
 **Objaw:** podczas weryfikacji na żywo w przeglądarce (po sesji audytowej

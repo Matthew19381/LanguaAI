@@ -20,7 +20,7 @@ if not exist "backend\.env" (
 )
 
 echo [1/2] Uruchamianie backendu...
-start "LinguaAI-Backend" cmd /k "cd /d %~dp0 && python -m uvicorn backend.main:app --reload --port 8001"
+start "LinguaAI-Backend" cmd /k "cd /d %~dp0 && py -3.11 -m uvicorn backend.main:app --reload --port 8001"
 
 echo [2/2] Uruchamianie frontendu...
 REM Uwaga: npm install TYLKO gdy brak node_modules, ale npm run dev URUCHAM ZAWSZE.

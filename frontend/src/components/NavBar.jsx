@@ -64,26 +64,55 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
   const [flashLoading, setFlashLoading] = useState(false)
   const [flashMsg, setFlashMsg] = useState('')
 
-  const navItems = [
-    { to: '/', label: t('nav.home'), icon: LayoutGrid, exact: true },
-    { to: '/lesson', label: t('nav.lesson'), icon: BookOpen },
-    { to: '/pronunciation', label: t('nav.pronounce'), icon: Mic },
-    { to: '/conversation', label: t('nav.speak'), icon: MessageSquare },
-    { to: '/flashcards', label: t('nav.flashcards'), icon: Brain },
-    // Practice + dictation work offline, so they matter most on a phone
-    { to: '/practice', label: t('nav.practice'), icon: Dumbbell },
-    { to: '/dictation', label: t('nav.dictation'), icon: Headphones },
-    { to: '/read-aloud', label: 'Czytaj', icon: Volume2 },
-    { to: '/test', label: t('nav.test'), icon: FlaskConical },
-    { to: '/news', label: t('nav.news'), icon: Newspaper },
-    { to: '/videos', label: t('nav.videos'), icon: Video },
-    { to: '/quickmode', label: t('nav.quickmode'), icon: Timer },
-    { to: '/stats', label: t('nav.stats'), icon: BarChart3 },
-    { to: '/errors', label: 'Błędy', icon: AlertTriangle },
-    { to: '/topics', label: 'Bank wiedzy', icon: Layers },
-    { to: '/lesson/history', label: 'Historia', icon: History },
-    { to: '/profile', label: 'Profil', icon: UserCircle },
-    { to: '/settings', label: 'Ustawienia', icon: Settings },
+  // Every function gets a permanently-visible label, grouped by purpose, so
+  // nothing is discoverable only by hovering/scrolling/opening a menu — this
+  // was raised repeatedly (docs/BACKLOG_UX_2026-08.md P3-1) and previously
+  // only half-fixed (missing pages were added, but labels still vanished
+  // below `md` and everything lived in one horizontally-scrolling row).
+  const navGroups = [
+    {
+      label: 'Nauka',
+      items: [
+        { to: '/', label: t('nav.home'), icon: LayoutGrid, exact: true },
+        { to: '/lesson', label: t('nav.lesson'), icon: BookOpen },
+        { to: '/test', label: t('nav.test'), icon: FlaskConical },
+        { to: '/conversation', label: t('nav.speak'), icon: MessageSquare },
+        { to: '/pronunciation', label: t('nav.pronounce'), icon: Mic },
+        { to: '/news', label: t('nav.news'), icon: Newspaper },
+        { to: '/topics', label: 'Bank wiedzy', icon: Layers },
+      ],
+    },
+    {
+      label: 'Ćwiczenia',
+      items: [
+        { to: '/flashcards', label: t('nav.flashcards'), icon: Brain },
+        { to: '/practice', label: t('nav.practice'), icon: Dumbbell },
+        { to: '/dictation', label: t('nav.dictation'), icon: Headphones },
+        { to: '/read-aloud', label: 'Czytaj', icon: Volume2 },
+        { to: '/quickmode', label: t('nav.quickmode'), icon: Timer },
+      ],
+    },
+    {
+      label: 'Media',
+      items: [
+        { to: '/videos', label: t('nav.videos'), icon: Video },
+      ],
+    },
+    {
+      label: 'Postępy',
+      items: [
+        { to: '/stats', label: t('nav.stats'), icon: BarChart3 },
+        { to: '/errors', label: 'Błędy', icon: AlertTriangle },
+        { to: '/lesson/history', label: 'Historia', icon: History },
+      ],
+    },
+    {
+      label: 'Konto',
+      items: [
+        { to: '/profile', label: 'Profil', icon: UserCircle },
+        { to: '/settings', label: 'Ustawienia', icon: Settings },
+      ],
+    },
   ]
 
   useEffect(() => {
@@ -141,25 +170,6 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
             </div>
             <span className="font-bold text-lg dark:text-indigo-400 text-indigo-600 hidden sm:block">LinguaAI</span>
           </Link>
-
-          {/* Navigation Links — scrolls horizontally on phones, where the
-              14 icons cannot fit on one row */}
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
-            {navItems.map(({ to, label, icon: Icon, exact }) => (
-              <Link
-                key={to}
-                to={to}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 shrink-0 ${
-                  isActive(to, exact) || (exact && location.pathname === to)
-                    ? 'bg-indigo-600 text-white'
-                    : 'dark:text-gray-400 text-gray-600 dark:hover:text-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 hover:bg-gray-100'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="hidden md:block">{label}</span>
-              </Link>
-            ))}
-          </div>
 
           {/* Right side: stats + dark mode + flash quick-add */}
           <div className="flex items-center gap-2">
@@ -245,6 +255,34 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
               </div>
             )}
           </div>
+        </div>
+
+        {/* All functions, grouped, with permanent text labels — nothing here
+            is hidden behind a breakpoint, a hover, or a menu that has to be
+            opened first. Wraps to more lines on narrow screens instead of
+            scrolling or losing labels. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pb-2 pt-1 border-t dark:border-gray-800/60 border-gray-100">
+          {navGroups.map(group => (
+            <div key={group.label} className="flex items-center flex-wrap gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider dark:text-gray-600 text-gray-400 mr-0.5 shrink-0">
+                {group.label}
+              </span>
+              {group.items.map(({ to, label, icon: Icon, exact }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors duration-200 shrink-0 ${
+                    isActive(to, exact)
+                      ? 'bg-indigo-600 text-white'
+                      : 'dark:text-gray-300 text-gray-600 dark:hover:text-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </Link>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
     </nav>
