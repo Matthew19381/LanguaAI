@@ -116,4 +116,5 @@ def create_flashcards_from_vocab(
             lesson_day=day_number,
             lesson_topic=topic,
             next_review_date=now + timedelta(days=offset),
+            mnemonic=item.get("mnemonic") or None,
         ))

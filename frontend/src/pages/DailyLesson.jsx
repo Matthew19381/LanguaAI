@@ -605,6 +605,13 @@ export default function DailyLesson() {
             <span className="text-xs text-gray-500">Przesłuchaj wyjaśnienie</span>
           </div>
         )}
+        {grammar.elaboration_prompt && grammar.elaboration_answer && (
+          <ElaborationCard
+            prompt={grammar.elaboration_prompt}
+            answer={grammar.elaboration_answer}
+            t={t}
+          />
+        )}
         <div className="mt-3">
           <button
             onClick={handleConceptFlashcards}
@@ -1110,6 +1117,47 @@ function TranslationReveal({ translation }) {
       <Eye className="w-3 h-3" />
       {show ? <span className="text-emerald-300">{translation}</span> : 'Pokaż tłumaczenie'}
     </button>
+  )
+}
+
+function ElaborationCard({ prompt, answer, t }) {
+  // SCI-14 elaborative interrogation (Pressley et al. 1987): the learner tries
+  // to explain WHY the rule works before seeing the model's answer. Ungraded —
+  // the point is generating an explanation, not getting it "right".
+  const [revealed, setRevealed] = useState(false)
+  const [ownAnswer, setOwnAnswer] = useState('')
+  return (
+    <div className="mt-3 bg-indigo-900/10 border border-indigo-700/30 rounded-lg p-3">
+      <p className="text-indigo-300/90 text-xs font-semibold mb-2">{t('lesson.elaborationTitle')}</p>
+      <p className="text-gray-200 text-sm mb-2">{prompt}</p>
+      {!revealed ? (
+        <>
+          <textarea
+            className="input-field h-16 resize-none text-sm mb-2"
+            placeholder={t('lesson.elaborationPlaceholder')}
+            value={ownAnswer}
+            onChange={e => setOwnAnswer(e.target.value)}
+          />
+          <button
+            onClick={() => setRevealed(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-medium transition-colors"
+          >
+            <Eye className="w-3.5 h-3.5" /> {t('lesson.elaborationReveal')}
+          </button>
+        </>
+      ) : (
+        <div className="space-y-2">
+          {ownAnswer.trim() && (
+            <p className="text-xs text-gray-400">
+              <span className="font-semibold">{t('lesson.elaborationYourGuess')} </span>{ownAnswer}
+            </p>
+          )}
+          <p className="text-sm text-indigo-200 bg-indigo-900/20 rounded p-2">
+            <span className="font-semibold">{t('lesson.elaborationAnswerLabel')} </span>{answer}
+          </p>
+        </div>
+      )}
+    </div>
   )
 }
 

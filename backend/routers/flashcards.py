@@ -110,6 +110,7 @@ async def get_flashcards(
                 "isImportant": f.isImportant,
                 "correct_recall_sessions": f.correct_recall_sessions,
                 "is_mastered": f.is_mastered,
+                "mnemonic": f.mnemonic,
             }
             for f in flashcards
         ],
@@ -142,6 +143,9 @@ async def get_due_flashcards(user_id: int, db: Session = Depends(get_db)):
                 "stability": f.stability,
                 "interval_days": f.interval_days,
                 "fsrs_state": f.fsrs_state,
+                "gender": f.gender,
+                "isImportant": f.isImportant,
+                "mnemonic": f.mnemonic,
             }
             for f in due_cards
         ],
@@ -191,6 +195,7 @@ async def get_flashcards_offline_pack(user_id: int, size: int = 100, db: Session
                 "is_mastered": f.is_mastered,
                 "correct_recall_sessions": f.correct_recall_sessions,
                 "next_review_date": f.next_review_date.isoformat() if f.next_review_date else None,
+                "mnemonic": f.mnemonic,
             }
             for f in cards
         ],

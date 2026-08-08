@@ -94,6 +94,11 @@ export default function ReadAloud() {
       </p>
 
       <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-900 p-8 space-y-6 text-center">
+        {current.lapsed && (
+          <span className="inline-block px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-medium">
+            Ostatnio Ci to nie poszło — spróbuj innym sposobem: na głos
+          </span>
+        )}
         <button
           onClick={play}
           disabled={!current?.audio_path}

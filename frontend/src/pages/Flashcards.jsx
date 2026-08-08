@@ -28,9 +28,20 @@ function GenderBadge({ gender }) {
   );
 }
 
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function highlightWordInSentence(sentence, word, gender, isImportant = false) {
-  if (!sentence || !word) return sentence;
-  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!sentence) return sentence;
+  const safeSentence = escapeHtml(sentence);
+  if (!word) return safeSentence;
+  const escaped = escapeHtml(word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(`\\b(${escaped})\\b`, 'gi');
 
   // Get gender color class
@@ -63,7 +74,7 @@ function highlightWordInSentence(sentence, word, gender, isImportant = false) {
     finalColorClass = 'bg-yellow-500/30';
   }
 
-  return sentence.replace(regex, `<mark class="${finalColorClass} rounded px-0.5">\$1</mark>`);
+  return safeSentence.replace(regex, `<mark class="${finalColorClass} rounded px-0.5">$1</mark>`);
 }
 
 const TABS = { ALL: 'all', DUE: 'due' }
@@ -556,6 +567,11 @@ export default function Flashcards() {
                                                                             dangerouslySetInnerHTML={{ __html: highlightWordInSentence(currentCard.example_sentence, currentCard.word, currentCard.gender, currentCard.isImportant) }}
                                                                           ></p>
                                                                         )}
+                        {currentCard.mnemonic && (
+                          <p className="text-amber-300/80 text-xs mt-2 max-w-xs mx-auto">
+                            💡 {currentCard.mnemonic}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

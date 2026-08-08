@@ -90,7 +90,16 @@ async def generate_daily_lesson(
     2. Vocabulary introduction (10-15 min): 10-15 new words with translations, example sentences, audio cues,
        and a short semantic "category" label per word (e.g. "colours", "food", "motion verbs") so related
        words can be spaced apart during review to reduce interference (Tinkham 1993).
-    3. Grammar explanation (10-15 min): One key grammar point with clear examples
+       For words that are ABSTRACT or hard to visualize (feelings, concepts, function words — NOT concrete
+       nouns like objects/animals/colours), add a "mnemonic" keyword-method hint: a {native_language} word
+       that sounds similar to the {target_language} word, linked to its meaning through a short, vivid,
+       slightly absurd image or one-sentence story (Atkinson 1975). Leave "mnemonic" empty/omitted for
+       concrete words — do NOT invent one for every word, only where it genuinely helps.
+    3. Grammar explanation (10-15 min): One key grammar point with clear examples. After the
+       explanation, add ONE elaborative-interrogation question in {native_language} asking the
+       student to guess WHY the rule works the way it does (not just what it is) — e.g. "Why do
+       you think the verb moves to the end here?" — plus your own short answer to that question
+       for them to compare against after they've tried. This is ungraded self-explanation, not a quiz.
     4. Practice exercises (15-20 min): Mix of filling gaps, translation, and sentence creation.
        Tag each exercise block with the underlying skill it practises ("skill_tag"), so the same skill
        can later be re-practised through fresh variants rather than the identical sentence.
@@ -123,7 +132,8 @@ async def generate_daily_lesson(
             "translation": "native language translation",
             "example_sentence": "sentence in target language",
             "audio_cue": "description of when to play audio",
-            "category": "short semantic group label, e.g. colours / food / motion verbs"
+            "category": "short semantic group label, e.g. colours / food / motion verbs",
+            "mnemonic": "keyword-method hint for ABSTRACT words only, empty string otherwise"
         }}],
         "grammar": {{
             "topic": "grammar topic name",
@@ -132,7 +142,9 @@ async def generate_daily_lesson(
                 "sentence": "example sentence in target language",
                 "translation": "translation in native language"
             }}],
-            "rule": "concise rule summary"
+            "rule": "concise rule summary",
+            "elaboration_prompt": "a 'why do you think this rule works this way?' question in {native_language}, about THIS grammar point",
+            "elaboration_answer": "1-2 sentence answer to that question in {native_language}, for the student to compare against after guessing"
         }},
         "exercises": [{{
             "type": "fill-in-the-blank|translation|sentence_creation|matching",
@@ -196,6 +208,13 @@ async def generate_daily_lesson(
         # whose target word is actually taught in this lesson's vocabulary.
         lesson["pretest"] = _sanitize_pretest(lesson.get("pretest"), lesson.get("vocabulary"))
 
+        # SCI-14: drop a malformed/missing elaboration question rather than show
+        # a broken card — the frontend renders it conditionally on both fields.
+        lesson["grammar"] = _sanitize_grammar_elaboration(lesson.get("grammar"))
+
+        # SCI-13: trim/blank out mnemonic hints; most words won't have one.
+        lesson["vocabulary"] = _sanitize_vocabulary_mnemonics(lesson.get("vocabulary"))
+
         return lesson
     except Exception as e:
         logger.error(f"Error generating daily lesson: {e}")
@@ -225,7 +244,9 @@ async def generate_daily_lesson(
                     "sentence": "Ich heiße Anna.",
                     "translation": "My name is Anna."
                 }],
-                "rule": "Subject comes first, then verb, then object"
+                "rule": "Subject comes first, then verb, then object",
+                "elaboration_prompt": "Dlaczego Twoim zdaniem czasownik stoi zaraz po podmiocie, a nie na końcu zdania?",
+                "elaboration_answer": "W zdaniach głównych czasownik odmieniony (finite verb) zawsze zajmuje drugą pozycję — to jedna z podstawowych zasad szyku zdania, niezależna od tego, ile innych elementów jest przed nim."
             },
             "exercises": [{
                 "type": "translation",
@@ -436,6 +457,44 @@ def _sanitize_pretest(pretest, vocabulary) -> list:
         clean.append({"word": word, "prompt": item.get("prompt", ""),
                       "options": options, "answer": answer})
     return clean[:5]
+
+
+def _sanitize_vocabulary_mnemonics(vocabulary) -> list:
+    """Trim SCI-13 keyword-method hints (Atkinson 1975); blank ones become "".
+
+    Most words are concrete and won't get one — the model is instructed to
+    leave `mnemonic` empty for those. This just normalizes whitespace-only
+    values to a clean empty string so downstream code (flashcard creation)
+    can treat "falsy" consistently.
+    """
+    if not isinstance(vocabulary, list):
+        return vocabulary if isinstance(vocabulary, list) else []
+    for item in vocabulary:
+        if isinstance(item, dict):
+            item["mnemonic"] = (item.get("mnemonic") or "").strip()
+    return vocabulary
+
+
+def _sanitize_grammar_elaboration(grammar) -> dict:
+    """Validate the SCI-14 elaborative-interrogation question (Pressley et al. 1987).
+
+    Self-generating an explanation for WHY a rule holds — before being told —
+    deepens processing more than reading the explanation alone. Keeps
+    `elaboration_prompt`/`elaboration_answer` only if both are non-empty
+    strings; otherwise strips them so the frontend's conditional render simply
+    hides the card instead of showing a half-filled one.
+    """
+    if not isinstance(grammar, dict):
+        return grammar if isinstance(grammar, dict) else {}
+    prompt = (grammar.get("elaboration_prompt") or "").strip()
+    answer = (grammar.get("elaboration_answer") or "").strip()
+    if not prompt or not answer:
+        grammar.pop("elaboration_prompt", None)
+        grammar.pop("elaboration_answer", None)
+    else:
+        grammar["elaboration_prompt"] = prompt
+        grammar["elaboration_answer"] = answer
+    return grammar
 
 
 def _build_interleaved_review(recent_topics: list[str] | None) -> list:

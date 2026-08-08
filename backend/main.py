@@ -78,6 +78,7 @@ async def lifespan(app: FastAPI):
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN correct_recall_sessions INTEGER DEFAULT 0"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN last_recall_date TIMESTAMP"),
         ("flashcards", "ALTER TABLE flashcards ADD COLUMN is_mastered BOOLEAN NOT NULL DEFAULT 0"),
+        ("flashcards", "ALTER TABLE flashcards ADD COLUMN mnemonic TEXT"),
         # Knowledge bank hierarchy: subtopics point at a parent topic.
         ("topics", "ALTER TABLE topics ADD COLUMN parent_id INTEGER REFERENCES topics(id)"),
     ]
@@ -312,7 +313,7 @@ async def health_check():
 # Serve simple frontend (no Vite, just static files)
 # Use relative path to avoid Unicode issues in absolute paths
 frontend_simple_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend-simple"))
-if os.path.exists(frontend_simple_dir):
+if os.path.exists(os.path.join(frontend_simple_dir, "index.html")):
     app.mount("/static", StaticFiles(directory=frontend_simple_dir), name="static")
 
     @app.get("/", include_in_schema=False)

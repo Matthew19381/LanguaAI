@@ -148,13 +148,23 @@ async def get_quickmode_plan(user_id: int, db: Session = Depends(get_db)):
         "completed": False,
     })
 
-    # Read aloud (SCI-7, production effect): repeat new words out loud
+    # Read aloud (SCI-7 production effect / SCI-12 modality switch for lapsed cards)
+    from backend.models.flashcard import Flashcard
+    lapsed_count = db.query(Flashcard).filter(
+        Flashcard.user_id == user_id,
+        Flashcard.language == user.target_language,
+        Flashcard.is_active == True,  # noqa: E712
+        Flashcard.fsrs_state == "Relearning",
+    ).count()
     activities.append({
         "id": "read-aloud",
         "title": "Powtórz na głos",
-        "description": "Posłuchaj nowych słów i powtórz je głośno",
+        "description": (
+            f"{lapsed_count} słów, z którymi masz trudności — spróbuj innym sposobem"
+            if lapsed_count else "Posłuchaj nowych słów i powtórz je głośno"
+        ),
         "estimated_minutes": 2,
-        "priority": 3,
+        "priority": 2 if lapsed_count else 3,
         "route": "/read-aloud",
         "icon": "Volume2",
         "completed": False,
@@ -218,33 +228,61 @@ async def check_dictation(payload: DictationCheckRequest):
 # MacLeod et al. (2010, RCT): words read aloud are remembered better than
 # words read silently. v1: no speech recognition — self-assessment only.
 
+# ── SCI-12: desirable difficulty via modality switch (Bjork & Bjork 2011) ──
+# A card the learner just failed ("Again") shouldn't come back in the exact
+# same flip-and-rate format — repeating the identical retrieval format is an
+# easy, low-yield difficulty. Routing it through a *different* modality
+# (hear + say aloud) forces a fresh retrieval route for the same content.
+
 @router.get("/api/quickmode/read-aloud/{user_id}")
 async def get_read_aloud(user_id: int, count: int = 8, db: Session = Depends(get_db)):
-    """Newest flashcards as a read-aloud deck: hear TTS, repeat aloud, self-check.
+    """Read-aloud deck: freshly-lapsed flashcards first, then newest ones.
 
-    Source: the user's most recently created active flashcards (the freshest
-    vocabulary, before FSRS spaces it out). Each item carries cached TTS audio
-    so repeating works offline-ish and doesn't re-synthesize on every visit.
+    Source, in priority order: (1) active cards currently in FSRS "Relearning"
+    state — i.e. just rated "Again" — get a different modality instead of
+    reappearing as the same flip-and-rate card (SCI-12); (2) the most recently
+    created active flashcards fill any remaining slots, as before. Each item
+    carries cached TTS audio so repeating works offline-ish and doesn't
+    re-synthesize on every visit.
     """
     from backend.models.flashcard import Flashcard
 
     user = get_user_or_404(db, user_id)
     count = max(1, min(count, 20))
 
-    cards = (
+    base_filter = [
+        Flashcard.user_id == user_id,
+        Flashcard.language == user.target_language,
+        Flashcard.is_active == True,  # noqa: E712
+    ]
+
+    lapsed_cards = (
         db.query(Flashcard)
-        .filter(
-            Flashcard.user_id == user_id,
-            Flashcard.language == user.target_language,
-            Flashcard.is_active == True,  # noqa: E712
-        )
-        .order_by(Flashcard.id.desc())
+        .filter(*base_filter, Flashcard.fsrs_state == "Relearning")
+        .order_by(Flashcard.next_review_date.asc())
         .limit(count)
         .all()
     )
+    lapsed_ids = {c.id for c in lapsed_cards}
+
+    remaining = count - len(lapsed_cards)
+    recent_cards = []
+    if remaining > 0:
+        recent_filter = list(base_filter)
+        if lapsed_ids:
+            recent_filter.append(Flashcard.id.notin_(lapsed_ids))
+        recent_cards = (
+            db.query(Flashcard)
+            .filter(*recent_filter)
+            .order_by(Flashcard.id.desc())
+            .limit(remaining)
+            .all()
+        )
+
+    cards = [(c, True) for c in lapsed_cards] + [(c, False) for c in recent_cards]
 
     items = []
-    for card in cards:
+    for card, is_lapsed in cards:
         text = card.word
         audio_path = card.audio_path
         if not audio_path:
@@ -265,6 +303,7 @@ async def get_read_aloud(user_id: int, count: int = 8, db: Session = Depends(get
                 "translation": card.translation,
                 "example_sentence": card.example_sentence,
                 "audio_path": audio_path,
+                "lapsed": is_lapsed,
             }
         )
     db.commit()

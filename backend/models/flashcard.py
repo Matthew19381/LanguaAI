@@ -22,6 +22,9 @@ class Flashcard(Base):
     lesson_topic = Column(String, nullable=True)
     gender = Column(String, nullable=True)  # der/die/das for German nouns
     isImportant = Column(Boolean, default=False)  # Flag for important words (e.g., key conjugations)
+    # ── SCI-13: keyword mnemonic for abstract/hard-to-visualize words (Atkinson 1975) ──
+    # Populated only for words the lesson generator judged abstract; most cards leave this null.
+    mnemonic = Column(Text, nullable=True)
     # ── FSRS Spaced Repetition ──
     difficulty = Column(Float, default=5.0)          # FSRS difficulty (0-10, lower=easier)
     stability = Column(Float, default=0.0)           # FSRS stability (days)

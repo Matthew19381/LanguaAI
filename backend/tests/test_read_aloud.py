@@ -70,3 +70,63 @@ def test_quickmode_plan_includes_read_aloud_activity(client, sample_user):
     ra = next(a for a in r.json()["activities"] if a["id"] == "read-aloud")
     assert ra["route"] == "/read-aloud"
     assert ra["estimated_minutes"] > 0
+
+
+# ── SCI-12: desirable difficulty — lapsed cards get a different modality ──
+
+def test_read_aloud_prioritizes_lapsed_cards(client, sample_user, db):
+    uid = sample_user["user_id"]
+    _seed_cards(db, uid, n=3)  # Wort0, Wort1, Wort2 — all "Learning" by default
+    lapsed = Flashcard(
+        user_id=uid, word="Verloren", translation="stracone",
+        language="German", cefr_level="A1", is_active=True, fsrs_state="Relearning",
+    )
+    db.add(lapsed)
+    db.commit()
+
+    r = client.get(f"/api/quickmode/read-aloud/{uid}?count=2")
+    assert r.status_code == 200
+    items = r.json()["items"]
+    assert len(items) == 2
+    # The lapsed card comes first and is flagged; the newest non-lapsed card fills the rest.
+    assert items[0]["word"] == "Verloren"
+    assert items[0]["lapsed"] is True
+    assert items[1]["word"] == "Wort2"
+    assert items[1]["lapsed"] is False
+
+
+def test_read_aloud_lapsed_cards_not_duplicated_in_recent_fill(client, sample_user, db):
+    uid = sample_user["user_id"]
+    lapsed = Flashcard(
+        user_id=uid, word="Verloren", translation="stracone",
+        language="German", cefr_level="A1", is_active=True, fsrs_state="Relearning",
+    )
+    db.add(lapsed)
+    db.commit()
+
+    r = client.get(f"/api/quickmode/read-aloud/{uid}?count=5")
+    words = [item["word"] for item in r.json()["items"]]
+    assert words.count("Verloren") == 1
+
+
+def test_read_aloud_no_lapsed_cards_behaves_as_before(client, sample_user, db):
+    uid = sample_user["user_id"]
+    _seed_cards(db, uid, n=3)
+    r = client.get(f"/api/quickmode/read-aloud/{uid}?count=3")
+    items = r.json()["items"]
+    assert all(item["lapsed"] is False for item in items)
+    assert items[0]["word"] == "Wort2"
+
+
+def test_quickmode_plan_boosts_read_aloud_priority_with_lapsed_cards(client, sample_user, db):
+    uid = sample_user["user_id"]
+    db.add(Flashcard(
+        user_id=uid, word="Verloren", translation="stracone",
+        language="German", cefr_level="A1", is_active=True, fsrs_state="Relearning",
+    ))
+    db.commit()
+
+    r = client.get(f"/api/quickmode/{uid}")
+    ra = next(a for a in r.json()["activities"] if a["id"] == "read-aloud")
+    assert ra["priority"] == 2
+    assert "trudności" in ra["description"]
