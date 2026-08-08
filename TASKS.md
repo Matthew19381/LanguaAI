@@ -1,6 +1,33 @@
 ﻿# TASKS – LinguaAI
 
-_Ostatnia aktualizacja: 2026-08-07_
+_Ostatnia aktualizacja: 2026-08-08_
+
+---
+
+## 🔧 Naprawa: TTS (edge-tts) zwracał 403 na każde żądanie audio (2026-08-08)
+
+**Objaw:** podczas weryfikacji na żywo w przeglądarce (po sesji audytowej
+2026-08-05…07) generowanie audio (PlayButton, offline-pack fiszek, read-aloud)
+sypało w logach `WARNING Audio attempt 1-3/3 failed: 403, message='Invalid
+response status'` przy każdej próbie — TTS był całkowicie martwy.
+
+**Przyczyna:** w środowisku (`py -3.11`, ten samo, którego używa `start.ps1`)
+zainstalowana była **`edge-tts==6.1.12`**, mimo że `backend/requirements.txt`
+i `pyproject.toml` od dawna deklarują `edge-tts>=7.0.2`. Microsoft okresowo
+zmienia protokół WebSocket używany przez tę (nieoficjalną) bibliotekę;
+starsze wersje przestają działać, aż ktoś zaktualizuje pakiet — dokładnie to
+się tu stało, environment po prostu nigdy nie dostał `pip install --upgrade`.
+
+**Naprawa:** `py -3.11 -m pip install --upgrade "edge-tts>=7.0.2"` → zainstalowano
+`7.2.8`. Nic w kodzie repo się nie zmieniło (deklaracja wersji już była
+poprawna) — to czysto lokalny dług środowiska, ale warto o nim wiedzieć, bo
+identyczny objaw wróci na każdej świeżej maszynie/venv, dopóki ktoś nie
+zainstaluje zależności z `requirements.txt` (nie ręcznie, pojedynczo).
+
+**Weryfikacja:** bezpośredni test `edge_tts.Communicate(...).stream()` → realne
+bajty audio; `POST /api/audio/tts` z zupełnie nową, nigdy niesyntezowaną
+frazą → plik `.mp3` wygenerowany na świeżo (potwierdzone znacznikiem czasu +
+rozmiarem), log `INFO Audio generated` bez żadnego `WARNING`/`ERROR`.
 
 ---
 
