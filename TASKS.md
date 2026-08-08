@@ -1,6 +1,285 @@
 ﻿# TASKS – LinguaAI
 
-_Ostatnia aktualizacja: 2026-07-27_
+_Ostatnia aktualizacja: 2026-08-07_
+
+---
+
+## 📄🔬 AUDYT DOKUMENTACJI + ZGODNOŚCI NAUKOWEJ (2026-08-07)
+
+_Polecenie: pełny audyt — przeczytać dokumenty i znaleźć co się mija z prawdą; sprawdzić
+zgodność z badaniami i co dodać/zmienić. Metoda: ręczne przeczytanie CLAUDE.md, README.md,
+docs/ARCHITECTURE.md, docs/API_FUNCTIONS.md, docs/NEURO_FEATURES.md, NEURO_PLAN.md,
+CHANGELOG.md, docs/BACKLOG_UX_2026-08.md + grep docs/PRODUCTION_AND_MOBILE.md i
+docs/deployment.md; osobny agent (zakończony) na regresję naukową + nowe propozycje._
+
+### 🔴 Dokumentacja — realne rozbieżności z kodem
+
+- [x] **DOC-2: CLAUDE.md ma błędny stack i dane w kilku miejscach jednocześnie
+      sprzeczne z README.md i docs/ARCHITECTURE.md w tym samym repo** ✅ 2026-08-07 —
+      sekcja Architecture przepisana: linkuje do `docs/ARCHITECTURE.md` jako źródła
+      prawdy zamiast duplikować tabelę routerów (10→ usunięta, zastąpiona odnośnikiem);
+      React 18/Router v6 → React 19/Router 7; „Google Gemini 2.0 Flash"/`gemini-2.0-flash`
+      w Key Numbers → opis tierowanego katalogu `model_router.py`; fallback
+      doprecyzowany jako opt-in (`fallback=`), nie uniwersalny.
+  - `CLAUDE.md:94` „React 18 · React Router v6" — `README.md:26` i
+    `docs/ARCHITECTURE.md:66` poprawnie mówią **React 19 · React Router 7**
+    (zgodne z `frontend/package.json`). CLAUDE.md jest tu jedynym błędnym źródłem.
+  - `CLAUDE.md:47,114` „Google Gemini 2.0 Flash" / „Gemini model: gemini-2.0-flash"
+    jako **jedyny** model — nieprawda od dawna: `model_router.py` ma katalog 17
+    zweryfikowanych modeli OpenRouter, dobór per zadanie/tier (`best`/`cheap`/`free`),
+    żadnego hardkodowanego `gemini-2.0-flash`.
+  - `CLAUDE.md:58` „Every function... has a hardcoded fallback" — tylko wywołania
+    z jawnym `fallback=` (np. `flashcards.py:445,450`) je mają; reszta
+    (`lesson_generator/*`, `news_service`, `youtube.py`) rzuca `ValueError`.
+  - `CLAUDE.md:75-88` tabela routerów: **10 wpisów**, realnie jest **20**
+    (`main.py` — 20× `include_router`). `docs/ARCHITECTURE.md §6` ma poprawną,
+    pełną tabelę 20 routerów — użyć jej jako źródła przy odświeżaniu CLAUDE.md.
+  - **Naprawa:** przepisać sekcję Architecture w CLAUDE.md, żeby *linkowała* do
+    `docs/ARCHITECTURE.md` jako źródła prawdy zamiast duplikować (i rozjeżdżać się z) jego treść.
+
+- [x] **DOC-3: `docs/API_FUNCTIONS.md:115` opisuje nieistniejącą funkcję** ✅ 2026-08-07 —
+      „**Settings**: zmiana języka/API key/**neuro-wag** → personalizacja."
+      Wszystkie trzy człony są nieprawdziwe: (1) `neuro_weights`/`neuro-wagi` zostały
+      **usunięte** (potwierdzone we własnym `docs/NEURO_FEATURES.md §3` — martwy kod,
+      nic go nie konsumowało), (2) zmiana klucza API nie ma żadnego endpointu (tylko
+      `.env`), (3) zmiana języka nauki żyje w innym miejscu (`updateUserLanguage`,
+      teraz na stronie `/settings`), nie w `routers/settings.py` (który robi tylko
+      tłumaczenia UI + Google Drive OAuth). Usunąć/przepisać tę linię.
+
+- [x] **DOC-4: `docs/NEURO_FEATURES.md` §1 i §4 nieaktualne mimo własnej instrukcji
+      „aktualizuj tabelę statusu po każdej zmianie"** ✅ 2026-08-07 — SCI-1…SCI-7
+      przeniesione do §1 jako ✅ Produkcja z odnośnikami do kodu; §4 przepisane tak,
+      by nie duplikować statusu (wskazuje na NEURO_PLAN.md/TASKS.md jako jedyne
+      źródło bieżącego backlogu). `NEURO_PLAN.md` §3: SCI-7 oznaczone ✅ zaimplementowane.
+      §6 „Fazy" przepisane — plan pierwotny zostawiony jako kontekst historyczny +
+      jawna notka o rzeczywistej kolejności wykonania. _(Update tego samego dnia:
+      SCI-8 pierwotnie oznaczone tu jako „🟡 częściowe" — po dokładniejszej weryfikacji
+      przy SCI-11 niżej okazało się w pełni zamknięte, nie częściowe; poprawione
+      wszędzie, w tym w `NEURO_PLAN.md`.)_
+
+- [x] **DOC-5: Nowa strona `/settings` (dodana 2026-08-06) nie była udokumentowana
+      nigdzie** ✅ 2026-08-07 — `docs/ARCHITECTURE.md §4`: „19 stron" → „20 stron",
+      dopisana notka o Settings.jsx i przeniesieniu przełącznika języka ze Stats.
+
+### 🟡 Drobne / kosmetyczne
+
+- [x] **DOC-6:** `docs/PRODUCTION_AND_MOBILE.md:5` otwierał dokument zdaniem „Fix
+      the current development blocker (missing `isImportant` column)" ✅ 2026-08-07 —
+      oznaczone jako rozwiązane (przekreślone w spisie + notatka „Status: resolved
+      long ago" w sekcji 1), treść zostawiona jako referencja wzorca migracji.
+- [x] **P0-1 z `docs/BACKLOG_UX_2026-08.md` już rozwiązane** — zweryfikowane
+      bezpośrednio (bez odczytu wartości): `ADMIN_API_KEY`, `AI_MODEL_TIER=best`,
+      `YOUTUBE_API_KEY`, `GEMINI_API_KEY` wszystkie ustawione w `backend/.env`.
+      Reszta tego backlogu (P1-1…P3-3) — sprawdzone git logiem, **wszystko
+      zaimplementowane** commitami 9667853…c6f478e (znaki specjalne, gramatyka,
+      recall diff, nawigacja, tryb jasny, wskazówki dnia) — dokument jest
+      historyczny i w pełni zamknięty, można go oznaczyć jako zarchiwizowany.
+
+### ✅ Zweryfikowane jako zgodne z prawdą (bez akcji)
+
+`docs/ARCHITECTURE.md` (aktualizacja 2026-07-27) jest dokładny i spójny z kodem
+niemal wszędzie — poprawny stack, poprawna tabela 20 routerów, poprawny opis
+fallbacku `generate_json`, poprawny status SCI-1…SCI-10, poprawny opis migracji
+Alembic (jawnie mówi że NIE jest auto-wywoływana przy starcie, zgodnie z SEC-3
+z audytu 2026-08-05). Traktować go jako źródło prawdy przy odświeżaniu innych
+dokumentów. `docs/deployment.md` i `docs/PRODUCTION_AND_MOBILE.md` (poza DOC-6)
+— brak śladu Ollamy, złych portów czy martwego `DEBUG=False` (usunięte D5/D6
+2026-07-24, nie wróciło).
+
+---
+
+### 🧠 Zgodność naukowa — kontrola regresji (agent, 2026-08-07)
+
+**Bez regresji.** SCI-1 (successive relearning), SCI-4 (semantic spacing),
+SCI-3 (lexical coverage/i+1), SCI-2 (pretesting), interleaved review, SCI-5
+(best study time — próg danych, nie sztywna godzina), SCI-6 (dyktando), SCI-7
+(production effect) — wszystkie zaimplementowane zgodnie z cytowanym źródłem,
+bez dryfu. `fsrs_service`/`achievement_service` — zero mnożników snu/nastroju/
+pory dnia; telemetria (`session_type`, `sleep_quality`, `interleaving_bonus`,
+`interference_penalty`) potwierdzona jako **tylko zapisywana**, nigdy nie
+czytana z powrotem do `apply_fsrs`. Tipy (`lesson_generator/tips.py`,
+`notifier.py:45-51`) — cytowania realne, zero sfabrykowanych procentów.
+Grep całego `backend/` po `neuro|cortisol|multiplier|loot|gesture_anchor|
+spatial_anchor|neuro_weights` — same legalne odniesienia telemetryczne/historyczne,
+**żaden antywzorzec nie wrócił**.
+
+### 📋 Nowe funkcje poparte badaniami — propozycje (nie duplikują SCI-9/SCI-10)
+
+- [x] **SCI-11 „Domknięcie SCI-8 dla fiszek i testu dnia"** ❌ **wycofane 2026-08-07
+      po weryfikacji kodu — propozycja była błędna.** Sprawdziłem bezpośrednio przed
+      implementacją: `DailyTest.jsx:391-405` **już** pokazuje Twoją odpowiedź +
+      poprawną (`err.correct_answer`) + regułę (`err.rule`); `Practice.jsx:344-348`
+      **już** pokazuje `expected_answer` + `feedback`; `Conversation.jsx:637`
+      **już** pokazuje `err.correct_answer || err.correction`. SCI-8 jest więc
+      w praktyce kompletne wszędzie poza samą fiszką. Dla fiszki brak jest **zamierzony,
+      nie luka**: przepływ Anki (przód → „Pokaż odpowiedź" → tył z tłumaczeniem →
+      dopiero wtedy ocena 1-4) już pokazuje poprawną odpowiedź *przed* oceną —
+      nie ma tu momentu „odpowiedziałem źle i nie wiem dlaczego", do którego
+      odnosi się Metcalfe (2017). Dodanie czegokolwiek tutaj byłoby duplikacją.
+      **Wniosek:** SCI-8 zamknięte, żadna dodatkowa zmiana kodu nie jest potrzebna.
+- [x] **SCI-12 Zróżnicowana modalność dla świeżo-polapsowanych fiszek** ✅
+      2026-08-07 — _Bjork & Bjork (2011)_ „desirable difficulties": powtarzanie
+      identycznego formatu (flip-and-rate) po porażce to niska jakość trudności;
+      zmiana modalności (usłysz + powiedz na głos) wymusza świeży szlak
+      wydobycia dla tej samej treści.
+      - `backend/routers/quickmode.py` `get_read_aloud`: karty w stanie FSRS
+        `"Relearning"` (czyli świeżo ocenione „Again") mają teraz pierwszeństwo
+        w talii read-aloud (sortowane po `next_review_date`), reszta miejsc
+        dobierana jak wcześniej (najnowsze aktywne fiszki), bez duplikatów.
+        Każdy element odpowiedzi ma nowe pole `lapsed: bool`.
+      - `get_quickmode_plan`: aktywność „Powtórz na głos" dostaje wyższy
+        priorytet (2 zamiast 3) i inny opis, gdy istnieją karty w Relearning —
+        widoczność bez czekania na wejście w Quick Mode.
+      - `frontend/src/pages/ReadAloud.jsx`: mały bursztynowy badge „Ostatnio Ci
+        to nie poszło — spróbuj innym sposobem: na głos" gdy `current.lapsed`.
+      - Testy: `backend/tests/test_read_aloud.py` (+4: priorytet lapsed, brak
+        duplikatów, zachowanie bez lapsed = jak wcześniej, boost priorytetu w
+        planie) + nowy `frontend/src/pages/__tests__/ReadAloud.test.jsx` (2,
+        pierwszy plik testowy dla tej strony — wcześniej 0 pokrycia).
+      - **Uwaga techniczna:** pierwsza wersja filtra SQL używała gołego Python
+        `True` jako warunku `.filter()` (`Flashcard.id.notin_(...) if lapsed_ids
+        else True`) — złapane i poprawione na warunkowe budowanie listy filtrów
+        przed uruchomieniem testów, żeby uniknąć niejawnego błędu SQLAlchemy.
+      - **Weryfikacja:** backend 467 passed (+4, te same 3 nieszkodliwe błędy
+        `pywebpush`), frontend 79 passed (+2), lint 0 błędów. Zero kosztu AI —
+        czysta logika SQL/UI, bez wywołań modelu.
+- [x] **SCI-13 Metoda słowa-klucza (mnemotechnika) dla słów abstrakcyjnych** ✅
+      2026-08-07 — _Atkinson (1975)_: keyword method poprawia zapamiętywanie
+      abstrakcyjnego słownictwa L2 ponad zwykłe tłumaczenie. Pole `mnemonic`
+      generowane tylko dla słów, które model oceni jako abstrakcyjne — prompt
+      jawnie zabrania wymyślać je dla każdego słowa (kontrola kosztu/szumu).
+      - `backend/models/flashcard.py` + `main.py` (ALTER TABLE): nowa nullable
+        kolumna `mnemonic` — ten sam lekki wzorzec migracji co reszta kolumn
+        FSRS/SCI w tym repo (bez ruszania Alembica, zgodnie z ustaloną konwencją).
+      - `daily_lesson.py`: prompt słownictwa rozszerzony; nowa funkcja
+        `_sanitize_vocabulary_mnemonics()` (wydzielona z inline kodu dla
+        testowalności, wzorem `_sanitize_pretest`/`_sanitize_grammar_elaboration`)
+        czyści białe znaki i normalizuje brak/pustkę do `""`.
+      - `flashcard_service.create_flashcards_from_vocab`: zapisuje `mnemonic`
+        na fiszce (`None`, gdy puste).
+      - `routers/flashcards.py`: `mnemonic` dodane do odpowiedzi `get_flashcards`,
+        `get_due_flashcards`, `get_flashcards_offline_pack`.
+      - **Znaleziony przy okazji, prawdziwy istniejący bug:** `get_due_flashcards`
+        (zasila DOMYŚLNĄ zakładkę „Do powtórki") nigdy nie zwracał `gender` ani
+        `isImportant` — odznaka rodzajnika i podświetlenie ważnych słów były
+        martwe na tym ekranie od dawna, bo `Flashcards.jsx` czyta `currentCard`
+        z `dueCards`, nie `allCards`. Naprawione przy tej samej okazji (ten sam
+        endpoint, ten sam commit).
+      - `frontend/src/pages/Flashcards.jsx`: mały bursztynowy „💡 {mnemonic}"
+        pod przykładowym zdaniem na tyle karty — jedyna zmiana w tym pliku,
+        nic w logice oceniania/FSRS nie ruszone.
+      - Testy: `backend/tests/test_mnemonic.py` (10: sanitizer + persystencja +
+        3 endpointy) + nowy `frontend/.../Flashcards.test.jsx` (2, pierwszy plik
+        testowy dla tej strony — wcześniej 0% pokrycia).
+      - **Ważna korekta podczas pisania testu frontendowego:** pierwsza wersja
+        zakładała, że tył karty jest niewidoczny w DOM przed kliknięciem —
+        nieprawda, front i tył są zamontowane jednocześnie (flip czysto przez
+        CSS `flipped`, nie warunkowe renderowanie). Test poprawiony, żeby
+        sprawdzać obecność tekstu w dokumencie, nie „widoczność po kliku".
+      - **Weryfikacja:** backend 477 passed (+10, te same 3 nieszkodliwe błędy
+        `pywebpush`), frontend 81 passed (+2), lint 0 błędów. Zero kosztu AI.
+- [x] **SCI-14 Elaboracyjne „dlaczego" przy gramatyce** ✅ 2026-08-07 — _Pressley
+      et al. (1987)_: samodzielne wygenerowanie wyjaśnienia „dlaczego to działa"
+      przed poznaniem odpowiedzi pogłębia przetwarzanie bardziej niż samo przeczytanie
+      reguły. Ungraded, wzorem `PretestCard` (odkryj po swojej próbie, bez oceny).
+      - `backend/services/lesson_generator/daily_lesson.py`: prompt gramatyki
+        rozszerzony o `elaboration_prompt`/`elaboration_answer`; nowa funkcja
+        `_sanitize_grammar_elaboration()` (usuwa oba pola, jeśli któreś puste —
+        karta wtedy po prostu się nie renderuje, zero connected pół-wypełnionych);
+        fallback też ma przykładowe pola (degradacja przy błędzie AI nie gubi funkcji).
+      - `frontend/src/pages/DailyLesson.jsx`: nowy komponent `ElaborationCard` w
+        sekcji gramatyki — pytanie „dlaczego", opcjonalne pole na własną próbę
+        (tylko lokalny stan, nic nie wysyła na serwer), przycisk „Pokaż wyjaśnienie".
+        Renderuje się warunkowo (`grammar.elaboration_prompt && grammar.elaboration_answer`),
+        więc stare, zbuforowane lekcje sprzed tej zmiany nie pokazują pustej karty.
+      - `frontend/src/i18n/translations.js`: klucze `lesson.elaboration*` (PL+EN).
+      - Testy: `backend/tests/test_grammar_elaboration.py` (7, sanitizer) +
+        2 nowe w `DailyLesson.test.jsx` (renderowanie pytania, reveal po kliku,
+        **oraz że karta znika, gdy pól brak** — zero kosztu AI, w pełni mockowane).
+      - **Weryfikacja:** backend 463 passed (+7, te same 3 nieszkodliwe błędy
+        `pywebpush` co wcześniej — brak modułu w tym środowisku, niezwiązane),
+        frontend 77 passed (+2), `npm run lint` 0 błędów (te same 50 wcześniejszych
+        ostrzeżeń, zero nowych). Nie odpalono żywej generacji AI (koszt) — cała
+        weryfikacja przez zmockowane testy renderujące realne drzewo komponentów.
+
+---
+
+## 🔒 AUDYT BEZPIECZEŃSTWA I JAKOŚCI (2026-08-05)
+
+_Polecenie: audyt całego projektu (backend + frontend + higiena gita). Metoda: 2 agenty
+równoległe (backend, frontend) + ręczna weryfikacja najważniejszych ustaleń przez czytanie
+kodu źródłowego. **Audyt read-only — nic nie naprawiono w tym przebiegu**, tylko potwierdzono._
+
+### 🔴 Krytyczne / wysokie
+
+- [x] **SEC-1: Stored XSS przez `dangerouslySetInnerHTML`** ✅ 2026-08-05 —
+      `frontend/src/pages/Flashcards.jsx:556` i `frontend/src/pages/TopicsPage.jsx:165`.
+      Funkcja `highlightWordInSentence` escapowała do regexu tylko szukane `word` — całe
+      zdanie (`example_sentence`/`example`, generowane przez Gemini, częściowo na bazie
+      zewnętrznych newsów RSS z `news.py`) nigdy nie było HTML-escapowane przed
+      wstrzyknięciem do `__html`. **Naprawa:** dodano `escapeHtml()` w obu plikach —
+      `sentence` i `word` są HTML-escapowane przed budową regexu/znacznika `<mark>`.
+      Zweryfikowane skryptem Node: `<img onerror=...>` renderuje się teraz jako tekst
+      (`&lt;img ...&gt;`), a prawdziwe słowo nadal poprawnie podświetlone.
+- [x] **SEC-2: Path traversal w `POST /api/admin/restore`** ✅ 2026-08-05 —
+      `backend/routers/admin.py:69-75`. `backup_filename` (surowy string z query) był
+      sklejany bezpośrednio z `BACKUP_DIR`. **Naprawa:** `Path(backup_filename).name`
+      przed sklejeniem (odrzuca separatory ścieżki/`..`). `backend/tests/test_backup_service.py`
+      — 25 passed po zmianie.
+
+### 🟡 Do uporządkowania
+
+- [ ] **SEC-3: Trzy równoległe mechanizmy migracji DB** — `backend/alembic/` (skonfigurowany
+      2026-07-25, ale nigdzie nie wywoływany), ad-hoc `ALTER TABLE` w `main.py:59-108` (błędy
+      połykane cicho), osobny `backend/migrations/add_isimportant_to_flashcard.sql`. Ryzyko
+      rozjazdu schematu — wybrać jeden mechanizm (brakuje tylko wpięcia `alembic upgrade head`
+      w start, patrz sekcja „Przygotowanie do wdrożenia w chmurze" niżej).
+- [ ] **DOC-1: CLAUDE.md nieaktualne** — lista routerów dokumentuje 10, realnie jest 19
+      (brakuje m.in. `admin.py`, `auth.py`, `exercises.py`, `topics.py`, `voice_chat.py`,
+      `youtube.py`, `settings.py`); stack frontendu opisany jako „React 18", realnie
+      `react@^19.2.4` + `react-router-dom@^7`; twierdzenie że każda funkcja Gemini ma
+      „hardcoded fallback" nieprawdziwe — tylko wywołania z jawnym `fallback=`
+      (np. `flashcards.py:445,450`) je mają, reszta (`lesson_generator/*`, `news_service`,
+      `youtube.py`) rzuca `ValueError` przy błędzie parsowania JSON zamiast degradować się.
+- [x] **CLEAN-1: Zabłąkany plik** ✅ 2026-08-05 — `frontend/src/i18n/lingua_ai.db` (0 B,
+      przypadkowy artefakt, nieśledzony w gicie) usunięty z dysku.
+- [x] **GIT-1: Niezacommitowana zmiana w `frontend/index.html`** ✅ 2026-08-05 — usunięto
+      diagnostyczny banner (`DIAG-BANNER`/`DIAG-7788`), zweryfikowane że strona nadal
+      renderuje się poprawnie po usunięciu.
+- [x] **BUG-5: `GET /` na porcie 8001 zwracał 500** ✅ 2026-08-05 (znaleziony przy
+      uruchamianiu apki, nie w audycie) — `backend/main.py:315` sprawdzał istnienie
+      katalogu `frontend-simple/`, ale katalog istniał pusty (bez `index.html`), więc
+      `FileResponse` rzucał `RuntimeError`. **Naprawa:** warunek sprawdza teraz istnienie
+      `frontend-simple/index.html`, nie samego katalogu — `/` zwraca czyste `404` gdy
+      statyczny frontend nie jest zbudowany. Nie wpływa na normalny przepływ (frontend
+      dev server na :5173 nigdy nie odpytuje `/` na :8001 bezpośrednio).
+
+### 🟢 Pokrycie testami — luki
+
+- [ ] Backend bez testów: `routers/admin.py` (najważniejsze, patrz SEC-2),
+      `services/audio_service.py`, `services/analytics_service.py`,
+      `services/flashcard_service.py`, `services/google_drive_service.py`,
+      `services/obsidian_service.py`, `services/streak_service.py`,
+      `services/sync_service.py`, `services/topic_service.py`.
+- [ ] Frontend: 16/20 stron bez testu jednostkowego (w tym obie strony z SEC-1: Flashcards,
+      TopicsPage) — `Conversation`, `DailyTest`, `Dictation`, `ErrorReview`, `Flashcards`,
+      `LessonHistory`, `LoginAs`, `News`, `Practice`, `Profile`, `PronunciationTrainer`,
+      `QuickMode`, `ReadAloud`, `Stats`, `TopicsPage`, `Videos`. (E2E Playwright w
+      `frontend/e2e/*.spec.js`, w tym `security.spec.js`, częściowo łata tę lukę na poziomie
+      przepływów — ale nie na poziomie jednostkowym tych komponentów.)
+
+### ✅ Zweryfikowane jako OK (bez akcji)
+
+CORS (jawna allowlista, nie `*`), brak SQL injection, brak hardkodowanych sekretów,
+`ErrorBoundary` poprawnie owinięty (app-wide + per-route), ESLint 9 flat config działa,
+offline/sync (`outboxDB`/`offlineQueue`) solidny z retry/dead-letter, VAPID exposuje tylko
+klucz publiczny, `.gitignore` poprawny (`.db`/`.env`/audio/exports nieśledzone w gicie).
+
+### Proponowana kolejność napraw
+1. **SEC-1 + SEC-2** — najtańsze i najważniejsze: HTML-escape w highlight, `.name` w admin restore.
+2. **GIT-1 + CLEAN-1** — trywialne sprzątanie przed kolejnym push.
+3. **DOC-1** — odświeżyć CLAUDE.md (lista routerów, wersje React, prawdziwy zakres fallbacków).
+4. **SEC-3** — wpiąć `alembic upgrade head` i usunąć ad-hoc migracje z `main.py`.
 
 ---
 
@@ -406,9 +685,14 @@ Wszystkie funkcje z audytu spójności naukowej zaimplementowane, przetestowane 
 
 ## 📦 Backlog (do zrobienia)
 
-- [ ] **Unicode/npm permanent fix** – zmiana nazwy katalogu projektu na ścieżkę bez znaków Unicode (np. `G:\\Projects\\LinguaAI`) lub migracja do WSL2, aby umożliwić pełny przepływ Docker/dev  
+- [x] **Unicode/npm permanent fix** ✅ rozwiązane — projekt przeniesiony na
+      `C:\Projects\LinguaAI` (ASCII, poza chmurą synchronizowaną), patrz CLAUDE.md
+      „Lokalizacja i backup". Cold build wrócił do ~2s.
 - [ ] **Docker frontend** – zbudować gotowy kontener frontendu (nginx) i zintegrować z docker‑compose (obecnie tylko backend w Dockerze)  
-- [ ] **Testy.exe** – stworzyć zautomatyzowany zestaw testów: pytest (backend API) + Playwright/Cypress (testy UI smoke)  
+- [x] **Testy.exe** ✅ rozwiązane — `pytest` (backend, setki testów w `backend/tests/`) +
+      `vitest` (frontend, `frontend/src/**/__tests__/`) + Playwright e2e smoke
+      (`frontend/e2e/*.spec.js`: basic, navigation, auth, placement, lessons, full-flow,
+      api-smoke, edge-cases, security).
 - [ ] **Dokumentacja użytkownika** – przewodnik „Rozpoczęcie” ze zrzutami ekranu, FAQ (PDF/HTML)  
 
 ---
@@ -416,9 +700,11 @@ Wszystkie funkcje z audytu spójności naukowej zaimplementowane, przetestowane 
 ## ⚪️ Otwarte decyzje / wymagające ustalenia
 
 - [ ] **Finalny wybór architektury** – pełna dockerizacja całego stacku vs. lokalne uruchamianie (backend+frontend z różnych ścieżek)  
-- [ ] **Ścieżki projektu** – zmiana nazwy katalogu na ASCII (np. `C:\\LinguaAI` lub `G:\\Projects\\LinguaAI`) – rozwiązanie błędu npm Unicode  
-- [ ] **Backup DB** – automatyzacja i lokalizacja kopii zapasowych (chmura? lokalny NAS?)  
-- [ ] **Framework testów** – wybór (zalecane: pytest + Playwright)  
+- [x] **Ścieżki projektu** ✅ rozwiązane — kanoniczna ścieżka to `C:\Projects\LinguaAI` (ASCII, poza Google Drive), ustalone w CLAUDE.md.
+- [x] **Backup DB** ✅ rozwiązane — `backend/scripts/backup_to_cloud.ps1` kopiuje `lingua_ai.db`
+      do `C:\GoogleDriveSync\LinguaAI-backup\` codziennie o 20:00 przez zadanie
+      `LinguaAI-DB-Backup` w Harmonogramie zadań (rejestracja w CLAUDE.md).
+- [x] **Framework testów** ✅ rozwiązane — pytest (backend) + vitest (frontend) + Playwright (e2e), jak wyżej.
 - [ ] **Format dokumentacji** – PDF vs online README oraz poziom szczegółowości  
 
 ## 🔍 Audyt logiczny systemu (2026-07-12)
