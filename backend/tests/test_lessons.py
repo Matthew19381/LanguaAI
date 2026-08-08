@@ -176,3 +176,54 @@ def test_today_lesson_returns_existing(client, sample_user, db):
     assert r.status_code == 200
     # "Test Lesson" means the cached lesson was served; "AI Generated" means it wasn't found
     assert r.json()["title"] == "Test Lesson"
+
+
+async def test_today_lesson_concurrent_requests_both_succeed(sample_user, db):
+    """Regression test: two simultaneous requests for the same not-yet-generated
+    lesson must BOTH succeed with the SAME lesson, not 500.
+
+    Found live (2026-08-09): the loser of the race hit the UNIQUE constraint on
+    (user_id, language, day_number), correctly entered the `except IntegrityError`
+    recovery block, but that block looked up the winner's row by
+    `date(created_at) == today` instead of by the exact constraint key
+    (day_number) — that lookup could miss the just-committed row, falling
+    through to `raise` and surfacing as an unhandled 500 to the client.
+    """
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+
+    from fastapi import BackgroundTasks
+
+    from backend.models.study_plan import StudyPlan
+    from backend.routers.lessons import get_today_lesson
+    from backend.tests.conftest import TestingSessionLocal
+
+    uid = sample_user["user_id"]
+    db.add(StudyPlan(
+        user_id=uid, language="German", cefr_level="A1",
+        plan_data=json.dumps({"weeks": []}), is_active=True,
+    ))
+    db.commit()
+
+    # A mock that returns instantly wouldn't reliably interleave the two
+    # coroutines (asyncio only switches tasks at an actual await point) — a
+    # tiny sleep forces both calls past the "does today's lesson exist yet?"
+    # check before either one commits its insert, reproducing the race.
+    async def slow_generate(*args, **kwargs):
+        await asyncio.sleep(0.05)
+        return MOCK_LESSON_DATA
+
+    async def call():
+        session = TestingSessionLocal()
+        try:
+            with patch("backend.routers.lessons.generate_daily_lesson",
+                       new=AsyncMock(side_effect=slow_generate)):
+                return await get_today_lesson(
+                    user_id=uid, background_tasks=BackgroundTasks(), db=session
+                )
+        finally:
+            session.close()
+
+    results = await asyncio.gather(call(), call())
+    lesson_ids = {r["lesson_id"] for r in results}
+    assert len(lesson_ids) == 1, f"expected both requests to agree on one lesson, got {results}"

@@ -1,6 +1,53 @@
 ﻿# TASKS – LinguaAI
 
-_Ostatnia aktualizacja: 2026-08-08_
+_Ostatnia aktualizacja: 2026-08-09_
+
+---
+
+## 🔴 Naprawa: `/api/lessons/today` — 500 przy równoczesnych żądaniach (2026-08-09)
+
+**Zgłoszone przez użytkownika na żywo:** lekcja "prawie się załadowała" i
+wyskoczył `Request failed with status code 500` na `/lesson`.
+
+**Przyczyna (odtworzona deterministycznie, poza HTTP i przez pełny stos HTTP):**
+React w trybie dev podwójnie odpala efekty (potwierdzone live w Network:
+`GET /api/lessons/today/3` wywołane dwukrotnie) — gdy lekcji na dziś jeszcze
+nie ma, oba żądania widzą "brak lekcji", oba generują treść przez AI (kilka
+sekund), oba próbują wstawić wiersz z tym samym `(user_id, language,
+day_number)`. Przegrany trafia na `UNIQUE constraint failed` — **to było
+zamierzone i miało istniejący blok odzyskiwania** (`except IntegrityError`).
+Realny bug: blok odzyskiwania szukał zwycięskiego wiersza po
+`date(created_at) == dzisiaj`, a nie po `day_number` (czyli dokładnie tym
+polu z ograniczenia UNIQUE) — ta wyszukiwanie potrafiło nie znaleźć
+świeżo zacommitowanego wiersza, blok kończył się gołym `raise`, ponownie
+podnosząc oryginalny `IntegrityError` jako niezłapany 500.
+
+**Diagnoza — dla porządku, bo była myląca:** najpierw wyglądało, jakby
+`except IntegrityError:` w ogóle nie łapał wyjątku (traceback kończył się
+czysto na `db.commit()`, bez śladu wejścia w except). Tymczasowa sonda
+(`logger.warning` w except) pokazała, że blok **jest** wchodzony — tylko
+że zapytanie odzyskujące nic nie znajdowało i kod sam ponownie podnosił
+oryginalny wyjątek przez `raise` na końcu bloku. Stąd traceback wyglądał
+identycznie jak przy braku obsługi.
+
+**Naprawa (`backend/routers/lessons.py`):** zapytanie odzyskujące filtruje
+teraz po `Lesson.day_number == day_number` zamiast po dacie utworzenia.
+
+**Weryfikacja:**
+- Bezpośrednio (bez HTTP, `asyncio.gather` na dwóch wywołaniach funkcji) — oba
+  zwracają ten sam `lesson_id`.
+- Przez pełny stos HTTP/ASGI/middleware — 3 równoczesne żądania curl, wszystkie
+  200, wszystkie ten sam `lesson_id`.
+- Nowy test regresyjny `test_today_lesson_concurrent_requests_both_succeed`
+  (`backend/tests/test_lessons.py`) — **zweryfikowany jako realna ochrona**:
+  cofnięty fix → test faktycznie failuje z tym samym `IntegrityError`;
+  przywrócony fix → przechodzi. (Pierwsza wersja testu z natychmiastowym
+  mockiem AI fałszywie przechodziła nawet bez poprawki — poprawiona na mock
+  z `await asyncio.sleep(0.05)`, żeby wymusić realny przeplot.)
+- Pełna suita: backend 478/481 passed (3 nieszkodliwe, niepowiązane błędy
+  `pywebpush` — brak modułu w tym środowisku, znane od 2026-08-08).
+- Na żywo w przeglądarce: `/lesson` ładuje się czysto, Network pokazuje
+  podwójne wywołanie `GET /api/lessons/today/3` (React StrictMode) i oba 200.
 
 ---
 

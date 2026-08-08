@@ -196,13 +196,17 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
         db.commit()
         db.refresh(lesson)
     except IntegrityError:
-        # Another concurrent request already created this lesson — rollback and use existing
+        # Another concurrent request already created this lesson — rollback and use existing.
+        # Recover by the EXACT unique-constraint key (user_id, language, day_number), not by
+        # creation date: querying by "created today" can miss the row the other request just
+        # committed (observed live — two concurrent requests both generating day N, one wins
+        # the insert, the other's recovery query found nothing and re-raised the original
+        # IntegrityError as a 500 instead of returning the winner's lesson).
         db.rollback()
-        from sqlalchemy import func as _func
         existing_lesson = db.query(Lesson).filter(
             Lesson.user_id == user_id,
             Lesson.language == user.target_language,
-            _func.date(Lesson.created_at) == date.today()
+            Lesson.day_number == day_number,
         ).first()
         if existing_lesson:
             content = json.loads(existing_lesson.content)
