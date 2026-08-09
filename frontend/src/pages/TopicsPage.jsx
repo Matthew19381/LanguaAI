@@ -27,24 +27,26 @@ const CATEGORY_LABELS = {
   other: 'Inne',
 };
 
+// Same dark:X-900/light:X-100 pairing as the app-wide .badge-* classes in
+// index.css — there just isn't a pre-made variant for all 10 categories.
 const CATEGORY_COLORS = {
-  grammar: 'bg-blue-100 text-blue-800 border-blue-200',
-  vocabulary: 'bg-green-100 text-green-800 border-green-200',
-  pronunciation: 'bg-purple-100 text-purple-800 border-purple-200',
-  listening: 'bg-orange-100 text-orange-800 border-orange-200',
-  reading: 'bg-teal-100 text-teal-800 border-teal-200',
-  writing: 'bg-pink-100 text-pink-800 border-pink-200',
-  speaking: 'bg-red-100 text-red-800 border-red-200',
-  culture: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  idioms: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-  other: 'bg-gray-100 text-gray-800 border-gray-200',
+  grammar: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30',
+  vocabulary: 'bg-green-100 text-green-800 border-green-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30',
+  pronunciation: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/30',
+  listening: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/30',
+  reading: 'bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-500/20 dark:text-teal-300 dark:border-teal-500/30',
+  writing: 'bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-500/20 dark:text-pink-300 dark:border-pink-500/30',
+  speaking: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30',
+  culture: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-300 dark:border-yellow-500/30',
+  idioms: 'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30',
+  other: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600',
 };
 
 // ── German gender colors ──────────────────────────────────────────────────
 const GENDER_COLORS = {
-  der: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', label: 'm.' },
-  die: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300', label: 'f.' },
-  das: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', label: 'n.' },
+  der: { bg: 'bg-blue-100 dark:bg-blue-500/20', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-300 dark:border-blue-500/30', label: 'm.' },
+  die: { bg: 'bg-red-100 dark:bg-red-500/20', text: 'text-red-700 dark:text-red-300', border: 'border-red-300 dark:border-red-500/30', label: 'f.' },
+  das: { bg: 'bg-green-100 dark:bg-emerald-500/20', text: 'text-green-700 dark:text-emerald-300', border: 'border-green-300 dark:border-emerald-500/30', label: 'n.' },
 };
 
 function GenderBadge({ gender }) {
@@ -111,7 +113,7 @@ function MemoryBar({ strength, size = 'md' }) {
   const h = size === 'sm' ? 'h-1.5' : size === 'lg' ? 'h-3' : 'h-2';
 
   return (
-    <div className={`w-full ${h} bg-gray-200 rounded-full overflow-hidden`}>
+    <div className={`w-full ${h} dark:bg-gray-700 bg-gray-200 rounded-full overflow-hidden`}>
       <div
         className={`${h} ${color} rounded-full transition-all duration-500`}
         style={{ width: `${pct}%` }}
@@ -152,7 +154,9 @@ function FlashcardPreview({ fc, index, onToggle, selected }) {
   return (
     <div
       className={`border rounded-lg p-3 cursor-pointer transition-all ${
-        selected ? 'border-indigo-400 bg-indigo-50/50' : 'border-gray-200 hover:border-gray-300'
+        selected
+          ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20'
+          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
       }`}
       onClick={() => onToggle(index)}
     >
@@ -167,12 +171,12 @@ function FlashcardPreview({ fc, index, onToggle, selected }) {
           <div className="flex items-center gap-1.5 flex-wrap">
             <GenderBadge gender={fc.gender} />
             <span className="font-semibold text-sm">{fc.word}</span>
-            <span className="text-gray-400">—</span>
-            <span className="text-sm text-gray-600">{fc.translation}</span>
+            <span className="text-gray-400 dark:text-gray-500">—</span>
+            <span className="text-sm text-gray-600 dark:text-gray-300">{fc.translation}</span>
           </div>
           {fc.example && (
             <p
-              className="text-xs text-gray-500 mt-1 italic"
+              className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic"
               dangerouslySetInnerHTML={{ __html: highlightWordInSentence(fc.example, fc.word, fc.gender, fc.isImportant) }}
             />
           )}
@@ -282,25 +286,25 @@ function TopicDetail({ topicId, onClose }) {
   };
 
   if (loading) return <div className="p-4 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
-  if (!detail) return <div className="p-4 text-center text-gray-500">Nie znaleziono tematu</div>;
+  if (!detail) return <div className="p-4 text-center text-gray-500 dark:text-gray-400">Nie znaleziono tematu</div>;
 
   const { topic, items } = detail;
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border p-4 mt-2">
+    <div className="dark:bg-gray-900 bg-white rounded-xl shadow-lg border dark:border-gray-800 border-gray-200 p-4 mt-2">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-bold">{topic.name}</h3>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-xl">&times;</button>
       </div>
 
       {topic.description && (
-        <p className="text-sm text-gray-600 mb-3">{topic.description}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{topic.description}</p>
       )}
 
       {/* Memory strength */}
       <div className="mb-3">
         <div className="flex items-center justify-between text-sm mb-1">
-          <span className="text-gray-500">Siła zapamiętania</span>
+          <span className="text-gray-500 dark:text-gray-400">Siła zapamiętania</span>
           <span className="font-semibold">{Math.round(topic.memory_strength * 100)}%</span>
         </div>
         <MemoryBar strength={topic.memory_strength} size="lg" />
@@ -308,20 +312,20 @@ function TopicDetail({ topicId, onClose }) {
 
       {/* FSRS stats */}
       <div className="grid grid-cols-4 gap-2 mb-3 text-center">
-        <div className="bg-gray-50 rounded-lg p-2">
-          <div className="text-xs text-gray-500">Powtórki</div>
+        <div className="dark:bg-gray-800 bg-gray-50 rounded-lg p-2">
+          <div className="text-xs text-gray-500 dark:text-gray-400">Powtórki</div>
           <div className="font-bold">{topic.repetitions}</div>
         </div>
-        <div className="bg-gray-50 rounded-lg p-2">
-          <div className="text-xs text-gray-500">Interwał</div>
+        <div className="dark:bg-gray-800 bg-gray-50 rounded-lg p-2">
+          <div className="text-xs text-gray-500 dark:text-gray-400">Interwał</div>
           <div className="font-bold">{topic.interval}d</div>
         </div>
-        <div className="bg-gray-50 rounded-lg p-2">
-          <div className="text-xs text-gray-500">Trudność</div>
+        <div className="dark:bg-gray-800 bg-gray-50 rounded-lg p-2">
+          <div className="text-xs text-gray-500 dark:text-gray-400">Trudność</div>
           <div className="font-bold">{topic.difficulty?.toFixed(1)}</div>
         </div>
-        <div className="bg-gray-50 rounded-lg p-2">
-          <div className="text-xs text-gray-500">Stabilność</div>
+        <div className="dark:bg-gray-800 bg-gray-50 rounded-lg p-2">
+          <div className="text-xs text-gray-500 dark:text-gray-400">Stabilność</div>
           <div className="font-bold">{topic.stability?.toFixed(0)}d</div>
         </div>
       </div>
@@ -329,7 +333,7 @@ function TopicDetail({ topicId, onClose }) {
       {/* Review buttons */}
       {topic.is_due && (
         <div className="mb-3">
-          <div className="text-sm font-medium text-orange-600 mb-1 flex items-center gap-1">
+          <div className="text-sm font-medium text-orange-600 dark:text-orange-400 mb-1 flex items-center gap-1">
             <AlertCircle size={14} /> Do powtórki!
           </div>
           <ReviewButtons onReview={handleReview} reviewing={reviewing} />
@@ -337,16 +341,16 @@ function TopicDetail({ topicId, onClose }) {
       )}
 
       {!topic.is_due && topic.next_review && (
-        <div className="text-sm text-gray-500 mb-3 flex items-center gap-1">
+        <div className="text-sm text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-1">
           <Clock size={14} /> Następna powtórka: {new Date(topic.next_review).toLocaleDateString('pl-PL')}
         </div>
       )}
 
       {/* ── Flashcard generation section ── */}
-      <div className="border-t pt-3 mb-3">
+      <div className="border-t dark:border-gray-800 border-gray-200 pt-3 mb-3">
         <button
           onClick={() => setShowFcPanel(!showFcPanel)}
-          className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+          className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
         >
           {showFcPanel ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           Wygeneruj fiszki
@@ -356,11 +360,11 @@ function TopicDetail({ topicId, onClose }) {
           <div className="mt-3 space-y-3">
             {/* Count selector */}
             <div className="flex items-center gap-3">
-              <label className="text-sm text-gray-600">Liczba fiszek:</label>
+              <label className="text-sm text-gray-600 dark:text-gray-300">Liczba fiszek:</label>
               <select
                 value={fcCount}
                 onChange={e => setFcCount(Number(e.target.value))}
-                className="border rounded-lg px-2 py-1 text-sm"
+                className="border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2 py-1 text-sm"
               >
                 {[5, 10, 15, 20, 25, 30].map(n => (
                   <option key={n} value={n}>{n}</option>
@@ -384,7 +388,7 @@ function TopicDetail({ topicId, onClose }) {
 
             {/* Error */}
             {fcError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-600">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 text-sm text-red-600 dark:text-red-400">
                 {fcError}
               </div>
             )}
@@ -393,12 +397,12 @@ function TopicDetail({ topicId, onClose }) {
             {fcPreview && fcPreview.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Podgląd ({fcPreview.length} fiszek)
                   </span>
                   <button
                     onClick={handleSelectAll}
-                    className="text-xs text-indigo-600 hover:underline"
+                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
                   >
                     Zaznacz/odznacz wszystkie
                   </button>
@@ -425,28 +429,28 @@ function TopicDetail({ topicId, onClose }) {
             )}
 
             {fcPreview && fcPreview.length === 0 && !fcLoading && (
-              <p className="text-sm text-gray-500">Brak fiszek do wygenerowania.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Brak fiszek do wygenerowania.</p>
             )}
           </div>
         )}
       </div>
 
       {/* Items list */}
-      <div className="border-t pt-3">
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">
+      <div className="border-t dark:border-gray-800 border-gray-200 pt-3">
+        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
           Materiały ({items.length})
         </h4>
         {items.length === 0 ? (
-          <p className="text-sm text-gray-400">Brak materiałów</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">Brak materiałów</p>
         ) : (
           <div className="space-y-1 max-h-48 overflow-y-auto">
             {items.map(item => (
-              <div key={item.id} className="flex items-center justify-between text-sm py-1 px-2 rounded hover:bg-gray-50">
+              <div key={item.id} className="flex items-center justify-between text-sm py-1 px-2 rounded dark:hover:bg-gray-800 hover:bg-gray-50">
                 <div className="flex items-center gap-2">
                   <span className={`text-xs px-1.5 py-0.5 rounded ${
-                    item.type === 'lesson' ? 'bg-blue-100 text-blue-700' :
-                    item.type === 'test' ? 'bg-purple-100 text-purple-700' :
-                    'bg-gray-100 text-gray-700'
+                    item.type === 'lesson' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' :
+                    item.type === 'test' ? 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300' :
+                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                   }`}>
                     {item.type === 'lesson' ? 'Lekcja' :
                      item.type === 'test' ? 'Test' :
@@ -457,15 +461,15 @@ function TopicDetail({ topicId, onClose }) {
                 <div className="flex items-center gap-2 shrink-0">
                   {item.score != null && (
                     <span className={`text-xs font-medium ${
-                      item.score >= 4 ? 'text-green-600' :
-                      item.score >= 3 ? 'text-yellow-600' : 'text-red-600'
+                      item.score >= 4 ? 'text-green-600 dark:text-emerald-400' :
+                      item.score >= 3 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'
                     }`}>
                       {item.score}/5
                     </span>
                   )}
                   <button
                     onClick={() => startItem(item)}
-                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
+                    className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 whitespace-nowrap"
                     title="Rozpocznij naukę z tego materiału"
                   >
                     Ucz się →
@@ -544,15 +548,15 @@ export default function TopicsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <Layers className="text-indigo-600" size={28} />
+          <Layers className="dark:text-indigo-400 text-indigo-600" size={28} />
           <div>
             <h1 className="text-2xl font-bold">Bank wiedzy</h1>
-            <p className="text-xs text-gray-500">Tematy → materiały, z opanowaniem i powtórkami</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Tematy → materiały, z opanowaniem i powtórkami</p>
           </div>
         </div>
         <button
           onClick={fetchData}
-          className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+          className="p-2 text-gray-500 dark:text-gray-400 dark:hover:text-indigo-400 hover:text-indigo-600 dark:hover:bg-gray-800 hover:bg-indigo-50 rounded-lg transition-colors"
           title="Odśwież"
         >
           <RefreshCw size={18} />
@@ -562,29 +566,29 @@ export default function TopicsPage() {
       {/* Stats bar */}
       {stats && stats.total_topics > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border p-3 text-center">
-            <div className="text-2xl font-bold text-indigo-600">{stats.total_topics}</div>
-            <div className="text-xs text-gray-500">Tematów</div>
+          <div className="dark:bg-gray-900 bg-white rounded-xl shadow-sm border dark:border-gray-800 border-gray-200 p-3 text-center">
+            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats.total_topics}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Tematów</div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-3 text-center">
-            <div className="text-2xl font-bold text-orange-500">{stats.due_now}</div>
-            <div className="text-xs text-gray-500">Do powtórki</div>
+          <div className="dark:bg-gray-900 bg-white rounded-xl shadow-sm border dark:border-gray-800 border-gray-200 p-3 text-center">
+            <div className="text-2xl font-bold text-orange-500 dark:text-orange-400">{stats.due_now}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Do powtórki</div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-3 text-center">
-            <div className="text-2xl font-bold text-green-500">{stats.mastered}</div>
-            <div className="text-xs text-gray-500">Opanowane</div>
+          <div className="dark:bg-gray-900 bg-white rounded-xl shadow-sm border dark:border-gray-800 border-gray-200 p-3 text-center">
+            <div className="text-2xl font-bold text-green-500 dark:text-emerald-400">{stats.mastered}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Opanowane</div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-3 text-center">
-            <div className="text-2xl font-bold text-yellow-500">
+          <div className="dark:bg-gray-900 bg-white rounded-xl shadow-sm border dark:border-gray-800 border-gray-200 p-3 text-center">
+            <div className="text-2xl font-bold text-yellow-500 dark:text-yellow-400">
               {Math.round((stats.avg_memory_strength || 0) * 100)}%
             </div>
-            <div className="text-xs text-gray-500">Śr. zapamiętanie</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Śr. zapamiętanie</div>
           </div>
         </div>
       )}
 
       {/* View tabs */}
-      <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1">
+      <div className="flex gap-1 mb-4 dark:bg-gray-800 bg-gray-100 rounded-lg p-1">
         {[
           { key: 'list', label: 'Lista', icon: BookOpen },
           { key: 'tree', label: 'Kategorie', icon: Layers },
@@ -595,8 +599,8 @@ export default function TopicsPage() {
             onClick={() => setView(key)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
               view === key
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'dark:bg-gray-900 bg-white text-indigo-600 dark:text-indigo-400 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
             <Icon size={16} />
@@ -614,19 +618,19 @@ export default function TopicsPage() {
       {view === 'list' && (
         <div className="flex gap-2 mb-4">
           <div className="flex-1 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
               placeholder="Szukaj tematu..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="w-full pl-9 pr-3 py-2 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500 rounded-lg text-sm focus:outline-none focus:ring-2 dark:focus:ring-indigo-500 focus:ring-indigo-300"
             />
           </div>
           <select
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            className="border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:focus:ring-indigo-500 focus:ring-indigo-300"
           >
             <option value="">Wszystkie kategorie</option>
             {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
@@ -636,7 +640,7 @@ export default function TopicsPage() {
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            className="border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:focus:ring-indigo-500 focus:ring-indigo-300"
           >
             <option value="name">Nazwa</option>
             <option value="strength">Siła zapamiętania</option>
@@ -650,7 +654,7 @@ export default function TopicsPage() {
       {view === 'list' && (
         <div className="space-y-2">
           {filteredTopics.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-gray-400 dark:text-gray-500">
               <Layers size={48} className="mx-auto mb-3 opacity-50" />
               <p>Brak tematów. Wygeneruj lekcję, aby rozpocząć.</p>
             </div>
@@ -658,7 +662,7 @@ export default function TopicsPage() {
             filteredTopics.map(topic => (
               <div key={topic.id}>
                 <div
-                  className={`bg-white rounded-xl shadow-sm border p-4 cursor-pointer hover:shadow-md transition-shadow ${
+                  className={`dark:bg-gray-900 bg-white rounded-xl shadow-sm border dark:border-gray-800 border-gray-200 p-4 cursor-pointer hover:shadow-md dark:hover:border-gray-700 transition-shadow ${
                     topic.is_due ? 'border-l-4 border-l-orange-400' : ''
                   }`}
                   onClick={() => setSelectedTopic(selectedTopic === topic.id ? null : topic.id)}
@@ -671,18 +675,18 @@ export default function TopicsPage() {
                           {CATEGORY_LABELS[topic.category] || topic.category}
                         </span>
                         {topic.is_due && (
-                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Clock size={10} /> Do powtórki
                           </span>
                         )}
                       </div>
                       {topic.description && (
-                        <p className="text-sm text-gray-500 truncate">{topic.description}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{topic.description}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-3 ml-4">
                       <div className="text-right">
-                        <div className="text-xs text-gray-400">{topic.items_count} materiałów</div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500">{topic.items_count} materiałów</div>
                         <div className="text-sm font-medium">{Math.round(topic.memory_strength * 100)}%</div>
                       </div>
                       <MemoryBar strength={topic.memory_strength} size="sm" />
@@ -702,31 +706,31 @@ export default function TopicsPage() {
       {view === 'tree' && (
         <div className="space-y-2">
           {Object.keys(tree).length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-gray-400 dark:text-gray-500">
               <Layers size={48} className="mx-auto mb-3 opacity-50" />
               <p>Brak tematów. Wygeneruj lekcję, aby rozpocząć.</p>
             </div>
           ) : (
             Object.entries(tree).map(([category, catTopics]) => (
-              <div key={category} className="bg-white rounded-xl shadow-sm border overflow-hidden">
+              <div key={category} className="dark:bg-gray-900 bg-white rounded-xl shadow-sm border dark:border-gray-800 border-gray-200 overflow-hidden">
                 <button
                   onClick={() => toggleCategory(category)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center justify-between p-4 dark:hover:bg-gray-800 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     {expandedCategories[category] ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                     <span className={`text-sm px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[category] || CATEGORY_COLORS.other}`}>
                       {CATEGORY_LABELS[category] || category}
                     </span>
-                    <span className="text-sm text-gray-400">({catTopics.length})</span>
+                    <span className="text-sm text-gray-400 dark:text-gray-500">({catTopics.length})</span>
                   </div>
                 </button>
                 {expandedCategories[category] && (
-                  <div className="border-t divide-y">
+                  <div className="border-t dark:border-gray-800 border-gray-200 dark:divide-gray-800 divide-y">
                     {catTopics.map(topic => (
                       <div key={topic.id}>
                         <div
-                          className={`p-3 pl-10 cursor-pointer hover:bg-gray-50 transition-colors ${
+                          className={`p-3 pl-10 cursor-pointer dark:hover:bg-gray-800 hover:bg-gray-50 transition-colors ${
                             topic.is_due ? 'border-l-4 border-l-orange-400' : ''
                           }`}
                           onClick={() => setSelectedTopic(selectedTopic === topic.id ? null : topic.id)}
@@ -735,13 +739,13 @@ export default function TopicsPage() {
                             <div>
                               <span className="font-medium text-sm">{topic.name}</span>
                               {topic.is_due && (
-                                <span className="ml-2 text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">
+                                <span className="ml-2 text-xs bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 px-1.5 py-0.5 rounded">
                                   Do powtórki
                                 </span>
                               )}
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400">{topic.items_count}</span>
+                              <span className="text-xs text-gray-400 dark:text-gray-500">{topic.items_count}</span>
                               <div className="w-16">
                                 <MemoryBar strength={topic.memory_strength} size="sm" />
                               </div>
@@ -767,7 +771,7 @@ export default function TopicsPage() {
       {view === 'due' && (
         <div className="space-y-2">
           {dueTopics.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-gray-400 dark:text-gray-500">
               <CheckCircle size={48} className="mx-auto mb-3 opacity-50" />
               <p>Brak tematów do powtórki. Świetna robota!</p>
             </div>
@@ -775,7 +779,7 @@ export default function TopicsPage() {
             dueTopics.map(topic => (
               <div key={topic.id}>
                 <div
-                  className="bg-white rounded-xl shadow-sm border border-l-4 border-l-orange-400 p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  className="dark:bg-gray-900 bg-white rounded-xl shadow-sm border dark:border-gray-800 border-gray-200 border-l-4 border-l-orange-400 p-4 cursor-pointer hover:shadow-md dark:hover:border-gray-700 transition-shadow"
                   onClick={() => setSelectedTopic(selectedTopic === topic.id ? null : topic.id)}
                 >
                   <div className="flex items-center justify-between">
@@ -786,7 +790,7 @@ export default function TopicsPage() {
                           {CATEGORY_LABELS[topic.category] || topic.category}
                         </span>
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         {topic.days_until_review < 0
                           ? `Przeterminowany o ${Math.abs(topic.days_until_review)} dni`
                           : 'Do powtórki dziś'}
@@ -794,7 +798,7 @@ export default function TopicsPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <div className="text-xs text-gray-400">{topic.items_count} materiałów</div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500">{topic.items_count} materiałów</div>
                         <div className="text-sm font-medium">{Math.round(topic.memory_strength * 100)}%</div>
                       </div>
                       <MemoryBar strength={topic.memory_strength} size="sm" />

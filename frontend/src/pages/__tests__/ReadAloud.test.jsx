@@ -65,4 +65,30 @@ describe("ReadAloud", () => {
     expect(screen.queryByText(/spróbuj innym sposobem/)).not.toBeInTheDocument()
     expect(screen.getByText("Hallo")).toBeInTheDocument()
   })
+
+  it("slow-playback button plays the same audio at a reduced rate", async () => {
+    let created = null
+    class FakeAudio {
+      constructor(src) { this.src = src; this.playbackRate = 1; created = this }
+      play() { return Promise.resolve() }
+    }
+    vi.stubGlobal("Audio", FakeAudio)
+
+    const { getReadAloud } = await import("../../api/client")
+    getReadAloud.mockResolvedValue({
+      items: [{ flashcard_id: 1, word: "und", translation: "i, oraz", audio_path: "/audio/und.mp3" }],
+    })
+    renderPage()
+
+    await waitFor(() => expect(screen.getByTitle("Odtwórz wolno")).toBeInTheDocument())
+
+    fireEvent.click(screen.getByTitle("Odtwórz wolno"))
+    expect(created.playbackRate).toBe(0.6)
+    expect(created.src).toBe("/audio/und.mp3")
+
+    fireEvent.click(screen.getByTitle("Odtwórz normalnie"))
+    expect(created.playbackRate).toBe(1)
+
+    vi.unstubAllGlobals()
+  })
 })

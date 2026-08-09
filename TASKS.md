@@ -4,6 +4,44 @@ _Ostatnia aktualizacja: 2026-08-09_
 
 ---
 
+## 🟡 Zgłoszone przez użytkownika: zwolnione tempo + przebudowa Banku wiedzy (2026-08-09)
+
+**1. Brak zwolnionego tempa w „Powtórz na głos"** — `ReadAloud.jsx`: `play()`
+tworzył/odtwarzał `Audio` zawsze z domyślnym `playbackRate`. Dodany drugi,
+mniejszy przycisk (żółw, `Turtle` z lucide-react) obok głównego — ten sam plik
+audio, `playbackRate = 0.6`. Zero kosztu backendu/AI (czysto klienckie).
+Test: `ReadAloud.test.jsx` (+1, sprawdza że `playbackRate` faktycznie się
+zmienia na tym samym obiekcie `Audio`, nie tylko że przycisk istnieje).
+
+**2. Bank wiedzy „ohydny" → zdiagnozowane i naprawione: strona nie miała ANI
+JEDNEJ klasy `dark:` w całym pliku** (783 linie), podczas gdy reszta aplikacji
+jest w pełni ciemna/jasna (theme-aware). W trybie ciemnym renderowało się to
+jako białe karty (`bg-white`), jasnopastelowe odznaki kategorii
+(`bg-blue-100 text-blue-800`) i szare obramowania — wyspa jasnego motywu
+wklejona w ciemny interfejs. Stąd wrażenie „ohydne", nie subiektywny gust.
+- **Przyczyna:** strona nigdy nie dostała przejścia na dark mode, którym
+  przeszła reszta aplikacji dawno temu (widać po `.card`/`.badge-*`/
+  `.input-field` — gotowych, już theme-aware klasach w `index.css`, z których
+  ta strona w ogóle nie korzystała, tylko pisała styl ad-hoc).
+- **Naprawa:** systematyczne przejście przez cały plik — każdy `bg-white`,
+  `bg-gray-50/100`, `text-gray-4/5/6/700`, goły `border` dostał parę `dark:`,
+  dokładnie w konwencji już używanej w reszcie apki (np. `dark:bg-gray-900
+  bg-white`, `dark:text-gray-400 text-gray-500`). `CATEGORY_COLORS` (10
+  kategorii) i `GENDER_COLORS` rozszerzone o warianty `dark:bg-X-500/20
+  dark:text-X-300 dark:border-X-500/30` — ten sam wzorzec przezroczystości,
+  którego już używa `Flashcards.jsx`.
+- **Weryfikacja — nie na słowo, realny `getComputedStyle` w żywej
+  przeglądarce w obu motywach:**
+  - Ciemny: kafelek statystyk `rgb(17,24,39)` (dokładnie `gray-900`), odznaka
+    kategorii „Słownictwo" `rgba(16,185,129,0.2)` tło / `rgb(110,231,183)`
+    tekst (dokładnie `emerald-500/20` / `emerald-300`).
+  - Jasny (przełączone na żywo): karta tematu `rgb(252,249,243)` (kremowy
+    `.light .bg-white`), odznaka `rgb(220,252,231)` (`green-100`) — potwierdzone
+    że stary, działający tryb jasny nie został zepsuty przy okazji.
+- Frontend 91/91 passed, lint 0 błędów (bez nowych ostrzeżeń).
+
+---
+
 ## 🟡 Zgłoszone przez użytkownika: ćwiczenia w lekcji — 2 poprawki (2026-08-09)
 
 **Zgłoszone:** ćwiczenie typu „Matching" (9) nie da się połączyć — dwie kolumny

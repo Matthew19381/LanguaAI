@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Volume2, ArrowRight, Check, Loader2, Mic } from 'lucide-react'
+import { Volume2, ArrowRight, Check, Loader2, Mic, Turtle } from 'lucide-react'
 import { getUserId, getReadAloud } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
@@ -33,10 +33,11 @@ export default function ReadAloud() {
   const total = items ? items.length : 0
   const doneCount = Object.keys(done).length
 
-  const play = () => {
+  const play = (rate = 1) => {
     if (!current?.audio_path) return
     if (!audioRef.current) audioRef.current = new Audio(current.audio_path)
     else audioRef.current.src = current.audio_path
+    audioRef.current.playbackRate = rate
     audioRef.current.play().catch(() => {})
   }
 
@@ -99,14 +100,24 @@ export default function ReadAloud() {
             Ostatnio Ci to nie poszło — spróbuj innym sposobem: na głos
           </span>
         )}
-        <button
-          onClick={play}
-          disabled={!current?.audio_path}
-          className="mx-auto w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 flex items-center justify-center text-white"
-          title="Odtwórz"
-        >
-          <Volume2 className="w-8 h-8" />
-        </button>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => play(1)}
+            disabled={!current?.audio_path}
+            className="w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 flex items-center justify-center text-white"
+            title="Odtwórz normalnie"
+          >
+            <Volume2 className="w-8 h-8" />
+          </button>
+          <button
+            onClick={() => play(0.6)}
+            disabled={!current?.audio_path}
+            className="w-11 h-11 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-40 flex items-center justify-center text-gray-700 dark:text-gray-200"
+            title="Odtwórz wolno"
+          >
+            <Turtle className="w-5 h-5" />
+          </button>
+        </div>
 
         {!revealed ? (
           <button
