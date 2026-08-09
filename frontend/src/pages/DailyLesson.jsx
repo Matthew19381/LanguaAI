@@ -6,7 +6,7 @@ import {
   RefreshCw, Eye, EyeOff, FileText, BookmarkPlus, Loader2,
   History, ArrowRight, HelpCircle
 } from 'lucide-react'
-import { getUserId, getTodayLesson, getLesson, completeLesson, addFlashcardAI, evaluateProduction, generateNextLesson, generateConceptFlashcards, getDailyTest, getNews, searchYouTube, exportLessonPDF, exportObsidian, resetTodayLesson, getLessonAudioPackage } from '../api/client'
+import { getUserId, getUser, getTodayLesson, getLesson, completeLesson, addFlashcardAI, evaluateProduction, generateNextLesson, generateConceptFlashcards, getDailyTest, getNews, searchYouTube, exportLessonPDF, exportObsidian, resetTodayLesson, getLessonAudioPackage } from '../api/client'
 import { enqueueLessonComplete } from '../utils/offlineQueue'
 import PlayButton from '../components/PlayButton'
 import { PageLoader } from '../components/LoadingSpinner'
@@ -107,6 +107,17 @@ export default function DailyLesson() {
   const navigate = useNavigate()
   const userId = getUserId()
   const { t } = useLanguage()
+  // The grammar explanation is written in the user's NATIVE language, unlike
+  // vocabulary/examples/dialogue which are in the target language — its
+  // PlayButton must not use `lesson.language` (that was reading Polish text
+  // with a German voice). Fetched once; harmless if it fails (falls back to
+  // the target-language voice, same as before this fix).
+  const [nativeLanguage, setNativeLanguage] = useState('')
+
+  useEffect(() => {
+    if (!userId) return
+    getUser(userId).then(u => setNativeLanguage(u?.native_language || '')).catch(() => {})
+  }, [userId])
 
   useEffect(() => {
     if (!userId) {
@@ -570,6 +581,23 @@ export default function DailyLesson() {
         {grammar.topic && (
           <p className="text-indigo-300 font-semibold mb-2">{grammar.topic}</p>
         )}
+        {grammarExplanation && (
+          <div className="mb-3 flex items-center gap-2">
+            <PlayButton
+              text={grammarExplanation
+                .replace(/#{1,6}\s*/g, '')
+                .replace(/\*\*(.+?)\*\*/g, '$1')
+                .replace(/\*(.+?)\*/g, '$1')
+                .replace(/`(.+?)`/g, '$1')
+                .replace(/\n{2,}/g, '. ')
+                .replace(/\n/g, ' ')
+                .trim()
+                .slice(0, 400)}
+              language={nativeLanguage || lesson.language}
+            />
+            <span className="text-xs text-gray-500">Przesłuchaj wyjaśnienie</span>
+          </div>
+        )}
         <div className="prose prose-invert max-w-none">
           {renderMarkdown(grammarExplanation)}
         </div>
@@ -586,23 +614,6 @@ export default function DailyLesson() {
                 {ex.translation && <span className="text-gray-400"> — {ex.translation}</span>}
               </div>
             ))}
-          </div>
-        )}
-        {grammarExplanation && (
-          <div className="mt-2 flex items-center gap-2">
-            <PlayButton
-              text={grammarExplanation
-                .replace(/#{1,6}\s*/g, '')
-                .replace(/\*\*(.+?)\*\*/g, '$1')
-                .replace(/\*(.+?)\*/g, '$1')
-                .replace(/`(.+?)`/g, '$1')
-                .replace(/\n{2,}/g, '. ')
-                .replace(/\n/g, ' ')
-                .trim()
-                .slice(0, 400)}
-              language={lesson.language}
-            />
-            <span className="text-xs text-gray-500">Przesłuchaj wyjaśnienie</span>
           </div>
         )}
         {grammar.elaboration_prompt && grammar.elaboration_answer && (
@@ -764,7 +775,7 @@ export default function DailyLesson() {
         >
           <div className="space-y-4">
             {normExercises.map((ex, i) => (
-              <ExerciseCard key={i} exercise={ex} number={i + 1} language={lesson.language} lessonId={lesson.lesson_id} t={t} />
+              <ExerciseCard key={i} exercise={ex} number={i + 1} language={lesson.language} cefrLevel={lesson.cefr_level} userId={userId} lessonId={lesson.lesson_id} t={t} />
             ))}
           </div>
         </Section>
@@ -1371,9 +1382,21 @@ function normalizeExercises(blocks) {
     const items = Array.isArray(b.items) ? b.items : null
     if (items && items.length) {
       if (type && /match/i.test(type)) {
-        const pairs = items
-          .map(it => ({ left: String(it?.prompt ?? '').trim(), right: String(it?.answer ?? '').trim() }))
-          .filter(p => p.left || p.right)
+        // The model is only given a generic {prompt, answer} item shape (there's
+        // no dedicated schema for N matching pairs), so it improvises by cramming
+        // every pair into ONE item as "word1 / word2 / word3" ↔ "answer1 | answer2
+        // | answer3". Split on those delimiters into real individual pairs;
+        // items that aren't delimited (a genuine single pair) pass through as-is.
+        const pairs = items.flatMap(it => {
+          const lefts = String(it?.prompt ?? '').split('/').map(s => s.trim()).filter(Boolean)
+          const rights = String(it?.answer ?? '').split('|').map(s => s.trim()).filter(Boolean)
+          if (lefts.length > 1 && lefts.length === rights.length) {
+            return lefts.map((left, idx) => ({ left, right: rights[idx] }))
+          }
+          const left = String(it?.prompt ?? '').trim()
+          const right = String(it?.answer ?? '').trim()
+          return (left || right) ? [{ left, right }] : []
+        })
         if (pairs.length) {
           out.push({ type, instruction: b.instruction, pairs, skill_tag: b.skill_tag,
             answer: pairs.map(p => `${p.left} = ${p.right}`).join(', '), explanation: b.feedback })
@@ -1407,13 +1430,69 @@ function normalizeExercises(blocks) {
   return out
 }
 
-function ExerciseCard({ exercise, number, language, lessonId, t }) {
+function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId, t }) {
   const [revealedCount, setRevealedCount] = useState(0)
   const [userAnswer, setUserAnswer] = useState('')
   const [selectedOption, setSelectedOption] = useState('')
   const [checked, setChecked] = useState(false)
   const [isCorrect, setIsCorrect] = useState(null)
   const inputRef = useRef(null)
+
+  // Matching: click a left word, then the right word you think it pairs with.
+  // The right column is shuffled once per exercise so it's an actual puzzle
+  // instead of two columns that happen to already line up index-for-index.
+  const [shuffledRight] = useState(() => {
+    if (exercise.type !== 'matching' || !exercise.pairs) return []
+    const withIndex = exercise.pairs.map((p, origIndex) => ({ ...p, origIndex }))
+    for (let i = withIndex.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [withIndex[i], withIndex[j]] = [withIndex[j], withIndex[i]]
+    }
+    return withIndex
+  })
+  const [selectedLeft, setSelectedLeft] = useState(null)
+  const [matchedLeft, setMatchedLeft] = useState(() => new Set())
+  const [wrongPulse, setWrongPulse] = useState(null)
+
+  const handlePickLeft = (i) => {
+    if (matchedLeft.has(i)) return
+    setSelectedLeft(i)
+  }
+  const handlePickRight = (rightItem) => {
+    if (selectedLeft === null || matchedLeft.has(rightItem.origIndex)) return
+    if (rightItem.origIndex === selectedLeft) {
+      setMatchedLeft(prev => new Set(prev).add(selectedLeft))
+      setSelectedLeft(null)
+    } else {
+      setWrongPulse(rightItem.origIndex)
+      setTimeout(() => setWrongPulse(null), 500)
+      setSelectedLeft(null)
+    }
+  }
+
+  // Open-ended production (no single correct string) — graded by AI, same
+  // evaluator the dedicated Production Task section uses, not a substring match.
+  const [aiChecking, setAiChecking] = useState(false)
+  const [aiResult, setAiResult] = useState(null)
+  const handleAICheck = async () => {
+    if (!userAnswer.trim()) return
+    setAiChecking(true)
+    setAiResult(null)
+    try {
+      const result = await evaluateProduction(lessonId, {
+        userId,
+        user_answer: userAnswer,
+        instruction: exercise.instruction || exercise.content || '',
+        language: language || 'German',
+        cefr_level: cefrLevel || 'A1',
+      })
+      setAiResult(result)
+    } catch (e) {
+      setAiResult({ success: false, feedback: 'Błąd oceny AI: ' + e.message, score: null, corrections: [] })
+    } finally {
+      setAiChecking(false)
+    }
+  }
 
   const handleCheck = () => {
     if (!userAnswer.trim()) return
@@ -1463,21 +1542,54 @@ function ExerciseCard({ exercise, number, language, lessonId, t }) {
 
       {exercise.type === 'matching' && exercise.pairs ? (
         <div className="space-y-3">
-          <p className="text-sm text-gray-300">{exercise.instruction}</p>
+          <p className="text-sm text-gray-300">
+            Kliknij słowo po lewej, potem jego parę po prawej.
+          </p>
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="space-y-1">
               <p className="text-xs text-gray-400 mb-1">{t('lesson.leftColumn') || 'Kolumna lewa'}</p>
               {exercise.pairs.map((p, i) => (
-                <div key={i} className="p-2 bg-gray-700 rounded mb-1 text-sm">{p.left}</div>
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handlePickLeft(i)}
+                  disabled={matchedLeft.has(i)}
+                  className={`w-full text-left p-2 rounded text-sm transition-colors ${
+                    matchedLeft.has(i)
+                      ? 'bg-emerald-900/40 text-emerald-300 cursor-default'
+                      : selectedLeft === i
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-700 hover:bg-gray-600'
+                  }`}
+                >
+                  {p.left}
+                </button>
               ))}
             </div>
-            <div>
+            <div className="space-y-1">
               <p className="text-xs text-gray-400 mb-1">{t('lesson.rightColumn') || 'Kolumna prawa'}</p>
-              {exercise.pairs.map((p, i) => (
-                <div key={i} className="p-2 bg-gray-800 rounded mb-1 text-sm">{p.right}</div>
+              {shuffledRight.map((p) => (
+                <button
+                  key={p.origIndex}
+                  type="button"
+                  onClick={() => handlePickRight(p)}
+                  disabled={matchedLeft.has(p.origIndex)}
+                  className={`w-full text-left p-2 rounded text-sm transition-colors ${
+                    matchedLeft.has(p.origIndex)
+                      ? 'bg-emerald-900/40 text-emerald-300 cursor-default'
+                      : wrongPulse === p.origIndex
+                      ? 'bg-red-900/50 text-red-300'
+                      : 'bg-gray-800 hover:bg-gray-700'
+                  }`}
+                >
+                  {p.right}
+                </button>
               ))}
             </div>
           </div>
+          {matchedLeft.size === exercise.pairs.length && (
+            <p className="text-xs text-emerald-400 mt-2">✓ Wszystkie pary połączone poprawnie!</p>
+          )}
           {isAllRevealed && (
             <p className="text-xs text-emerald-400 mt-2">{t('lesson.correctMatches') || 'Poprawne pary'}: {exercise.answer}</p>
           )}
@@ -1529,6 +1641,62 @@ function ExerciseCard({ exercise, number, language, lessonId, t }) {
               </div>
             )
           })}
+        </div>
+      ) : exercise.type === 'sentence_creation' ? (
+        // Open-ended production — there's no single correct string to match
+        // against (the "answer" field is a labeled "Przykład:" sample, not a
+        // requirement), so this is graded by AI like the Production Task
+        // section, not the exact/substring check used for closed exercises.
+        <div>
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              className="input-field text-sm flex-1"
+              placeholder={t('lesson.yourAnswer')}
+              value={userAnswer}
+              onChange={e => { setUserAnswer(e.target.value); setAiResult(null) }}
+              onKeyDown={e => e.key === 'Enter' && !aiChecking && handleAICheck()}
+              disabled={isAllRevealed}
+            />
+            {!isAllRevealed && (
+              <button
+                onClick={handleAICheck}
+                disabled={!userAnswer.trim() || aiChecking}
+                className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium disabled:opacity-50 transition-colors flex items-center gap-1.5"
+              >
+                {aiChecking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                {aiChecking ? 'Ocenianie...' : 'Sprawdź z AI'}
+              </button>
+            )}
+          </div>
+          {!isAllRevealed && (
+            <SpecialChars
+              language={language}
+              inputRef={inputRef}
+              value={userAnswer}
+              onChange={(v) => { setUserAnswer(v); setAiResult(null) }}
+            />
+          )}
+          {aiResult && (
+            <div className={`mt-2 rounded-lg p-3 text-sm ${aiResult.success === false ? 'bg-red-900/10 border border-red-700/30' : 'bg-gray-900/60 border border-gray-700'}`}>
+              {aiResult.score != null && (
+                <p className={`font-semibold mb-1 ${aiResult.score >= 70 ? 'text-emerald-400' : aiResult.score >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {aiResult.score}/100
+                </p>
+              )}
+              {aiResult.feedback && <p className="text-gray-300">{aiResult.feedback}</p>}
+              {aiResult.corrections?.length > 0 && (
+                <ul className="mt-1.5 space-y-0.5">
+                  {aiResult.corrections.map((c, i) => (
+                    <li key={i} className="text-gray-400">
+                      <span className="text-red-400 line-through">{c.error}</span> → <span className="text-emerald-400">{c.correction}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div>

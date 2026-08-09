@@ -4,6 +4,92 @@ _Ostatnia aktualizacja: 2026-08-09_
 
 ---
 
+## 🟡 Zgłoszone przez użytkownika: ćwiczenia w lekcji — 2 poprawki (2026-08-09)
+
+**Zgłoszone:** ćwiczenie typu „Matching" (9) nie da się połączyć — dwie kolumny
+tekstu bez żadnej interakcji; ćwiczenie otwarte „Sentence Creation" (15)
+oceniane jak zamknięte (użytkownik napisał własne, poprawne zdanie i dostał
+„źle"), a powinno być sprawdzane przez AI pod kątem gramatyki i zgodności z poleceniem.
+
+**1. Matching bez interakcji** — `daily_lesson.py` nie ma dedykowanego schematu
+na N par, więc model sam wymyśla format: jeden `item` z `prompt: "Stuhl /
+Wohnung / Buch..."` i `answer: "der Stuhl | die Wohnung | das Buch..."`.
+Frontend (`normalizeExercises`) brał to 1:1 jako JEDNĄ parę — cała lewa kolumna
+i cała prawa kolumna jako pojedyncze bloki tekstu, w dodatku w tej samej
+kolejności (prawa kolumna była już gotową odpowiedzią).
+- `frontend/src/pages/DailyLesson.jsx` `normalizeExercises`: dzieli teraz
+  `prompt` po `/` i `answer` po `|` na osobne pary (wstecznie kompatybilne —
+  pojedyncza, niedzielona para nadal działa jak wcześniej).
+- `ExerciseCard`: kolumna prawa **przetasowana** raz per ćwiczenie (żeby nie
+  była trywialnie wyrównana z lewą), klik lewa→prawa sprawdza parę na żywo
+  (zielono = trafione, czerwony pulse = źle, bez usuwania zaznaczenia z gry).
+- Zweryfikowane na **prawdziwej, wcześniej zepsutej** lekcji (dzień 2, user 3):
+  „Kolumna lewa" pokazuje teraz 5 osobnych słów, „Kolumna prawa" w innej
+  kolejności niż lewa (potwierdzone: „die Familie, der Stuhl, das Buch..." nie
+  w kolejności z lewej), klik Stuhl→der Stuhl → oba na zielono.
+
+**2. Ćwiczenie otwarte oceniane jak zamknięte** — `sentence_creation` (i każde
+inne zadanie bez jednej poprawnej odpowiedzi) leciało przez ten sam
+`handleCheck()` co fill-in-the-blank: proste porównanie substring z polem
+`answer`, które dla tego typu i tak jest tylko podpisanym „Przykładem", nie
+wymogiem. Poprawna, kreatywna odpowiedź użytkownika dostawała „✗ Nie do końca".
+- `frontend/src/pages/DailyLesson.jsx`: nowa gałąź dla `sentence_creation` —
+  przycisk „Sprawdź z AI" woła **ten sam** `evaluateProduction` co sekcja
+  Production Task (nie nowy endpoint), pokazuje wynik/100 + feedback +
+  konkretne poprawki, zamiast fałszywego zielono/czerwono.
+- Zweryfikowane na żywo (prawdziwe wywołanie AI, nie mock): odpowiedź „Meine
+  Schwester ist sehr jung und wohnt in einem Haus." dostała **30/100** z
+  trafnym uzasadnieniem („napisano 1 zdanie zamiast wymaganych 3, gramatyka
+  samego zdania poprawna") — dokładnie ocena gramatyki + zgodności z
+  poleceniem, o którą prosił użytkownik.
+
+**Weryfikacja:** frontend 90/90 passed (+3 nowe testy w `DailyLesson.test.jsx`:
+podział par, brak fałszywego dopasowania przy złej parze, ocena AI zamiast
+substring match), lint 0 błędów. Oba scenariusze potwierdzone live na
+rzeczywistej, wcześniej zepsutej lekcji użytkownika (dzień 2, user 3).
+
+---
+
+## 🟡 Zgłoszone przez użytkownika: audio w lekcji — 3 poprawki (2026-08-09)
+
+**Zgłoszone:** wyjaśnienie gramatyki czytane niemieckim głosem mimo że tekst
+jest po polsku; nie da się zatrzymać odtwarzania; przycisk audio powinien być
+na początku sekcji, nie na końcu.
+
+**1. Zły język głosu** — `PlayButton` w sekcji gramatyki dostawał
+`language={lesson.language}` (język docelowy, np. German), ale
+`grammar.explanation` jest generowany **w języku ojczystym** użytkownika
+(`daily_lesson.py` prompt: "clear explanation in native language"). Backend
+mapuje `language` na konkretny głos TTS (np. `de-DE-KatjaNeural`), więc polski
+tekst leciał niemieckim głosem. Sprawdzone: to jedyne takie miejsce w
+aplikacji — wszystkie inne użycia `PlayButton` (Conversation, News,
+PronunciationTrainer, ErrorReview) czytają treść faktycznie w języku
+docelowym, poprawnie.
+- `frontend/src/pages/DailyLesson.jsx`: nowy fetch `getUser(userId)` przy
+  montowaniu (raz), `nativeLanguage` w stanie, użyte zamiast `lesson.language`
+  dla tego jednego PlayButtona. Zweryfikowane live: `GET /api/placement/user/3`
+  → 200, `native_language: "Polish"` faktycznie trafia do requestu TTS.
+
+**2. Brak możliwości zatrzymania** — `PlayButton` w ogóle nie miał stanu
+"gra"/"nie gra" — kliknięcie zawsze startowało nowe `Audio()`, bez śladu po
+poprzednim. Przepisany: `isPlaying` w stanie + ref na bieżący `Audio`; kliknięcie
+w trakcie odtwarzania **zatrzymuje** (nie restartuje), ikona zmienia się na
+kwadrat (stop), `onended`/`onerror`/odmontowanie komponentu też sprzątają stan.
+- `frontend/src/components/PlayButton.jsx` — przepisany.
+- Testy: `PlayButton.test.jsx` (nowy plik, 4 testy — wcześniej 0% pokrycia
+  tego komponentu, mimo że jest używany w 8+ miejscach w aplikacji).
+
+**3. Przycisk na złym miejscu** — przeniesiony z końca sekcji „Wyjaśnienie
+gramatyki” (po regule i przykładach) na początek (zaraz po tytule tematu,
+przed treścią wyjaśnienia) w `DailyLesson.jsx`.
+
+**Weryfikacja:** frontend 87/87 passed (+4 nowe), lint 0 błędów. Na żywo:
+przycisk teraz nad tekstem wyjaśnienia (potwierdzone przez `innerText` DOM),
+kliknięcie → tytuł przycisku `"Zatrzymaj"` w trakcie, drugi klik → wraca do
+`"Play: ..."` i faktycznie zatrzymuje `<audio>` (nie tylko UI).
+
+---
+
 ## 🔴 Naprawa: `/api/lessons/today` — 500 przy równoczesnych żądaniach (2026-08-09)
 
 **Zgłoszone przez użytkownika na żywo:** lekcja "prawie się załadowała" i
