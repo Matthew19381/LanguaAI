@@ -4,6 +4,79 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-08-09
+
+### feat: zwolnione tempo w ReadAloud + pełny dark-mode pass na Banku wiedzy (`80882fd`)
+- **`frontend/src/pages/ReadAloud.jsx`** — `play()` przyjmuje teraz `playbackRate`; dodany
+  drugi, mniejszy przycisk (ikona żółwia) obok głównego — odtwarza to samo audio na 0.6x.
+  Czysto klienckie (`HTMLMediaElement.playbackRate`), zero kosztu backend/AI.
+- **`frontend/src/pages/TopicsPage.jsx`** (783 linii) — zgłoszone przez użytkownika jako
+  „ohydne"; root cause: cały plik nie miał ani jednej klasy `dark:`, podczas gdy reszta
+  aplikacji jest w pełni theme-aware. W trybie ciemnym renderował się jako białe karty,
+  pastelowe odznaki i szare obramowania. Systematyczny przegląd dodający warianty `dark:`
+  wszędzie (karty, obramowania, tekst, hover, pola), zgodnie z istniejącą konwencją
+  (`.card`, `.badge-*`, `.input-field` z `index.css`). `CATEGORY_COLORS`/`GENDER_COLORS`
+  rozszerzone o warianty `dark:bg-X-500/20 dark:text-X-300`.
+  Zweryfikowane realnym `getComputedStyle()` w przeglądarce w obu motywach (nie tylko
+  wizualnie) — ciemny: `rgb(17,24,39)` kafelek statystyk; jasny: potwierdzono, że istniejący
+  ciepły kremowy motyw nie został przy okazji zepsuty.
+- Testy: `ReadAloud.test.jsx` +1 (playbackRate faktycznie się zmienia na tym samym `Audio`).
+  Frontend suite: 91/91, lint 0 błędów.
+
+### fix: audio lekcji (zła głoska, brak stopu) + zepsute ćwiczenia matching/open-ended (`bf3933e`)
+- **`frontend/src/pages/DailyLesson.jsx`** — wyjaśnienie gramatyki jest po polsku (native
+  language), ale jego `PlayButton` dostawał `lesson.language` (język docelowy) — polski
+  tekst czytany był niemieckim głosem. Teraz pobiera `native_language` przez `getUser(userId)`
+  i używa go tylko dla tego przycisku (wszystkie inne `PlayButton` w apce już poprawnie
+  czytały treść w języku docelowym — zweryfikowano). Przycisk „Przesłuchaj wyjaśnienie"
+  przeniesiony na górę sekcji gramatyki (był na końcu).
+- **`frontend/src/components/PlayButton.jsx`** — przepisany o obsługę stopu: nie miał w ogóle
+  stanu playing/idle, drugie kliknięcie startowało nakładające się drugie `Audio()` bez
+  możliwości wyciszenia pierwszego. Teraz śledzi `isPlaying`, klik podczas odtwarzania
+  zatrzymuje (ikona zmienia się na kwadrat stop), sprząta przy unmount/onended/onerror.
+- Ćwiczenia matching: model nie ma dedykowanego schematu dla N par, więc upycha je w jednym
+  polu jako `"a / b / c"` / `"x | y | z"`; `normalizeExercises` brał to za JEDNĄ parę,
+  renderując dwie kolumny surowego, niepodzielonego tekstu w tej samej kolejności (prawa
+  kolumna to był już klucz odpowiedzi). Teraz dzieli po `/`/`|` na realne pary, `ExerciseCard`
+  tasuje prawą kolumnę i robi realny klik-do-dopasowania (trafiona para zieleni się, błędna
+  pulsuje na czerwono).
+  `sentence_creation` (i inne ćwiczenia otwarte) było oceniane tym samym prostym
+  dopasowaniem substring co luki-do-uzupełnienia, przeciw polu „answer" oznaczonemu
+  jawnie jako „Przykład:" — poprawna, twórcza odpowiedź była oznaczana jako błędna. Teraz
+  przechodzi przez `evaluateProduction` (ten sam grader AI co sekcja Production Task).
+- Testy: `PlayButton.test.jsx` nowy (4 testy — pierwsze pokrycie tego komponentu mimo 8+
+  użyć w apce), `DailyLesson.test.jsx` +3.
+
+### fix: `/api/lessons/today` 500 przy równoczesnych żądaniach (błędne zapytanie recovery) (`4af0665`)
+- Zgłoszone na żywo przez użytkownika: lekcja „prawie się załadowała" i wyskoczył błąd 500.
+  Root cause: React dev mode odpala mount effect dwukrotnie (potwierdzone na żywo w Network —
+  `GET /api/lessons/today/3` wywołane dwa razy), a gdy na dany dzień nie ma jeszcze lekcji,
+  oba żądania generują treść i ścigają się o INSERT tego samego `(user_id, language,
+  day_number)`. Przegrany poprawnie trafia na UNIQUE constraint i wchodzi w istniejący blok
+  `except IntegrityError` — ale ten blok szukał wiersza zwycięzcy po `date(created_at) ==
+  today` zamiast po `day_number` (realnym kluczu ograniczenia), więc mógł nie znaleźć właśnie
+  zacommitowanego wiersza i spadał do gołego `raise`, ujawniając się jako nieobsłużone 500.
+- **`backend/routers/lessons.py`** — zapytanie recovery filtruje teraz po
+  `Lesson.day_number == day_number` zamiast po dacie utworzenia.
+- Test: `backend/tests/test_lessons.py` — nowy
+  `test_today_lesson_concurrent_requests_both_succeed`.
+
+### fix: nawigacja pokazuje WSZYSTKIE funkcje z trwałymi etykietami + interpreter w `start.bat` (`3549dad`)
+- **`frontend/src/components/NavBar.jsx`** — usunięte `hidden md:block` na etykietach oraz
+  poziomo przewijany pojedynczy wiersz (`overflow-x-auto`). Wszystkie 18 funkcji ma teraz
+  zawsze widoczną etykietę tekstową, pogrupowane w 5 nazwanych kategorii (Nauka/Ćwiczenia/
+  Media/Postępy/Konto, zgodnie z `docs/BACKLOG_UX_2026-08.md` P3-1), zawijające się na
+  węższych ekranach zamiast chować się lub wymagać przewijania. Zgłaszane wielokrotnie i
+  wcześniej naprawione tylko połowicznie (brakujące strony dodano, ale etykiety wciąż
+  znikały poniżej `md`).
+- **`start.bat`** — uruchomienie backendu używało gołego `python`, który w tym środowisku
+  nie ma zależności projektu (ten sam root cause co 2026-08-05/07) — zmienione na
+  `py -3.11`, zgodnie z już poprawnym `start.ps1`.
+- Test: `NavBar.test.jsx` +2 (regression-lock — żadna etykieta nie siedzi w elemencie z
+  klasą `hidden`, wszystkie 5 nagłówków kategorii się renderuje).
+
+---
+
 ## 2026-08-07
 
 ### Docs: audyt dokumentacji + zgodności naukowej (DOC-2…DOC-6)

@@ -159,9 +159,9 @@ wip
 
 ### Commands
 
-All git commands run from `C:\GoogleDriveSync\Projekty\LinguaAI\` (the repo root):
+All git commands run from `C:\Projects\LinguaAI\` (the repo root):
 
-**Unified Standards**: See `07_Context/UNIFIED_STANDARDS.md` for cross-project standards (System-Główny + LinguaAI + ForgeBody + HackerLabAcademy).
+**Unified Standards**: `07_Context/UNIFIED_STANDARDS.md` does not exist in this repo. Cross-project standards live in `C:\Projects\System-Glowny\CLAUDE.md` + `MASTER_PLAN.md` — see those for ecosystem-wide conventions (System-Główny + LinguaAI + ForgeBody + HackerLabAcademy).
 
 ```bash
 git add -A

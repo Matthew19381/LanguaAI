@@ -8,7 +8,10 @@ Priorytety: **P0** regresje/krytyczne, **P1** zepsute rdzenne UX, **P2** przebud
 
 ## P0 — Regresje konfiguracji (skutek przenosin projektu)
 
-### P0-1. Przywrócić utracone klucze i tier w `backend/.env`
+### P0-1. Przywrócić utracone klucze i tier w `backend/.env` — ✅ Zamknięte (zweryfikowano 2026-08-19)
+Zweryfikowano bezpośrednio w `backend/.env`: `AI_MODEL_TIER=best` ustawiony, `YOUTUBE_API_KEY`,
+`GEMINI_API_KEY`, `ADMIN_API_KEY` wszystkie obecne i niepuste (wartości nie były wypisywane —
+tylko sprawdzenie obecności).
 - **Problem:** treści generują się na tanim modelu; YouTube zwraca błąd API; admin-endpointy nie działają.
 - **Przyczyna:** migracja do `C:\Projects\LinguaAI` zgubiła w nowym `backend/.env`:
   `AI_MODEL_TIER=best`, `YOUTUBE_API_KEY`, `GEMINI_API_KEY` (realny), `ADMIN_API_KEY`.
@@ -109,13 +112,20 @@ Priorytety: **P0** regresje/krytyczne, **P1** zepsute rdzenne UX, **P2** przebud
 
 ## P3 — Polish / dostępność funkcji
 
-### P3-1. Nawigacja — wyeksponować WSZYSTKIE funkcje
+### P3-1. Nawigacja — wyeksponować WSZYSTKIE funkcje — ✅ Zamknięte 2026-08-08 (`3549dad`)
+`NavBar.jsx` przebudowany: `flex flex-wrap` zamiast `overflow-x-auto` + `hidden md:block`,
+5 nazwanych kategorii (Nauka/Ćwiczenia/Media/Postępy/Konto), wszystkie 18 funkcji z trwałą
+etykietą tekstową na każdej szerokości ekranu. Regression-lock testy w `NavBar.test.jsx`.
 - **Problem:** górny panel nie pokazuje wszystkiego; część stron bez wejścia; etykiety znikają poniżej `md` (same ikony).
 - **Przyczyna:** `NavBar.jsx` — `hidden md:block` na etykietach; brak w menu m.in. `ReadAloud`, `LessonHistory`, `PronunciationTrainer`.
 - **Co zrobić:** przeprojektować nawigację (rozwijane menu/drawer „Więcej" grupujące funkcje: Nauka / Ćwiczenia / Media / Postępy / Konto), z etykietami także na węższych ekranach; dodać brakujące strony.
 - **DoD:** każda istniejąca funkcja jest osiągalna z nawigacji z czytelną etykietą.
 
-### P3-2. Tryb jasny — kremowy zamiast oślepiającej bieli
+### P3-2. Tryb jasny — kremowy zamiast oślepiającej bieli — ✅ Zamknięte (commit `445e0b9`, przed tym audytem)
+Zweryfikowano w `frontend/src/index.css`: `body` używa `#f2ece0` (ciepły kremowy), nie
+`bg-gray-50`; `.light .bg-white`/`.card`/`.bg-gray-100` mają dedykowane kremowe odcienie
+(`#fcf9f3`, `#efe8db`). Ten wpis pozostał oznaczony jako otwarty w `ACTION_PLAN.md` F4-12
+mimo że kod już to realizował — poprawione tu.
 - **Problem:** jasny motyw oślepia.
 - **Przyczyna:** `frontend/src/index.css` `body { @apply bg-gray-50 ... }` (prawie biel); powierzchnie `bg-white`.
 - **Co zrobić:** wprowadzić ciepłą, niską-kontrastowo paletę (tło ~`#faf6ec`/kremowe, karty lekko jaśniejsze, tekst ciemnografitowy zamiast czystej czerni); spójnie przez zmienne/utility.

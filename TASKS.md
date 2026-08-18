@@ -1,6 +1,50 @@
 ﻿# TASKS – LinguaAI
 
-_Ostatnia aktualizacja: 2026-08-09_
+_Ostatnia aktualizacja: 2026-08-19_
+
+---
+
+## 🟢 ACTION_PLAN.md Faza 0 — higiena i blokery natychmiastowe (2026-08-19)
+
+Realizacja Fazy 0 z `ACTION_PLAN.md` (dokument dodany do repo, jeszcze niecommitowany —
+`git status` przed tą sesją pokazywał go jako `??`). Wszystko zweryfikowane na żywo, nie
+założone.
+
+- **F0-1 ✅** — `CLAUDE.md:162` wskazywał `C:\GoogleDriveSync\Projekty\LinguaAI\` jako repo
+  root, sprzecznie z linią 7 tego samego pliku i realnym stanem. Poprawione na
+  `C:\Projects\LinguaAI\`. `07_Context/UNIFIED_STANDARDS.md` nie istnieje w tym repo (
+  zweryfikowano `Test-Path`) — odniesienie zastąpione wskazaniem na
+  `C:\Projects\System-Glowny\CLAUDE.md` + `MASTER_PLAN.md` (potwierdzone, że istnieją lokalnie).
+- **F0-2 ✅** — usunięty martwy `backend/lingua_ai.db` (0 B, relikt z 10 lipca). Zweryfikowano
+  że nic w `backend/` tworzy plik pod tą ścieżką przy starcie z roota (`DATABASE_URL` w
+  `config.py` jest względne `./lingua_ai.db`, rozwiązuje się względem cwd = root przy
+  poprawnym uruchomieniu; `notifier.py`/`backup_service.py` tylko *sprawdzają* oba miejsca
+  jako fallback odczytu, nie tworzą pliku).
+- **F0-3 ✅** — `ruff` nie był zainstalowany w interpreterze projektu (`py -3.11`), tylko w
+  odizolowanym venv samego Claude Code. Doinstalowany (`py -3.11 -m pip install ruff`, wersja
+  0.16.3). `py -3.11 -m ruff check backend/` → **0 błędów** ("All checks passed!").
+- **F0-4 ⏸️ Wymaga decyzji użytkownika** — lokalnie dostępne interpretery to tylko 3.11.9 i
+  3.14.2 (`py -0`), `pyproject.toml` wymaga `>=3.12`. CI (`.github/workflows/ci.yml`) pinuje
+  3.12 poprawnie — to luka środowiska dev tej maszyny, nie repo. Instalacja nowego runtime'u
+  systemowo nie została wykonana automatycznie (zmiana środowiska systemowego) — do
+  potwierdzenia przez użytkownika, patrz podsumowanie na końcu sesji.
+- **F0-5 ✅** — `CHANGELOG.md` nie miał wpisów dla ostatnich 4 commitów (`3549dad`, `4af0665`,
+  `bf3933e`, `80882fd`, wszystkie 2026-08-08/09). Dopisana sekcja `## 2026-08-09` z pełnym
+  opisem każdego (na bazie `git show --stat`, nie zgadywane).
+- **F0-6** — odłożone na koniec planu (Faza 5), zgodnie z instrukcją w `ACTION_PLAN.md` (liczby
+  testów w `README.md` mają sens dopiero po Fazie 1-4, nie teraz).
+- **F0-7 ✅** — `docs/BACKLOG_UX_2026-08.md`: P0-1 (klucze/`AI_MODEL_TIER=best`) zweryfikowane
+  bezpośrednio w `backend/.env` (obecność, nie wartości) — zamknięte. P3-1 (nawigacja) —
+  potwierdzone w kodzie (`NavBar.jsx`, `flex flex-wrap`, 5 kategorii) — zamknięte. **Dodatkowe
+  odkrycie wykraczające poza F0-7**: P3-2 (tryb jasny kremowy) też jest już zaimplementowany
+  (`frontend/src/index.css`, commit `445e0b9`, sprzed tego audytu) — `ACTION_PLAN.md` (F4-12)
+  błędnie liczy to jako otwarte zadanie Fazy 4; oznaczone jako zamknięte w backlogu, do
+  poprawienia świadomości przy realizacji Fazy 4.
+
+**Nie wykonane w tej sesji, pozostaje otwarte:** cała reszta `ACTION_PLAN.md` (Fazy 1–5:
+pełne przejście na Alembic, porządki architektoniczne w `lessons.py`, stuby integracji
+`INT-2`/`INT-3` z Systemem Głównym, backlog UX P1/P2/reszta P3, weryfikacja końcowa) — plan
+wielodniowy, nie rozpoczęty poza Fazą 0.
 
 ---
 
