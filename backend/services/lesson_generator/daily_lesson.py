@@ -184,40 +184,80 @@ async def generate_daily_lesson(
     }}
     """
 
-    try:
-        lesson = await generate_json(prompt)
+    # P1-3/P1-4 (docs/BACKLOG_UX_2026-08.md): a "successful" generation can still
+    # come back with an empty exercises list (every item missing prompt/answer)
+    # or an empty grammar explanation — the cheap tier is unreliable about this.
+    # Retry the whole generation once before falling back, same pattern as the
+    # i+1 coverage retry above.
+    CONTENT_RETRIES = 1
+    lesson = None
+    for attempt in range(1 + CONTENT_RETRIES):
+        try:
+            candidate = await generate_json(prompt)
+        except Exception as e:
+            logger.error(f"Error generating daily lesson (attempt {attempt + 1}): {e}")
+            continue
+
         # Ensure all expected fields are present
         required_sections = [
             "warmup", "vocabulary", "grammar", "exercises", "cultural_note",
             "speaking_practice", "writing_exercise", "wrap_up"
         ]
         for section in required_sections:
-            if section not in lesson:
-                lesson[section] = {} if section not in ["vocabulary", "exercises", "speaking_practice"] else []
+            if section not in candidate:
+                candidate[section] = {} if section not in ["vocabulary", "exercises", "speaking_practice"] else []
 
-        lesson["interleaved_review"] = _build_interleaved_review(recent_topics)
+        candidate["interleaved_review"] = _build_interleaved_review(recent_topics)
 
         # Output forcing must come from the model (lesson-specific, in the target
         # language). If missing or malformed, drop the section entirely — the
         # frontend renders it conditionally, so omission is safe.
-        of = lesson.get("output_forcing")
+        of = candidate.get("output_forcing")
         if not (isinstance(of, dict) and of.get("text") and of.get("instruction")):
-            lesson.pop("output_forcing", None)
+            candidate.pop("output_forcing", None)
 
         # SCI-2: keep only well-formed pretest items (word + options + answer)
         # whose target word is actually taught in this lesson's vocabulary.
-        lesson["pretest"] = _sanitize_pretest(lesson.get("pretest"), lesson.get("vocabulary"))
+        candidate["pretest"] = _sanitize_pretest(candidate.get("pretest"), candidate.get("vocabulary"))
 
         # SCI-14: drop a malformed/missing elaboration question rather than show
         # a broken card — the frontend renders it conditionally on both fields.
-        lesson["grammar"] = _sanitize_grammar_elaboration(lesson.get("grammar"))
+        candidate["grammar"] = _sanitize_grammar_elaboration(candidate.get("grammar"))
 
         # SCI-13: trim/blank out mnemonic hints; most words won't have one.
-        lesson["vocabulary"] = _sanitize_vocabulary_mnemonics(lesson.get("vocabulary"))
+        candidate["vocabulary"] = _sanitize_vocabulary_mnemonics(candidate.get("vocabulary"))
 
+        # P1-3: drop exercise items/blocks missing prompt or answer server-side,
+        # so an incomplete AI response is never persisted and shown as a blank
+        # "fill in ___" with nothing to fill in.
+        candidate["exercises"] = _clean_exercises(candidate.get("exercises"))
+
+        exercises_ok = bool(candidate["exercises"])
+        explanation_ok = bool((candidate.get("grammar") or {}).get("explanation", "").strip())
+        lesson = candidate
+        if exercises_ok and explanation_ok:
+            break
+        logger.warning(
+            "Lesson generation attempt %d incomplete (exercises_ok=%s, explanation_ok=%s) — %s",
+            attempt + 1, exercises_ok, explanation_ok,
+            "retrying" if attempt < CONTENT_RETRIES else "keeping best attempt",
+        )
+
+    if lesson is not None:
+        # P1-4: still no usable grammar explanation after retrying — a clearly
+        # labelled generic fallback beats a blank section (topic/rule, if the
+        # model did provide them, make it slightly more specific than nothing).
+        grammar = lesson.get("grammar") or {}
+        if not (grammar.get("explanation") or "").strip():
+            topic = grammar.get("topic") or "tego zagadnienia"
+            grammar["explanation"] = (
+                f"Nie udało się wygenerować szczegółowego wyjaśnienia dla \"{topic}\" — "
+                "spróbuj wygenerować lekcję ponownie, albo zapytaj o to zagadnienie w Konwersacji."
+            )
+            lesson["grammar"] = grammar
         return lesson
-    except Exception as e:
-        logger.error(f"Error generating daily lesson: {e}")
+    else:
+        logger.error("Error generating daily lesson: all %d attempts raised", 1 + CONTENT_RETRIES)
         # Fallback lesson
         return {
             "pretest": [{
@@ -425,6 +465,39 @@ Return ONLY valid JSON:
     except Exception as e:
         logger.error(f"Error generating exercise variants: {e}")
         return []
+
+
+def _clean_exercises(exercises) -> list:
+    """P1-3 (docs/BACKLOG_UX_2026-08.md): drop malformed exercise blocks/items
+    server-side so a lesson is never persisted with a "fill in ___" that has
+    nothing to fill in. A block survives only if it has a non-empty
+    instruction and at least one item with both prompt and answer non-empty;
+    matching-type blocks (pairs crammed into one prompt/answer via "/"/"|" —
+    see normalizeExercises on the frontend) are left as-is since their
+    prompt/answer legitimately contain the delimited list, not a single pair.
+    """
+    if not isinstance(exercises, list):
+        return []
+    clean = []
+    for block in exercises:
+        if not isinstance(block, dict):
+            continue
+        instruction = (block.get("instruction") or "").strip()
+        items = block.get("items")
+        if not instruction or not isinstance(items, list):
+            continue
+        is_matching = "match" in str(block.get("type", "")).lower()
+        if is_matching:
+            good_items = [it for it in items if isinstance(it, dict) and it.get("prompt") and it.get("answer")]
+        else:
+            good_items = [
+                it for it in items
+                if isinstance(it, dict) and (it.get("prompt") or "").strip() and (it.get("answer") or "").strip()
+            ]
+        if not good_items:
+            continue
+        clean.append({**block, "instruction": instruction, "items": good_items})
+    return clean
 
 
 def _sanitize_pretest(pretest, vocabulary) -> list:

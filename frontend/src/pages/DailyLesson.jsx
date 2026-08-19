@@ -1407,7 +1407,13 @@ function normalizeExercises(blocks) {
         if (!it || typeof it !== 'object') continue
         const answer = String(it.answer ?? '').trim()
         let content = String(it.prompt ?? it.content ?? '').trim()
-        if (!content && !answer) continue
+        // P1-3: content is what's actually shown ("what am I supposed to fill
+        // in if there's nothing there") — never render a blank one. Closed
+        // exercise types also need a checkable answer; sentence_creation is
+        // graded by AI against the student's own text, so its "answer" is
+        // just a sample and can legitimately be empty.
+        if (!content) continue
+        if (type !== 'sentence_creation' && !answer) continue
         // fill-in-the-blank must show a blank; if the model omitted it, blank out
         // the answer inside the prompt, else append a blank marker.
         if (type && /fill|blank/i.test(type) && content && !content.includes('___')) {
@@ -1423,7 +1429,8 @@ function normalizeExercises(blocks) {
     } else {
       const answer = String(b.answer ?? '').trim()
       const content = String(b.content ?? b.prompt ?? '').trim()
-      if (!content && !answer && !b.pairs) continue
+      if (!b.pairs && !content) continue
+      if (!b.pairs && b.type !== 'sentence_creation' && !answer) continue
       out.push({ ...b, content, answer })
     }
   }

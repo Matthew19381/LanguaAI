@@ -23,7 +23,9 @@ tylko sprawdzenie obecności).
 
 ## P1 — Zepsute rdzenne UX (dotyka codziennego użycia)
 
-### P1-1. Znaki specjalne kradną fokus / kursor znika
+### P1-1. Znaki specjalne kradną fokus / kursor znika — ✅ Zamknięte (zweryfikowano 2026-08-19)
+`frontend/src/components/SpecialChars.jsx` — dokładnie ten wzorzec: `onMouseDown preventDefault`,
+wstawianie na `selectionStart`/`selectionEnd`, przywrócenie karetki po re-renderze.
 - **Problem:** kliknięcie ä/ö/ü przenosi fokus z pola tekstowego; kursor „znika".
 - **Przyczyna:** `frontend/src/pages/DailyLesson.jsx` `SpecialCharHelper` (~1251) — `<button onClick>` bez `onMouseDown preventDefault`, a `onInsert` dokleja znak na koniec zamiast w pozycji kursora.
 - **Co zrobić:** wydzielić wspólny komponent `SpecialChars` (np. `components/SpecialChars.jsx`):
@@ -31,13 +33,20 @@ tylko sprawdzenie obecności).
   - wstawianie w miejsce kursora (selectionStart/End), utrzymanie fokusu i pozycji karetki po wstawieniu.
 - **DoD:** po kliknięciu znaku fokus zostaje w polu, znak ląduje w miejscu kursora, można pisać dalej.
 
-### P1-2. Brak znaków specjalnych w: teście dnia, ćwiczeniach, dyktandzie
+### P1-2. Brak znaków specjalnych w: teście dnia, ćwiczeniach, dyktandzie — ✅ Zamknięte (zweryfikowano 2026-08-19)
+`SpecialChars` już podpięty w `DailyTest.jsx`, `Practice.jsx`, `Dictation.jsx`.
 - **Problem:** te ekrany nie mają paska znaków (są tylko w lekcji/konwersacji/news/flashcards).
 - **Przyczyna:** `SpecialCharHelper` używany lokalnie w DailyLesson; brak w `DailyTest.jsx`, `Practice.jsx`, `Dictation.jsx`.
 - **Co zrobić:** po P1-1 podpiąć wspólny `SpecialChars` pod każde pole odpowiedzi w tych stronach (język z profilu użytkownika).
 - **DoD:** we wszystkich polach tekstowych do odpowiedzi jest pasek znaków dla języka docelowego.
 
-### P1-3. Ćwiczenia bez treści („co mam uzupełniać, skoro nic nie ma")
+### P1-3. Ćwiczenia bez treści („co mam uzupełniać, skoro nic nie ma") — ✅ Zamknięte 2026-08-19
+Backend: `_clean_exercises()` w `daily_lesson.py` odrzuca bloki/pozycje bez `instruction`/
+`prompt`/`answer`; generacja retry'uje raz całą lekcję, jeśli po odfiltrowaniu ćwiczenia
+wyszły puste. Frontend: `normalizeExercises` w `DailyLesson.jsx` odrzuca pozycję bez
+`content`, oraz bez `answer` dla zamkniętych typów (nie dla `sentence_creation`, gdzie
+"answer" to tylko przykład, ocenia AI). Testy: `test_lesson_content_completeness.py` (7),
+`DailyLesson.test.jsx` (+1).
 - **Problem:** część ćwiczeń renderuje puste zdanie/brak luki.
 - **Przyczyna:** `ExerciseCard` (DailyLesson ~1270) zakłada `exercise.content` z `___`; przy pustym/niepełnym `content` nie ma czego pokazać. Generacja (tani model) bywa niekompletna.
 - **Co zrobić:**
@@ -45,25 +54,35 @@ tylko sprawdzenie obecności).
   - Frontend: guard — nie renderować ćwiczenia bez `content`/`answer`; pokazać placeholder zamiast pustki.
 - **DoD:** każde wyświetlone ćwiczenie ma czytelne zdanie z luką i sprawdzalną odpowiedź.
 
-### P1-4. Brak wyjaśnienia gramatyki w lekcji
+### P1-4. Brak wyjaśnienia gramatyki w lekcji — ✅ Zamknięte 2026-08-19
+Ta sama retry pętla co P1-3 (jedna generacja, jeden JSON) sprawdza też
+`grammar.explanation` niepuste; jeśli po retry wciąż puste, wstawiany jest jawnie
+oznaczony fallback tekstowy odnoszący się do tematu gramatycznego (nie cichy/generyczny).
 - **Problem:** sekcja gramatyki pusta.
 - **Przyczyna:** UI ma sekcję (`content.explanation`, DailyLesson ~557), ale generacja jej nie zwraca (albo pusta na tanim modelu).
 - **Co zrobić:** w `lesson_generator.generate_daily_lesson` zagwarantować niepustą sekcję `explanation` (reguła + 2–3 przykłady + typowe błędy PL→DE); walidacja obecności; fallback treściowy.
 - **DoD:** każda lekcja ma widoczne, konkretne wyjaśnienie gramatyczne powiązane z tematem.
 
-### P1-5. Recall (OutputForcingCard) — tekst znika, brak sprawdzenia
+### P1-5. Recall (OutputForcingCard) — tekst znika, brak sprawdzenia — ✅ Zamknięte (zweryfikowano 2026-08-19)
+`OutputForcingCard` w `DailyLesson.jsx` ma przycisk „Sprawdź", word-level diff
+(zielone/czerwone), tekst użytkownika nigdy nie jest kasowany.
 - **Problem:** po wypisaniu z pamięci brak przycisku pokazującego poprawny tekst / zaznaczającego błędne wyrazy; wpisane znika.
 - **Przyczyna:** `OutputForcingCard` (DailyLesson ~1144) liczy tylko `similarity()`; brak trybu porównania i utrzymania wpisu.
 - **Co zrobić:** dodać przycisk „Sprawdź": zachować `userRecall`, pod spodem pokazać poprawny tekst i **diff słowo-po-słowie** (zielone=trafione, czerwone=błędne/brakujące). Nic nie kasować automatycznie.
 - **DoD:** po „Sprawdź" widać swój tekst + poprawny + kolorowe zaznaczenie różnic; wpis nie znika.
 
-### P1-6. Test dnia → przycisk „przejdź do lekcji" generuje NOWĄ lekcję
+### P1-6. Test dnia → przycisk „przejdź do lekcji" generuje NOWĄ lekcję — ✅ Zamknięte (zweryfikowano 2026-08-19)
+`getTodayLesson`/`get_today_lesson` sprawdza istniejącą dzisiejszą lekcję przed
+generacją (naprawione już przy okazji fixu `4af0665`), więc `navigate('/lesson')` z
+`DailyTest.jsx` zawsze otwiera tę samą lekcję. Osobny, jawny przycisk „Wygeneruj nową
+lekcję" istnieje niezależnie (`DailyLesson.jsx` + `Settings.jsx`).
 - **Problem:** po teście przycisk tworzy świeżą lekcję (z tymi samymi wadami), zamiast otworzyć dzisiejszą istniejącą.
 - **Przyczyna:** `DailyTest.jsx` (~160, `onRetry`) `navigate('/lesson')`; `/lesson` auto-generuje przy braku „dzisiejszej".
 - **Co zrobić:** kierować do istniejącej dzisiejszej lekcji (bez regeneracji); rozdzielić „otwórz dzisiejszą" od „generuj nową". Zweryfikować `onRegenerateFromErrors`, by nie produkował niekompletnych ćwiczeń (zależ. od P1-3).
 - **DoD:** po teście „przejdź do lekcji" otwiera tę samą dzisiejszą lekcję; nowa powstaje tylko na jawne żądanie.
 
-### P1-7. Ćwiczenia — Enter zatwierdza, drugi Enter = następne
+### P1-7. Ćwiczenia — Enter zatwierdza, drugi Enter = następne — ✅ Zamknięte (zweryfikowano 2026-08-19)
+`Practice.jsx` ma dokładnie ten dwustanowy handler (`onKeyDown`, linie ok. 162-168, 317).
 - **Problem:** brak szybkiej obsługi klawiatury w `Practice.jsx`.
 - **Przyczyna:** obecny handler nie ma dwustanowego Enter (sprawdź → dalej).
 - **Co zrobić:** w polu odpowiedzi: 1. Enter = sprawdź (gdy niesprawdzone), 2. Enter = następne ćwiczenie (gdy sprawdzone).

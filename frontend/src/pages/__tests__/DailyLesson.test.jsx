@@ -222,4 +222,36 @@ describe("DailyLesson", () => {
       instruction: "Ułóż zdanie",
     }))
   })
+
+  it("P1-3: drops exercise items with empty content or answer instead of rendering a blank card", async () => {
+    const { getTodayLesson } = await import("../../api/client")
+    getTodayLesson.mockReturnValue(Promise.resolve({
+      lesson_id: 1,
+      day_number: 1,
+      language: "German",
+      is_completed: false,
+      content: {
+        exercises: [{
+          type: "fill-in-the-blank",
+          instruction: "Uzupełnij lukę",
+          items: [
+            { prompt: "Ich ___ Anna.", answer: "heiße" },   // good — should render
+            { prompt: "", answer: "heiße" },                 // empty content — dropped
+            { prompt: "Du ___ nett.", answer: "" },          // empty answer — dropped
+          ],
+        }],
+      },
+    }))
+    renderLesson()
+
+    const { waitFor, fireEvent } = await import("@testing-library/react")
+    // Only the one good item counts towards the exercises total.
+    await waitFor(() => expect(screen.getByText("lesson.exercises (1)")).toBeInTheDocument())
+    fireEvent.click(screen.getByText("lesson.exercises (1)"))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Ich ___ Anna\./)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/Du ___ nett\./)).not.toBeInTheDocument()
+  })
 })

@@ -4,6 +4,58 @@ _Ostatnia aktualizacja: 2026-08-19_
 
 ---
 
+## 🟢 ACTION_PLAN.md Faza 4 — backlog UX P1 (2026-08-19)
+
+Weryfikacja przed implementacją (zgodnie z ustalonym wzorcem sesji — sprawdzać zanim się
+naprawia) ujawniła, że **5 z 7 pozycji P1 były już naprawione** w kodzie z wcześniejszych
+sesji, ale `docs/BACKLOG_UX_2026-08.md` i `ACTION_PLAN.md` wciąż je opisywały jako otwarte:
+
+- **P1-1 ✅ już zrobione** — `frontend/src/components/SpecialChars.jsx` istnieje jako
+  wspólny komponent z dokładnie żądanym zachowaniem (`onMouseDown preventDefault`, insert
+  na karetce, przywrócenie fokusu).
+- **P1-2 ✅ już zrobione** — `SpecialChars` podpięty w `DailyTest.jsx`, `Practice.jsx`,
+  `Dictation.jsx`.
+- **P1-5 ✅ już zrobione** — `OutputForcingCard` ma przycisk „Sprawdź" + word-level diff,
+  tekst użytkownika nigdy nie znika.
+- **P1-6 ✅ już zrobione** — konsekwencja fixu `4af0665`: `get_today_lesson` sprawdza
+  istniejącą dzisiejszą lekcję PRZED generacją, więc `DailyTest.jsx`'s `navigate('/lesson')`
+  zawsze trafia w tę samą lekcję. Osobny przycisk „Wygeneruj nową" istnieje niezależnie.
+- **P1-7 ✅ już zrobione** — `Practice.jsx` ma dwustanowy `onKeyDown` (Enter = sprawdź,
+  potem Enter = następne).
+
+Naprawione w tej sesji:
+
+- **P1-3 ✅ (2026-08-19)** — ćwiczenia z pustą treścią. Root cause: żadna walidacja nie
+  gwarantowała, że wygenerowane przez AI `items[].prompt`/`items[].answer` są niepuste —
+  tylko frontend odrzucał pozycję gdy OBA pola były puste (`!content && !answer`), więc
+  pozycja z pustym `content` ale niepustym `answer` (albo odwrotnie) i tak się renderowała
+  jako pusta luka bez sensownej odpowiedzi.
+  - Backend (`backend/services/lesson_generator/daily_lesson.py`): nowa `_clean_exercises()`
+    — odrzuca blok bez `instruction`, odrzuca pozycję bez niepustego `prompt`+`answer`
+    (wyjątek: bloki `matching`, gdzie `prompt`/`answer` to zamierzenie delimitowana lista
+    par). `generate_daily_lesson` retry'uje CAŁĄ generację raz (ten sam wzorzec co istniejący
+    retry pokrycia leksykalnego SCI-3), jeśli po odfiltrowaniu `exercises` wyszły puste LUB
+    `grammar.explanation` jest puste — to jedno wywołanie JSON, więc jeden retry naprawia
+    oba na raz bez podwójnego kosztu AI.
+  - Frontend (`DailyLesson.jsx` `normalizeExercises`): zaostrzony guard — `content` musi być
+    niepuste zawsze (to ono się wyświetla — "nic nie ma do uzupełnienia" to dokładnie pusty
+    `content`); `answer` musi być niepuste dla zamkniętych typów, ale NIE dla
+    `sentence_creation` (tam `answer` to tylko "Przykład:", ocenia AI, nie string-match —
+    świadomie nie zaostrzone, żeby nie odrzucać poprawnych otwartych ćwiczeń).
+  - Testy: `backend/tests/test_lesson_content_completeness.py` (7 nowych, w tym integracyjny
+    z zamockowanym `generate_json` potwierdzający retry i fallback), `DailyLesson.test.jsx`
+    (+1). `481/481` backend, `92/92` frontend, `ruff`/`lint` czyste. Zweryfikowane też na
+    żywo w przeglądarce (realna lekcja usera 4 renderuje „Ćwiczenia (15)" bez regresji).
+- **P1-4 ✅ (2026-08-19)** — brak wyjaśnienia gramatyki. Ta sama retry pętla co P1-3
+  (jedno wywołanie AI sprawdza oba warunki); jeśli `grammar.explanation` wciąż puste po
+  retry, wstawiany jest jawnie oznaczony fallback tekstowy nawiązujący do tematu (nie cichy
+  placeholder ani fabrykowana treść).
+
+`docs/BACKLOG_UX_2026-08.md` zaktualizowane — wszystkie 7 pozycji P1 oznaczone jako zamknięte
+z datami/uzasadnieniem.
+
+---
+
 ## 🟢 ACTION_PLAN.md Faza 2 — wydzielenie logiki z lessons.py (2026-08-19)
 
 - **F2-1 ✅** — `backend/routers/lessons.py` (1060 linii) miał zduplikowaną (nie tylko
