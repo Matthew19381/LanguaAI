@@ -4,6 +4,19 @@ _Ostatnia aktualizacja: 2026-08-19_
 
 ---
 
+## 🟢 P3-3 — dzienne wskazówki (2026-08-19, weryfikacja, już zrobione)
+
+Sprawdzone przed implementacją (ten sam wzorzec co cała reszta tej sesji): `get_daily_tips`
+w `backend/routers/stats.py` już pobiera realne tematy usera (najnowsze 8 + najsłabsze 6 wg
+`memory_strength`) i wymusza w prompcie `generate_daily_tips`, że min. 2 z 4 wskazówek
+muszą jawnie odnosić się do konkretnego tematu z przykładem. Dodany tylko brakujący test
+(`test_get_tips_grounded_in_real_recent_and_weak_topics`) weryfikujący, że dane faktycznie
+docierają do promptu (wcześniejszy test tylko sprawdzał, że endpoint odpowiada, nie że jest
+spersonalizowany) — realna luka w pokryciu, nie w funkcji. `docs/BACKLOG_UX_2026-08.md`
+zaktualizowany.
+
+---
+
 ## 🟢 ACTION_PLAN.md P2-4 — hierarchia Banku wiedzy (2026-08-19)
 
 Największe zadanie backlogu, zrobione. Zanim zacząłem pisać kod, sprawdziłem co już

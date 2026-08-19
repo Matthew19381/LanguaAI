@@ -165,7 +165,12 @@ mimo że kod już to realizował — poprawione tu.
 - **Co zrobić:** wprowadzić ciepłą, niską-kontrastowo paletę (tło ~`#faf6ec`/kremowe, karty lekko jaśniejsze, tekst ciemnografitowy zamiast czystej czerni); spójnie przez zmienne/utility.
 - **DoD:** tryb jasny czytelny i nieoślepiający; kontrast zgodny z WCAG AA.
 
-### P3-3. Dzienne wskazówki powiązane z bieżącą nauką
+### P3-3. Dzienne wskazówki powiązane z bieżącą nauką — ✅ Zamknięte (zweryfikowano 2026-08-19)
+`get_daily_tips` w `backend/routers/stats.py` już pobiera realne tematy usera (najnowsze +
+najsłabsze wg `memory_strength`) i przekazuje do `generate_daily_tips`, którego prompt
+wymusza, że min. 2 z 4 wskazówek muszą jawnie odnosić się do konkretnego tematu z
+przykładem. Dodany test (`test_get_tips_grounded_in_real_recent_and_weak_topics`)
+weryfikujący, że dane faktycznie trafiają do promptu, nie tylko że endpoint odpowiada.
 - **Problem:** wskazówki generyczne.
 - **Przyczyna:** `routers/stats.py` `get_daily_tips` → `generate_daily_tips` bez pełnego kontekstu bieżących tematów/słabych miejsc.
 - **Co zrobić:** przekazać do generacji ostatnie tematy, słabe ćwiczenia/fiszki (niski mastery), ostatnie błędy — wskazówki mają odnosić się do tego, czego user się teraz uczy.

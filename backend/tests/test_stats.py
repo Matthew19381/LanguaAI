@@ -88,3 +88,29 @@ def test_get_tips(client, sample_user):
 def test_get_tips_not_found(client):
     r = client.get("/api/tips/99999")
     assert r.status_code == 404
+
+
+def test_get_tips_grounded_in_real_recent_and_weak_topics(client, sample_user, db):
+    """P3-3 (docs/BACKLOG_UX_2026-08.md): tips must reference the learner's
+    actual current/weak topics, not be generic — verifies the data actually
+    reaching generate_daily_tips, not just that the endpoint responds."""
+    from backend.models.topic import Topic
+    uid = sample_user["user_id"]
+    db.add_all([
+        Topic(user_id=uid, name="Perfekt", category="grammar", language="German",
+              cefr_level="A2", memory_strength=0.9),   # recent, strong — not "weak"
+        Topic(user_id=uid, name="Konjunktiv II", category="grammar", language="German",
+              cefr_level="B1", memory_strength=0.2),   # recent AND weak
+    ])
+    db.commit()
+
+    mock_tips = {"tips": [{"title": "x", "content": "y", "type": "grammar", "source": "z"}]}
+    with patch("backend.routers.stats.generate_daily_tips",
+               new=AsyncMock(return_value=mock_tips)) as mocked:
+        r = client.get(f"/api/tips/{uid}")
+    assert r.status_code == 200
+
+    _, kwargs = mocked.call_args
+    assert "Perfekt" in kwargs["recent_topics"]
+    assert "Konjunktiv II" in kwargs["recent_topics"]
+    assert kwargs["weak_topics"] == ["Konjunktiv II"]
