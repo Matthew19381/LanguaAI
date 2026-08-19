@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Brain, ChevronLeft, ChevronRight, Download, Eye,
-  CheckCircle, AlertCircle, Clock, Plus, CloudOff, UploadCloud
+  CheckCircle, AlertCircle, Clock, Plus, CloudOff, UploadCloud, RotateCcw
 } from 'lucide-react'
 import { getUserId, getFlashcards, getDueFlashcards, reviewFlashcard, exportAnki, addFlashcard, addFlashcardAI, bulkImportFlashcards, getFlashcardOfflinePack } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
@@ -88,6 +88,11 @@ export default function Flashcards() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
   const [reviewDone, setReviewDone] = useState(new Set())
+  // Rating distribution for the current DUE session, for the end-of-session
+  // summary — counts every rating GIVEN (re-rating a card via the progress
+  // dots counts again), not unique cards.
+  const [sessionRatings, setSessionRatings] = useState({ 1: 0, 2: 0, 3: 0, 4: 0 })
+  const [sessionDismissed, setSessionDismissed] = useState(false)
   const [dateFilter, setDateFilter] = useState('all') // 'all', 'today', 'week', 'month'
   const [lessonFilter, setLessonFilter] = useState('all') // 'all' or lesson_day number
   const [cefrFilter, setCefrFilter] = useState('all') // 'all', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'
@@ -155,6 +160,18 @@ export default function Flashcards() {
     finally { setLoading(false) }
   }
 
+  // "Przejrzyj ponownie" on the summary screen — a fresh session: reset the
+  // rating tally and re-fetch due cards (FSRS may already have moved some
+  // forward, or new ones may have appeared).
+  const startNewDueSession = () => {
+    setReviewDone(new Set())
+    setSessionRatings({ 1: 0, 2: 0, 3: 0, 4: 0 })
+    setSessionDismissed(false)
+    setCurrentIndex(0)
+    setIsFlipped(false)
+    loadCards()
+  }
+
   const handleDownloadCardPack = async () => {
     try {
       const pack = await getFlashcardOfflinePack(userId)
@@ -217,6 +234,7 @@ export default function Flashcards() {
     if (!card) return
     const advance = () => {
       setReviewDone(prev => new Set([...prev, card.id]))
+      setSessionRatings(prev => ({ ...prev, [rating]: prev[rating] + 1 }))
       if (idx < cards.length - 1) {
         setIsFlipped(false)
         setCurrentIndex(i => Math.min(i + 1, cards.length - 1))
@@ -484,10 +502,64 @@ export default function Flashcards() {
                 </>
               )}
             </div>
+          ) : tab === TABS.DUE && !sessionDismissed && reviewDone.size >= displayCards.length ? (
+            /* End-of-session summary — every due card in this batch has been
+               rated at least once. Shows the rating breakdown so the learner
+               sees how the session actually went, not just "done". */
+            <div className="card max-w-lg mx-auto text-center py-10">
+              <CheckCircle className="w-14 h-14 text-emerald-400 mx-auto mb-3" />
+              <h3 className="text-xl font-semibold mb-1">{t('flash.sessionDoneTitle') || 'Sesja ukończona!'}</h3>
+              <p className="text-gray-400 mb-6">
+                {(t('flash.sessionDoneSubtitle') || '{n} fiszek przejrzanych').replace('{n}', displayCards.length)}
+              </p>
+
+              {/* Rating breakdown bar */}
+              {(() => {
+                const total = sessionRatings[1] + sessionRatings[2] + sessionRatings[3] + sessionRatings[4]
+                const segments = [
+                  { rating: 1, labelKey: 'flash.again', color: 'bg-red-600' },
+                  { rating: 2, labelKey: 'flash.hard', color: 'bg-orange-500' },
+                  { rating: 3, labelKey: 'flash.good', color: 'bg-blue-500' },
+                  { rating: 4, labelKey: 'flash.easy', color: 'bg-emerald-500' },
+                ]
+                return total > 0 ? (
+                  <div className="mb-6">
+                    <div className="progress-bar flex h-3 mb-3">
+                      {segments.map(({ rating, color }) => sessionRatings[rating] > 0 && (
+                        <div
+                          key={rating}
+                          className={color}
+                          style={{ width: `${(sessionRatings[rating] / total) * 100}%` }}
+                          title={`${t(segments.find(s => s.rating === rating).labelKey)}: ${sessionRatings[rating]}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex justify-center gap-4 text-sm flex-wrap">
+                      {segments.map(({ rating, labelKey, color }) => (
+                        <span key={rating} className="flex items-center gap-1.5 text-gray-400">
+                          <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
+                          {t(labelKey)}: <span className="font-semibold text-gray-200">{sessionRatings[rating]}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null
+              })()}
+
+              <div className="flex items-center justify-center gap-3">
+                <button className="btn-secondary flex items-center gap-2" onClick={startNewDueSession}>
+                  <RotateCcw className="w-4 h-4" />
+                  {t('flash.reviewAgain') || 'Przejrzyj ponownie'}
+                </button>
+                <button className="btn-primary" onClick={() => setSessionDismissed(true)}>
+                  {t('flash.browseCards') || 'Przeglądaj karty'}
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="max-w-lg mx-auto">
-              {/* Card counter */}
-              <div className="flex justify-between text-sm text-gray-400 mb-3">
+              {/* Card counter + progress bar (DUE tab: how far through today's batch) */}
+              <div className="flex justify-between text-sm text-gray-400 mb-1.5">
                 <span>{currentIndex + 1} / {displayCards.length}</span>
                 <div className="flex items-center gap-3">
                   {tab === TABS.DUE && (
@@ -502,6 +574,14 @@ export default function Flashcards() {
                   </button>
                 </div>
               </div>
+              {tab === TABS.DUE && (
+                <div className="progress-bar h-1.5 mb-4">
+                  <div
+                    className="progress-fill bg-indigo-500"
+                    style={{ width: `${(reviewDone.size / displayCards.length) * 100}%` }}
+                  />
+                </div>
+              )}
 
               {/* Flashcard */}
               {currentCard && (

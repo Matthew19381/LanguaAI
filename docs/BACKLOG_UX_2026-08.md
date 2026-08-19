@@ -92,14 +92,14 @@ lekcję" istnieje niezależnie (`DailyLesson.jsx` + `Settings.jsx`).
 
 ## P2 — Przebudowy funkcji
 
-### P2-1. Fiszki — całkowita przebudowa
-- **Problem:** „mogę tylko odwrócić kartę"; ocena zapamiętania niewidoczna/nieczytelna.
-- **Przyczyna:** `Flashcards.jsx` (816 l.) ma oceny 1–4 (Again/Hard/Good/Easy, ~569), ale pojawiają się dopiero po odwróceniu i UX jest mylący.
-- **Co zrobić:** przeprojektować przepływ:
-  - front karty → „Pokaż odpowiedź" → tył + **wyraźne 4 przyciski oceny** (z interwałami FSRS) zawsze widoczne,
-  - skróty 1–4, licznik due/postęp sesji, wynik na koniec sesji,
-  - audio słowa, przykładowe zdanie, powiązanie z tematem.
-- **DoD:** użytkownik dla każdej karty świadomie ocenia pamięć; FSRS aktualizuje `next_review`; sesja ma jasny koniec.
+### P2-1. Fiszki — całkowita przebudowa — ✅ DoD spełnione 2026-08-19 (rozważana dalsza przebudowa — patrz TASKS.md)
+Rdzeń już istniał (4 przyciski oceny zawsze widoczne po odwróceniu, skróty 1–4, audio,
+przykładowe zdanie) — brakowało tylko licznika postępu sesji i ekranu podsumowania.
+Dodane: pasek postępu podczas przeglądania (`reviewDone.size / displayCards.length`),
+ekran „Sesja ukończona!" po ocenieniu wszystkich kart z rozkładem ocen (Again/Hard/Good/
+Easy) i przyciskami „Przejrzyj ponownie"/„Przeglądaj karty". Wszystkie 4 punkty DoD
+spełnione. Użytkownik rozważa jednak głębszą przebudowę fiszek (nie tylko dokończenie tego
+DoD) — patrz notatka „Fiszki — warianty przebudowy" w `TASKS.md` z 2026-08-19.
 
 ### P2-2. Konwersacja — realna rozmowa + właściwy model — ✅ Zamknięte 2026-08-19
 Dedykowany model/tier „conversation" w `model_router.py` już istniał (zweryfikowano przed

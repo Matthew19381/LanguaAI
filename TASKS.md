@@ -4,6 +4,32 @@ _Ostatnia aktualizacja: 2026-08-19_
 
 ---
 
+## 🟢 P2-1 — dokończenie DoD Fiszek (2026-08-19)
+
+Rdzeń przepływu oceny już wcześniej działał (4 przyciski zawsze widoczne, skróty 1-4).
+Dokończone brakujące dwa punkty DoD z `docs/BACKLOG_UX_2026-08.md`:
+
+- **Pasek postępu sesji** — `frontend/src/pages/Flashcards.jsx`, widoczny na zakładce „Do
+  powtórki" pod licznikiem `X/Y`, wypełnia się wraz z `reviewDone.size / displayCards.length`
+  (reużyty istniejący `.progress-bar`/`.progress-fill` z `index.css`, nie nowy styl).
+- **Ekran podsumowania sesji** — nowy warunek renderowania: gdy wszystkie karty w bieżącej
+  partii „Do powtórki" zostały ocenione (`reviewDone.size >= displayCards.length`), zamiast
+  karty pokazuje się „Sesja ukończona!" z paskiem rozkładu ocen (Again/Hard/Good/Easy, kolor
+  na kolor jak przyciski oceny) i dwoma akcjami: „Przejrzyj ponownie" (reset + ponowne
+  pobranie kart due — FSRS mogło już część przesunąć) i „Przeglądaj karty" (zamyka
+  podsumowanie, wraca do przeglądania tej samej partii bez utraty stanu ocen).
+- Nowe klucze i18n (`flash.sessionDoneTitle` itd.) w PL i EN, wzorem istniejących.
+- Testy: `Flashcards.test.jsx` +3 (pasek postępu, podsumowanie z poprawnym rozkładem ocen,
+  „Przeglądaj karty" poprawnie chowa podsumowanie). **101/101** frontend, `eslint` czyste.
+- Nie live-zweryfikowane w przeglądarce — port 5173 zajęty przez inny, niepowiązany projekt
+  na tej maszynie („System Diety AI"); pokrycie testami uznane za wystarczające dla tej
+  skali zmiany.
+
+**Użytkownik rozważa głębszą przebudowę** (nie tylko dokończenie tego DoD) — zobacz notatkę
+niżej z researchem i wariantami do wyboru.
+
+---
+
 ## 🏁 ACTION_PLAN.md — zamknięcie planu (2026-08-19, Faza 5)
 
 Weryfikacja końcowa: `503/503` testów backendu, `98/98` testów frontendu, `ruff check
