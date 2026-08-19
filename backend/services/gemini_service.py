@@ -192,6 +192,89 @@ async def _generate_text_openrouter(prompt: str, model: str = None) -> str:
     return await _call_openrouter_api(url, payload, headers, timeout=60.0)
 
 
+async def generate_text_stream(prompt: str, model: str = None):
+    """Stream text as it's generated (P2-2, docs/BACKLOG_UX_2026-08.md —
+    Conversation should feel like a live chat, not a spinner-then-dump).
+    Yields plain text chunks. Unlike generate_text/generate_json, this is a
+    THIRD entry point into the AI provider (deliberate — CLAUDE.md's "two
+    functions only" predates streaming support); every other caller in the
+    app is unaffected. Only the conversation router uses this so far.
+    """
+    provider = _get_provider()
+    if provider == "gemini":
+        async for chunk in _generate_text_stream_gemini(prompt, model):
+            yield chunk
+    else:
+        async for chunk in _generate_text_stream_openrouter(prompt, model):
+            yield chunk
+
+
+async def _generate_text_stream_openrouter(prompt: str, model: str = None):
+    """OpenRouter is OpenAI-compatible SSE: lines are `data: {...}`, the
+    incremental text is choices[0].delta.content, terminated by `data:
+    [DONE]`. OpenRouter also sends bare SSE comment lines (starting with
+    `:`) as keep-alives — skipped along with anything that isn't `data:`.
+    """
+    if model is None:
+        model = _model_override.get() or _default_openrouter_model()
+    url = _get_openrouter_url()
+    headers = _get_openrouter_headers()
+    payload = _build_openrouter_payload(prompt, model)
+    payload["stream"] = True
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        async with client.stream("POST", url, json=payload, headers=headers) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                data = line[len("data:"):].strip()
+                if not data or data == "[DONE]":
+                    continue
+                try:
+                    obj = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                choices = obj.get("choices") or []
+                if not choices:
+                    continue
+                content = (choices[0].get("delta") or {}).get("content")
+                if content:
+                    yield content
+
+
+async def _generate_text_stream_gemini(prompt: str, model: str = None):
+    """Gemini's streaming endpoint needs `alt=sse` on streamGenerateContent
+    (without it, Gemini returns one JSON array at the end, not a real
+    stream). Each SSE chunk's candidates[0].content.parts[0].text is the
+    incremental piece of text, same shape as the non-streaming response.
+    """
+    if model is None:
+        model = _model_override.get() or _GEMINI_DEFAULT_MODEL
+    url = f"{_GEMINI_BASE_URL}/models/{model}:streamGenerateContent"
+    headers = _get_gemini_headers()
+    payload = _build_gemini_payload(prompt)
+    params = {"key": settings.GEMINI_API_KEY, "alt": "sse"}
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        async with client.stream("POST", url, json=payload, headers=headers, params=params) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                data = line[len("data:"):].strip()
+                if not data:
+                    continue
+                try:
+                    obj = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                try:
+                    text = obj["candidates"][0]["content"]["parts"][0]["text"]
+                except (KeyError, IndexError, TypeError):
+                    continue
+                if text:
+                    yield text
+
+
 async def generate_json(prompt: str, model: str = None, fallback: dict = None) -> dict:
     """Generate JSON using configured AI provider."""
     provider = _get_provider()

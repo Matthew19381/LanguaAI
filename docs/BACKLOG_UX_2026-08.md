@@ -101,14 +101,24 @@ lekcję" istnieje niezależnie (`DailyLesson.jsx` + `Settings.jsx`).
   - audio słowa, przykładowe zdanie, powiązanie z tematem.
 - **DoD:** użytkownik dla każdej karty świadomie ocenia pamięć; FSRS aktualizuje `next_review`; sesja ma jasny koniec.
 
-### P2-2. Konwersacja — realna rozmowa + właściwy model
+### P2-2. Konwersacja — realna rozmowa + właściwy model — ✅ Zamknięte 2026-08-19
+Dedykowany model/tier „conversation" w `model_router.py` już istniał (zweryfikowano przed
+implementacją). Brakujący streaming dodany: `generate_text_stream()` w `gemini_service.py`
+(trzecia funkcja obok `generate_text`/`generate_json` — świadome rozszerzenie, tylko router
+konwersacji z niej korzysta), SSE po OpenAI-kompatybilnym formacie OpenRouter i
+`streamGenerateContent?alt=sse` dla Gemini Direct (sprawdzone w dokumentacji obu API przed
+implementacją — patrz `TASKS.md`). Nowy endpoint `POST /api/conversation/message/stream`,
+frontend odbiera przez `fetch` + ręczne parsowanie SSE (EventSource nie obsługuje POST),
+dymek asystenta rośnie token po tokenie zamiast pojawiać się w całości po długim czekaniu.
+**Znaleziony i naprawiony realny bug w trakcie implementacji**: sesja DB wstrzyknięta przez
+`Depends(get_db)` bywała już zamknięta zanim generator SSE zdążył zapisać historię (FastAPI
+zwalnia zależności `yield` gdy handler *zwraca* `StreamingResponse`, nie gdy strumień się
+kończy) — zapis do historii cicho nie działał (bez wyjątku!). Naprawione świeżą sesją
+(`SessionLocal()`, ten sam wzorzec co `process_lesson_topics_bg`) otwieraną wewnątrz
+generatora, po zakończeniu strumienia.
 - **Problem:** nie da się „normalnie porozmawiać".
-- **Przyczyna:** `Conversation.jsx` (699 l.) oparte o start/send/analyze; model rozwiązywany serwerowo, obecnie tier `cheap`.
-- **Co zrobić:**
-  - płynny czat turowy (kontekst historii, krótkie naturalne odpowiedzi, delikatna korekta błędów w tle),
-  - dobrać model konwersacyjny w `services/model_router.py` (dedykowany tier/задanie „conversation" na dobrym modelu), streaming odpowiedzi,
-  - tryb głosowy opcjonalny, ale tekstowy ma działać bez tarcia.
-- **DoD:** można prowadzić wielozdaniową, sensowną rozmowę w języku docelowym z korektą.
+- **DoD:** można prowadzić wielozdaniową, sensowną rozmowę w języku docelowym z korektą —
+  spełnione (model już był dobry); tryb głosowy pozostaje opcjonalny, bez zmian.
 
 ### P2-3. News — zaznaczanie słów w treści → lista boczna → do fiszek — ✅ Zamknięte (zweryfikowano 2026-08-19)
 `frontend/src/pages/News.jsx` ma dokładnie ten przepływ: klik w słowo → podświetlenie +

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PlayButton from '../components/PlayButton'
-import { getUserId, startConversation, sendMessage, analyzeConversation, askQuestion, getVoiceChatPrompt, analyzePastedConversation, sendVoiceMessage, sendVoiceText } from '../api/client'
+import { getUserId, startConversation, sendMessageStream, analyzeConversation, askQuestion, getVoiceChatPrompt, analyzePastedConversation, sendVoiceMessage, sendVoiceText } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
 
 const TOPICS = [
@@ -106,11 +106,33 @@ export default function Conversation() {
     setMessages(prev => [...prev, userMsg])
     if (!textOverride) setInputText("")
     setAiTyping(true)
+
+    // Streamed reply: the bounce-dots "typing" indicator shows until the
+    // FIRST chunk arrives, then a new assistant bubble appears and grows
+    // token-by-token instead of popping in fully-formed after one long wait.
+    const assistantId = Date.now() + 1
+    let bubbleStarted = false
     try {
-      const res = await sendMessage(sessionId, text)
-      setMessages(prev => [...prev, { role: "assistant", content: res.response, id: Date.now() }])
+      const result = await sendMessageStream(sessionId, text, undefined, (delta) => {
+        if (!bubbleStarted) {
+          bubbleStarted = true
+          setAiTyping(false)
+          setMessages(prev => [...prev, { role: "assistant", content: delta, id: assistantId, streaming: true }])
+        } else {
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: m.content + delta } : m))
+        }
+      })
+      // Reconcile with the server's own trimmed final text (belt-and-suspenders
+      // against any chunk-boundary artifact) and drop the streaming cursor.
+      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: result.response, streaming: false } : m))
     } catch (e) {
-      setMessages(prev => [...prev, { role: "system", content: t("conv.errorResponse"), id: Date.now() }])
+      if (bubbleStarted) {
+        // Partial text already shown — leave it, just stop the cursor.
+        // Losing an already-visible partial reply would be worse than a cut-off one.
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, streaming: false } : m))
+      } else {
+        setMessages(prev => [...prev, { role: "system", content: t("conv.errorResponse"), id: Date.now() }])
+      }
     } finally {
       setAiTyping(false)
     }
@@ -516,8 +538,11 @@ export default function Conversation() {
                   ? 'bg-red-900/50 text-red-300 rounded-tl-sm'
                   : 'bg-gray-800 text-gray-100 rounded-tl-sm'
               }`}>
-                <p className="text-sm leading-relaxed">{msg.content}</p>
-                {msg.role === 'assistant' && (
+                <p className="text-sm leading-relaxed">
+                  {msg.content}
+                  {msg.streaming && <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-emerald-400 align-middle animate-pulse" />}
+                </p>
+                {msg.role === 'assistant' && !msg.streaming && (
                   <div className="absolute -top-2 -right-2">
                     <PlayButton text={msg.content} language={targetLanguage} className="w-6 h-6 bg-gray-800 border border-gray-700" />
                   </div>

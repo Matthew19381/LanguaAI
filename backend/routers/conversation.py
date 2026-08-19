@@ -6,6 +6,7 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from backend.config import settings
@@ -22,13 +23,14 @@ from backend.schemas.conversation import (
     TranslateRequest,
 )
 from backend.services.achievement_service import check_and_award_achievements
-from backend.services.gemini_service import generate_text, with_model
+from backend.services.gemini_service import generate_text, generate_text_stream, with_model
 from backend.services.lesson_generator import (
     analyze_conversation,
     analyze_pasted_conversation,
     answer_language_question,
     generate_conversation_scenario,
 )
+from backend.services.model_router import get_model_for_task
 from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
@@ -116,6 +118,37 @@ async def start_conversation(
         raise HTTPException(status_code=500, detail="Failed to start conversation")
 
 
+def _build_reply_prompt(conv_session: ConversationSession, history: list) -> str:
+    """Build the reply prompt from session + history (with the new user
+    message already appended by the caller). Shared by the plain and
+    streaming /message endpoints so the two never drift apart."""
+    language = conv_session.language
+    cefr_level = conv_session.cefr_level
+    system_prompt = conv_session.system_prompt
+    scenario = json.loads(conv_session.scenario)
+
+    history_text = "\n".join([
+        f"{'You' if msg['role'] == 'assistant' else 'Student'}: {msg['content']}"
+        for msg in history[-10:]  # Last 10 messages for context
+    ])
+
+    ai_role = scenario.get('ai_role', 'conversation partner')
+    return f"""{system_prompt}
+
+Conversation so far:
+{history_text}
+
+You are {ai_role}. Reply naturally in {language}, staying in character.
+- Keep it at CEFR {cefr_level}: simple, clear, natural phrasing.
+- Be warm and engaging, and ALWAYS end your reply with a question or a small
+  prompt that invites the student to keep talking, so the conversation keeps
+  flowing instead of dying out.
+- If the student made a grammar or word-choice error, model the correct form
+  naturally inside your own reply — never lecture or break character.
+- 1–3 short sentences. Reply ONLY with what {ai_role} actually says, no
+  narration, no translations, no meta-commentary."""
+
+
 @with_model("conversation")
 async def _ai_conversation_reply(prompt: str) -> str:
     return await generate_text(prompt)
@@ -131,39 +164,13 @@ async def send_message(request: MessageRequest, db: Session = Depends(get_db)):
     if conv_session.user_id != request.user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this session")
 
-    language = conv_session.language
-    cefr_level = conv_session.cefr_level
-    system_prompt = conv_session.system_prompt
-    scenario = json.loads(conv_session.scenario)
-
     # Load history, append user message
     history = json.loads(conv_session.history)
     history.append({
         "role": "user",
         "content": request.user_message
     })
-
-    # Build prompt with history
-    history_text = "\n".join([
-        f"{'You' if msg['role'] == 'assistant' else 'Student'}: {msg['content']}"
-        for msg in history[-10:]  # Last 10 messages for context
-    ])
-
-    ai_role = scenario.get('ai_role', 'conversation partner')
-    prompt = f"""{system_prompt}
-
-Conversation so far:
-{history_text}
-
-You are {ai_role}. Reply naturally in {language}, staying in character.
-- Keep it at CEFR {cefr_level}: simple, clear, natural phrasing.
-- Be warm and engaging, and ALWAYS end your reply with a question or a small
-  prompt that invites the student to keep talking, so the conversation keeps
-  flowing instead of dying out.
-- If the student made a grammar or word-choice error, model the correct form
-  naturally inside your own reply — never lecture or break character.
-- 1–3 short sentences. Reply ONLY with what {ai_role} actually says, no
-  narration, no translations, no meta-commentary."""
+    prompt = _build_reply_prompt(conv_session, history)
 
     try:
         ai_response = await _ai_conversation_reply(prompt)
@@ -190,6 +197,76 @@ You are {ai_role}. Reply naturally in {language}, staying in character.
     except Exception:
         logger.exception("Unexpected error generating conversation response")
         raise HTTPException(status_code=500, detail="Failed to generate response")
+
+
+@router.post("/api/conversation/message/stream")
+async def send_message_stream(request: MessageRequest, db: Session = Depends(get_db)):
+    """P2-2 (docs/BACKLOG_UX_2026-08.md): same reply as /message, but as it's
+    generated instead of one blocking round-trip. Server-Sent Events, one
+    `data:` line per chunk plus a final `done` event; the frontend switches
+    on `event.error`/`event.done`/`event.delta`.
+
+    Session lookup/ownership is validated BEFORE the stream starts (still a
+    normal 404/403 JSON response) — only generation failures become an SSE
+    error event, since by then the response has already committed to
+    text/event-stream and the status code can no longer change (same
+    constraint OpenRouter's own streaming API documents).
+
+    The post-stream history write uses a FRESH `SessionLocal()` instead of
+    the `Depends(get_db)` session above — same pattern as
+    `process_lesson_topics_bg` (background tasks). Confirmed by hand (a
+    session persisted with the request-scoped `db` here silently vanished
+    on refresh): FastAPI's yield-dependency cleanup runs when the route
+    handler function *returns* `StreamingResponse(...)`, not after the
+    generator finishes — by the time this code runs, `db` may already be
+    closed, and writes to a closed/reset session can silently no-op instead
+    of raising.
+    """
+    conv_session = _get_session(db, request.session_id)
+    if not conv_session:
+        raise HTTPException(status_code=404, detail="Conversation session not found")
+    if conv_session.user_id != request.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this session")
+
+    history = json.loads(conv_session.history)
+    history.append({"role": "user", "content": request.user_message})
+    prompt = _build_reply_prompt(conv_session, history)
+    model = get_model_for_task("conversation")
+    session_id = request.session_id
+
+    async def event_stream():
+        full_text = ""
+        try:
+            async for chunk in generate_text_stream(prompt, model=model):
+                full_text += chunk
+                yield f"data: {json.dumps({'delta': chunk})}\n\n"
+        except Exception as e:
+            logger.error(f"Streaming conversation error: {e}")
+            # Nothing usable was generated (or it broke mid-stream) — don't
+            # persist a partial/garbled reply into the session history.
+            yield f"data: {json.dumps({'error': 'Failed to generate response'})}\n\n"
+            return
+
+        ai_response = full_text.strip()
+        history.append({"role": "assistant", "content": ai_response})
+
+        from backend.database import SessionLocal
+        write_db = SessionLocal()
+        try:
+            fresh_session = _get_session(write_db, session_id)
+            if fresh_session:
+                fresh_session.history = json.dumps(history)
+                _save_session(write_db, fresh_session)
+        finally:
+            write_db.close()
+
+        yield f"data: {json.dumps({'done': True, 'response': ai_response, 'message_count': len(history)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/api/conversation/analyze")

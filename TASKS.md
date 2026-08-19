@@ -4,6 +4,56 @@ _Ostatnia aktualizacja: 2026-08-19_
 
 ---
 
+## 🟢 ACTION_PLAN.md P2-2 — streaming w Konwersacji (2026-08-19)
+
+Ostatnia duża pozycja backlogu UX. Sprawdzone przed implementacją: `model_router.py` już
+miał dedykowany task/tier „conversation" (`USED_TASKS`) — ta część DoD była gotowa.
+Streaming nie istniał wcale (`gemini_service.py` miał tylko `generate_text`/`generate_json`,
+oba non-streaming, `"stream": False` na sztywno w payloadzie OpenRoutera).
+
+Przed pisaniem kodu sprawdzony w dokumentacji dokładny format obu API (ryzyko: zły
+parser SSE = milcząco pusty czat):
+- OpenRouter: OpenAI-kompatybilny SSE, `data: {"choices":[{"delta":{"content":"..."}}]}`,
+  kończy się `data: [DONE]`, czasem przeplatane komentarzami SSE (linie zaczynające się od
+  `:`) jako keep-alive — do zignorowania.
+- Gemini Direct: wymaga `alt=sse` w query stringu na `:streamGenerateContent` (bez tego
+  Gemini zwraca jeden JSON array na końcu, nie prawdziwy strumień) — chunki w tym samym
+  kształcie co non-streaming (`candidates[0].content.parts[0].text`).
+
+Zaimplementowane:
+- **`backend/services/gemini_service.py`**: `generate_text_stream()` — trzecia funkcja
+  wejściowa do dostawcy AI (świadome rozszerzenie „tylko dwie funkcje" z CLAUDE.md — tylko
+  router konwersacji jej używa, reszta aplikacji nietknięta), z osobną implementacją SSE dla
+  OpenRoutera i Gemini Direct wg powyższych formatów.
+- **`backend/routers/conversation.py`**: nowy `POST /api/conversation/message/stream`
+  (`StreamingResponse`, `text/event-stream`). Walidacja sesji/właściciela PRZED startem
+  strumienia (zwykłe 404/403); błąd generacji w trakcie strumienia → SSE `error` event, nie
+  500 (nie da się zmienić kodu statusu po rozpoczęciu strumienia — to samo ograniczenie
+  dokumentuje OpenRouter dla własnego API).
+- **🐛 Realny bug znaleziony i naprawiony podczas implementacji**: pierwsza wersja zapisywała
+  historię rozmowy przez `db` wstrzyknięte z `Depends(get_db)` — test na żywo pokazał, że
+  zapis **cicho nic nie robił** (bez wyjątku, bez błędu — SSE stream pokazywał poprawną
+  odpowiedź, ale baza nigdy jej nie dostawała). Przyczyna: FastAPI zamyka zależności `yield`
+  gdy handler *zwraca* obiekt `StreamingResponse`, nie gdy strumień faktycznie się skończy —
+  do czasu wykonania kodu zapisu sesja `db` była już zamknięta/zresetowana. Naprawione przez
+  otwarcie świeżej `SessionLocal()` wewnątrz generatora PO zakończeniu strumienia — dokładnie
+  ten sam wzorzec co `process_lesson_topics_bg` (background tasks) już stosuje gdzie indziej
+  w kodzie. Zweryfikowane bezpośrednim odtworzeniem przez skrypt debugujący przed i po
+  poprawce (przed: historia w bazie nie zawierała odpowiedzi asystenta mimo poprawnego
+  strumienia SSE; po: zawierała).
+- **Frontend** (`Conversation.jsx`, `api/client.js`): `sendMessageStream()` przez surowy
+  `fetch` + ręczne parsowanie ramek SSE (EventSource nie obsługuje POST z body — ten sam
+  powód co istniejące obejścia axios dla PDF/blob w tym pliku). Dymek asystenta rośnie
+  kawałek po kawałku (migający kursor podczas strumieniowania), reużywa istniejący wskaźnik
+  „pisze..." tylko do pierwszego chunka. Błąd po częściowym tekście: tekst zostaje widoczny
+  (nie znika), tylko kursor znika; błąd przed jakimkolwiek tekstem: zwykły dymek błędu.
+- Testy: `test_conversation.py` (+6, w tym regresyjny na dokładnie ten bug z sesją DB),
+  `Conversation.test.jsx` (nowy plik, 3 testy). **503/503** backend, **98/98** frontend,
+  ruff/eslint czyste. Zweryfikowane na żywo: `GET /openapi.json` potwierdza rejestrację
+  nowego endpointu bez błędów importu.
+
+---
+
 ## 🟢 P3-3 — dzienne wskazówki (2026-08-19, weryfikacja, już zrobione)
 
 Sprawdzone przed implementacją (ten sam wzorzec co cała reszta tej sesji): `get_daily_tips`

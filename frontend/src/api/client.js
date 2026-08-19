@@ -189,6 +189,53 @@ export const startConversation = (userId, topic) =>
 export const sendMessage = (sessionId, userMessage, userId = getUserId()) =>
   api.post('/conversation/message', { session_id: sessionId, user_message: userMessage, user_id: userId })
 
+// Streamed reply (P2-2, docs/BACKLOG_UX_2026-08.md). Server-Sent Events over
+// a POST body can't go through the shared axios `api` instance or the
+// browser's EventSource (GET-only, no request body) — plain fetch + a
+// manual ReadableStream read is the standard way to consume this, same
+// reasoning the app already uses for the PDF/blob endpoints bypassing `api`.
+// `onDelta(chunkText)` fires per streamed piece; the resolved value is the
+// final { response, message_count } once the stream sends its done event.
+export async function sendMessageStream(sessionId, userMessage, userId = getUserId(), onDelta) {
+  const res = await fetch('/api/conversation/message/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ session_id: sessionId, user_message: userMessage, user_id: userId }),
+  })
+  if (!res.ok || !res.body) {
+    let detail = `HTTP ${res.status}`
+    try { detail = (await res.json()).detail || detail } catch { /* non-JSON error body */ }
+    throw new Error(detail)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let result = null
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const frames = buffer.split('\n\n')
+    buffer = frames.pop() ?? '' // last element may be an incomplete frame — keep it for next read
+    for (const frame of frames) {
+      const line = frame.trim()
+      if (!line.startsWith('data:')) continue
+      const payload = line.slice('data:'.length).trim()
+      if (!payload) continue
+      const event = JSON.parse(payload)
+      if (event.error) throw new Error(event.error)
+      if (event.done) { result = event; continue }
+      if (event.delta) onDelta?.(event.delta)
+    }
+  }
+
+  if (!result) throw new Error('Stream ended without a response')
+  return result
+}
+
 export const analyzeConversation = (sessionId, userId) =>
   api.post('/conversation/analyze', { session_id: sessionId, user_id: userId })
 

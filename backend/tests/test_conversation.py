@@ -115,6 +115,133 @@ def test_analyze_conversation(client, sample_user, db):
         assert "score" in data
 
 
+# ── POST /api/conversation/message/stream (P2-2) ────────────────────────────
+
+async def _fake_stream(prompt, model=None):
+    for chunk in ["Hallo", ", ", "wie geht's?"]:
+        yield chunk
+
+
+def _parse_sse(body: str) -> list:
+    """Each SSE frame is `data: <json>\\n\\n` — pull out the JSON payloads."""
+    import json as _json
+    events = []
+    for line in body.splitlines():
+        if line.startswith("data:"):
+            events.append(_json.loads(line[len("data:"):].strip()))
+    return events
+
+
+def test_send_message_stream(client, sample_user):
+    uid = sample_user["user_id"]
+    with patch(
+        "backend.routers.conversation.generate_conversation_scenario",
+        return_value=MOCK_SCENARIO,
+    ):
+        r1 = client.post(f"/api/conversation/start/{uid}", json={})
+        session_id = r1.json()["session_id"]
+
+    with patch("backend.routers.conversation.generate_text_stream", new=_fake_stream):
+        r2 = client.post("/api/conversation/message/stream", json={
+            "session_id": session_id,
+            "user_message": "Ich lerne Deutsch.",
+            "user_id": uid,
+        })
+
+    assert r2.status_code == 200
+    assert r2.headers["content-type"].startswith("text/event-stream")
+    events = _parse_sse(r2.text)
+    deltas = [e["delta"] for e in events if "delta" in e]
+    assert deltas == ["Hallo", ", ", "wie geht's?"]
+    done_events = [e for e in events if e.get("done")]
+    assert len(done_events) == 1
+    assert done_events[0]["response"] == "Hallo, wie geht's?"
+
+
+def test_send_message_stream_persists_full_reply_to_history(client, sample_user, db):
+    from backend.models.conversation_session import ConversationSession
+    uid = sample_user["user_id"]
+    with patch(
+        "backend.routers.conversation.generate_conversation_scenario",
+        return_value=MOCK_SCENARIO,
+    ):
+        r1 = client.post(f"/api/conversation/start/{uid}", json={})
+        session_id = r1.json()["session_id"]
+
+    # The endpoint's post-stream write uses a fresh backend.database.SessionLocal()
+    # (see the docstring in conversation.py for why: the Depends(get_db) session
+    # may already be closed by the time the generator body runs) — point that at
+    # the test DB too, or this write would otherwise go to the real lingua_ai.db.
+    from backend.tests.conftest import TestingSessionLocal
+    with patch("backend.routers.conversation.generate_text_stream", new=_fake_stream), \
+         patch("backend.database.SessionLocal", TestingSessionLocal):
+        client.post("/api/conversation/message/stream", json={
+            "session_id": session_id,
+            "user_message": "Ich lerne Deutsch.",
+            "user_id": uid,
+        })
+
+    import json as _json
+    session = db.query(ConversationSession).filter(ConversationSession.id == session_id).first()
+    history = _json.loads(session.history)
+    assert history[-1] == {"role": "assistant", "content": "Hallo, wie geht's?"}
+
+
+def test_send_message_stream_invalid_session(client):
+    r = client.post("/api/conversation/message/stream", json={
+        "session_id": "invalid-session-id",
+        "user_message": "Hello",
+        "user_id": 99999,
+    })
+    assert r.status_code == 404
+
+
+def test_send_message_stream_wrong_user_forbidden(client, sample_user):
+    uid = sample_user["user_id"]
+    with patch(
+        "backend.routers.conversation.generate_conversation_scenario",
+        return_value=MOCK_SCENARIO,
+    ):
+        r1 = client.post(f"/api/conversation/start/{uid}", json={})
+        session_id = r1.json()["session_id"]
+
+    r2 = client.post("/api/conversation/message/stream", json={
+        "session_id": session_id,
+        "user_message": "Hello",
+        "user_id": uid + 1,
+    })
+    assert r2.status_code == 403
+
+
+def test_send_message_stream_generation_error_emits_error_event_not_500(client, sample_user):
+    uid = sample_user["user_id"]
+    with patch(
+        "backend.routers.conversation.generate_conversation_scenario",
+        return_value=MOCK_SCENARIO,
+    ):
+        r1 = client.post(f"/api/conversation/start/{uid}", json={})
+        session_id = r1.json()["session_id"]
+
+    async def _broken_stream(prompt, model=None):
+        raise RuntimeError("upstream provider error")
+        yield  # pragma: no cover - makes this an async generator
+
+    with patch("backend.routers.conversation.generate_text_stream", new=_broken_stream):
+        r2 = client.post("/api/conversation/message/stream", json={
+            "session_id": session_id,
+            "user_message": "Hello",
+            "user_id": uid,
+        })
+
+    # By the time generation fails, the response has already committed to
+    # 200 + text/event-stream (SSE can't change the status code mid-stream) —
+    # the failure surfaces as an error event in the body instead.
+    assert r2.status_code == 200
+    events = _parse_sse(r2.text)
+    assert any("error" in e for e in events)
+    assert not any(e.get("done") for e in events)
+
+
 def test_ask_question(client, sample_user):
     """Ask question returns AI answer."""
     uid = sample_user["user_id"]
