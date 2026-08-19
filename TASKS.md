@@ -4,6 +4,68 @@ _Ostatnia aktualizacja: 2026-08-19_
 
 ---
 
+## 🟢 ACTION_PLAN.md Faza 1 — pełne przejście na Alembic (2026-08-19)
+
+Decyzja użytkownika: zostać na Python 3.11 lokalnie (F0-4 nie zmienia niczego funkcjonalnie,
+CI już pinuje 3.12 poprawnie), kontynuować realizację `ACTION_PLAN.md`, integrację z Systemem
+Głównym (Faza 3) zostawić na później.
+
+- **F1-1 ✅ Audyt drift — poważniejszy niż zakładał `ACTION_PLAN.md`.** Realny problem nie był
+  tylko "dwie rewizje nie pokrywają całej historii" — `backend/main.py` miał **równoległy,
+  własny system migracji** (`_migrations` — lista `ALTER TABLE ADD COLUMN` uruchamiana przy
+  starcie), który od miesięcy był FAKTYCZNYM mechanizmem ewolucji schematu, podczas gdy Alembic
+  stał w miejscu od `5a6d111e51d9` (add_push_subscriptions). Skutki:
+  - `alembic_version` w realnej bazie wskazywał na rewizję `032cedbc2785`, która nie istnieje w
+    `backend/alembic/versions/` (fantom — prawdopodobnie z etapu przed uporządkowaniem historii).
+  - `topics.parent_id` (hierarchia tematów, kluczowa dla planowanej przebudowy Banku wiedzy,
+    P2-4) — dodana WYŁĄCZNIE przez ad-hoc `ALTER TABLE` w `main.py`, nigdy nie było jej w żadnej
+    rewizji Alembic. Fresh install przez `alembic upgrade head` budował schemat BEZ tej kolumny.
+  - `flashcards.mnemonic` (SCI-13) — ta sama sytuacja.
+  - `flashcards.gesture_anchor`/`spatial_anchor`, `users.neuro_weights` — odwrotnie: kolumny
+    istniały w realnej bazie (relikty wycofanych funkcji — kinaesthetic anchors, „neuro-wagi"),
+    ale nie ma ich w modelach ani w żadnej migracji. Zweryfikowano `grep`, że nic w kodzie ich
+    nie używa, przed usunięciem.
+  - `users.login_token` — model deklaruje `unique=True`, baseline migration to poprawnie
+    zakłada, ale realna baza (stworzona przed Alembikiem, potem tylko "stamp") nigdy realnie nie
+    dostała tego ograniczenia.
+  - `topics.ix_topics_parent_id` — indeks z modelu, brakujący WSZĘDZIE (fresh i live).
+  - **Bonus fix**: `backend/alembic.ini`/`README` instruowały `cd backend` przed komendami — ale
+    `DATABASE_URL=sqlite:///./lingua_ai.db` jest ścieżką względną wobec cwd procesu, więc
+    uruchomienie z `backend/` migrowałoby **inny plik** (`backend/lingua_ai.db` — właśnie ten
+    martwy plik usunięty w Fazie 0!), nie realną bazę. Naprawione: `script_location =
+    %(here)s/alembic` w `alembic.ini` (odporne na cwd) + README poprawiony na uruchamianie z roota.
+- **F1-2 ✅** — dwie nowe rewizje, obie z `sa.inspect()`-owymi strażnikami istnienia kolumny/
+  indeksu/FK, żeby działały bezpiecznie zarówno na świeżej bazie (zbudowanej czysto przez
+  `alembic upgrade head`) jak i na realnej, zdryfowanej bazie — zweryfikowane osobno dla obu
+  ścieżek (upgrade+downgrade+re-upgrade, dane nienaruszone: 10 users, 225 flashcards przed/po):
+  - `8dfdfadd8a31_fix_schema_drift_from_manual_alters.py` — usuwa `gesture_anchor`/
+    `spatial_anchor`/`neuro_weights`, dodaje unique constraint na `login_token`, luzuje
+    `is_mastered` do nullable (zgodnie z modelem).
+  - `9c1a1e9b7b4f_add_topics_hierarchy_and_mnemonic.py` — dodaje `flashcards.mnemonic`,
+    `topics.parent_id` + FK + indeks.
+  - Po obu: `alembic check` → **"No new upgrade operations detected"** na świeżej bazie ORAZ na
+    kopii realnej bazy. Migracja zastosowana na PRODUKCYJNEJ `lingua_ai.db` (po weryfikacji na
+    kopii) — `481/481` testów backendu nadal przechodzi, żywy serwer sprawdzony w przeglądarce
+    (`/api/stats/4`, `/api/flashcards/4` zwracają realne dane usera z 44 fiszkami, w tym pola
+    `is_mastered`/`mnemonic` — bez 500).
+- **F1-3 ✅** — sekcja "Migracje bazy danych" dodana do `CLAUDE.md`; `backend/alembic/README`
+  rozszerzony o politykę (zero ręcznych ALTER TABLE) + pełną historię incydentu jako ostrzeżenie
+  dla przyszłych sesji.
+- **F1-4 ✅** — `backend/main.py`'s `lifespan()`: `Base.metadata.create_all()` + 20-liniowa
+  lista `_migrations` + ręczny `CREATE TABLE IF NOT EXISTS conversation_sessions` (całkowicie
+  zbędny — model już był tworzony przez `create_all`) zastąpione jednym wywołaniem
+  `alembic.command.upgrade(cfg, "head")`. Błąd migracji jest teraz głośny (rzuca wyjątek)
+  zamiast starego `except: pass` połykającego wszystko po cichu.
+  **Uwaga do testów**: to wywołanie jest pomijane gdy `TESTING=1` — inaczej `TestClient(app)`
+  (który odpala lifespan) migrowałby PRODUKCYJNĄ `DATABASE_URL` zamiast izolowanej
+  `test_language_tutor.db` zarządzanej przez `conftest.py`. Złapane i naprawione przed
+  commitem (pierwsza wersja bez tej strażnicy uruchamiała `alembic upgrade head` na realnej
+  bazie przy każdym z setek wywołań `client` fixture w testach).
+- Nieusunięty `Base`/`engine` import z `main.py` (stał się martwy) — usunięty, `ruff check
+  backend/` nadal 0 błędów.
+
+---
+
 ## 🟢 ACTION_PLAN.md Faza 0 — higiena i blokery natychmiastowe (2026-08-19)
 
 Realizacja Fazy 0 z `ACTION_PLAN.md` (dokument dodany do repo, jeszcze niecommitowany —

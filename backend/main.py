@@ -10,7 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.database import Base, engine
 from backend.routers import (
     admin,
     audio,
@@ -50,63 +49,27 @@ async def lifespan(app: FastAPI):
     if settings.ADMIN_API_KEY and len(settings.ADMIN_API_KEY) < 16:
         logger.warning("ADMIN_API_KEY is too short — should be at least 16 characters")
 
-    # Startup: create database tables and required directories
-    logger.info("Creating database tables...")
-    # Import all models so SQLAlchemy registers them before create_all
-    from backend.models import achievement, user, lesson, test_result, study_plan, flashcard, topic, conversation_session, exercise, sync_event, push_subscription  # noqa
-    Base.metadata.create_all(bind=engine)
-
-    _sa = __import__('sqlalchemy')
-    from sqlalchemy.exc import OperationalError, ProgrammingError
-    # SQLite migrations — add missing columns safely
-    _migrations = [
-        ("users", "ALTER TABLE users ADD COLUMN language_profiles TEXT DEFAULT '{}'"),
-        ("users", "ALTER TABLE users ADD COLUMN streak_freezes INTEGER DEFAULT 2"),
-        ("users", "ALTER TABLE users ADD COLUMN sleep_data TEXT DEFAULT '{}'"),
-        ("users", "ALTER TABLE users ADD COLUMN login_token VARCHAR"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_id INTEGER"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_day INTEGER"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN lesson_topic TEXT"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN gender TEXT"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN isImportant BOOLEAN NOT NULL DEFAULT 0"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN last_review_date TIMESTAMP"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN session_type VARCHAR"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN sleep_quality INTEGER"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN interleaving_bonus FLOAT"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN interference_penalty FLOAT"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN correct_recall_sessions INTEGER DEFAULT 0"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN last_recall_date TIMESTAMP"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN is_mastered BOOLEAN NOT NULL DEFAULT 0"),
-        ("flashcards", "ALTER TABLE flashcards ADD COLUMN mnemonic TEXT"),
-        # Knowledge bank hierarchy: subtopics point at a parent topic.
-        ("topics", "ALTER TABLE topics ADD COLUMN parent_id INTEGER REFERENCES topics(id)"),
-    ]
-    with engine.connect() as conn:
-        # Create conversation_sessions table if it doesn't exist
-        try:
-            conn.execute(_sa.text(
-                "CREATE TABLE IF NOT EXISTS conversation_sessions ("
-                "id VARCHAR PRIMARY KEY, "
-                "user_id INTEGER NOT NULL REFERENCES users(id), "
-                "language VARCHAR NOT NULL, "
-                "native_language VARCHAR NOT NULL, "
-                "cefr_level VARCHAR NOT NULL, "
-                "scenario TEXT NOT NULL, "
-                "system_prompt TEXT NOT NULL, "
-                "history TEXT NOT NULL, "
-                "created_at TIMESTAMP, "
-                "updated_at TIMESTAMP)"
-            ))
-            conn.commit()
-        except (OperationalError, ProgrammingError) as e:
-            logger.warning(f"Could not create conversation_sessions table: {e}")
-        for _, sql in _migrations:
-            try:
-                conn.execute(_sa.text(sql))
-                conn.commit()
-            except (OperationalError, ProgrammingError):
-                pass  # Column already exists
+    # Startup: bring the database schema up to date via Alembic.
+    # Replaces the old Base.metadata.create_all() + ad-hoc ALTER TABLE list
+    # (see CLAUDE.md "Migracje bazy danych" / ACTION_PLAN.md Faza 1): Alembic
+    # is now the single source of truth for schema, for both a brand-new
+    # database (built from scratch by the full revision history) and an
+    # existing one (only the missing revisions are applied). A migration
+    # failure is loud (raises) rather than silently swallowed like the old
+    # per-statement `except: pass` did.
+    # Skipped under pytest: backend/tests/conftest.py builds its own isolated
+    # test_language_tutor.db via Base.metadata.create_all() and TESTING=1 is
+    # set before any backend import — running alembic here would instead
+    # target the real DATABASE_URL (production db), not the test db.
+    if os.environ.get("TESTING") == "1":
+        logger.info("TESTING=1 — skipping alembic upgrade (conftest.py manages the test DB).")
+    else:
+        logger.info("Applying database migrations (alembic upgrade head)...")
+        from alembic import command as alembic_command
+        from alembic.config import Config as AlembicConfig
+        alembic_cfg = AlembicConfig(os.path.join(os.path.dirname(__file__), "alembic.ini"))
+        alembic_command.upgrade(alembic_cfg, "head")
+        logger.info("Database schema up to date.")
 
     # Ensure audio and exports directories exist
     audio_dir = os.path.join(os.path.dirname(__file__), "audio")

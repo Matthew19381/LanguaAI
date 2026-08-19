@@ -34,11 +34,23 @@ Frontend dev server runs on `:5173` and proxies `/api` and `/audio` to `http://l
 
 ## Environment
 
-Copy `backend/.env.example` → `backend/.env`. The default AI provider is **OpenRouter** (`AI_PROVIDER=openrouter` in `backend/config.py`), so set **`OPENROUTER_API_KEY`**. To use the direct Gemini API instead, set `AI_PROVIDER=gemini` and **`GEMINI_API_KEY`**. The SQLite database (`lingua_ai.db`) is created automatically in `backend/` on first startup via `Base.metadata.create_all()` in `main.py`'s lifespan handler.
+Copy `backend/.env.example` → `backend/.env`. The default AI provider is **OpenRouter** (`AI_PROVIDER=openrouter` in `backend/config.py`), so set **`OPENROUTER_API_KEY`**. To use the direct Gemini API instead, set `AI_PROVIDER=gemini` and **`GEMINI_API_KEY`**. The SQLite database (`lingua_ai.db`) is created automatically in the **project root** (not `backend/`) on first startup — `main.py`'s lifespan handler runs `alembic upgrade head`, which builds the full schema on an empty database.
 
 Model selection is centralized in `backend/services/model_router.py` (curated OpenRouter + Gemini catalog, tiered `free`/`cheap`/`best`). The active tier is `AI_MODEL_TIER` (default `cheap`); `gemini_service` resolves the default model from `model_router` — never hardcode a model id.
 
-**When adding a new SQLAlchemy model**: import it inside the lifespan block in `main.py` (alongside the existing `achievement` import) so it registers with `Base` before `create_all` runs.
+**When adding a new SQLAlchemy model**: add its import to `backend/alembic/env.py` (so autogenerate sees it) — see "Migracje bazy danych" below. It doesn't need a separate import in `main.py` anymore; whichever router/service imports the model directly is enough to register it with `Base`.
+
+## Migracje bazy danych
+
+**Alembic jest jedynym źródłem prawdy dla schematu** (decyzja użytkownika 2026-08-09, `ACTION_PLAN.md` Faza 1). Zero ręcznych `ALTER TABLE` / `sqlite3` na `lingua_ai.db` od teraz — to dokładnie ten wzorzec, który przez miesiące rozjeżdżał historię Alembica z rzeczywistym schematem (`backend/alembic/README`, sekcja "Policy", ma pełną historię incydentu).
+
+Każda zmiana modelu w `backend/models/*.py` **musi** iść w jednym commicie z nową rewizją:
+
+```bash
+py -3.11 -m alembic -c backend/alembic.ini revision --autogenerate -m "opis zmiany"
+```
+
+Zawsze uruchamiaj z **roota projektu**, nigdy z `cd backend` — `DATABASE_URL` jest ścieżką względną rozwiązywaną względem cwd procesu; z `backend/` trafiłbyś w zły plik. Zawsze przejrzyj wygenerowaną rewizję ręcznie przed commitem (SQLite autogenerate bywa niedokładny — patrz `backend/alembic/README` po przykłady). `backend/main.py`'s lifespan uruchamia `alembic upgrade head` przy każdym starcie (pomijane gdy `TESTING=1`).
 
 ## Architecture
 
