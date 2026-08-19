@@ -110,7 +110,9 @@ lekcję" istnieje niezależnie (`DailyLesson.jsx` + `Settings.jsx`).
   - tryb głosowy opcjonalny, ale tekstowy ma działać bez tarcia.
 - **DoD:** można prowadzić wielozdaniową, sensowną rozmowę w języku docelowym z korektą.
 
-### P2-3. News — zaznaczanie słów w treści → lista boczna → do fiszek
+### P2-3. News — zaznaczanie słów w treści → lista boczna → do fiszek — ✅ Zamknięte (zweryfikowano 2026-08-19)
+`frontend/src/pages/News.jsx` ma dokładnie ten przepływ: klik w słowo → podświetlenie +
+„koszyk" zaznaczonych z tłumaczeniem → zbiorcze „Dodaj zaznaczone do fiszek".
 - **Problem:** obecnie tylko gotowa lista słówek z przyciskiem; brak zaznaczania dowolnych słów w tekście.
 - **Przyczyna:** `News.jsx` (~171) dodaje z predefiniowanego `vocabulary`, nie z klikniętego słowa w artykule.
 - **Co zrobić:** klik w wyraz w treści → podświetlenie na zielono + dodanie do panelu (bok/dół) z tłumaczeniem (`translateWord`); dopiero przycisk „Dodaj zaznaczone do fiszek" zapisuje wybrane.

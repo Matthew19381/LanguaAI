@@ -4,6 +4,40 @@ _Ostatnia aktualizacja: 2026-08-19_
 
 ---
 
+## 🟡 ACTION_PLAN.md Faza 4 — audyt P2 (2026-08-19, przed implementacją)
+
+Ten sam wzorzec co przy P1: zweryfikowano stan każdej pozycji w kodzie przed pisaniem
+czegokolwiek. Wynik:
+
+- **P2-1 (Fiszki) — w dużej mierze już zrobione, świadomie NIE dotknięte dalej.**
+  `frontend/src/pages/Flashcards.jsx` ma już dokładnie to, co backlog opisywał jako brakujące:
+  4 przyciski oceny zawsze widoczne po odwróceniu karty (nie ukryte za dodatkową interakcją),
+  skróty klawiszowe 1-4, opisy interwałów przy każdym przycisku. Brakuje tylko licznika
+  postępu sesji i ekranu podsumowania na koniec — ale użytkownik w tej samej sesji roboczej
+  jasno powiedział „zaimplementować to, ale zostaw te fiszki" przy poprzedniej turze zmian w
+  tym pliku. Nie kontynuowano bez ponownego potwierdzenia.
+- **P2-2 (Konwersacja) — częściowo zrobione.** `model_router.py` ma już dedykowany task
+  „conversation" z mapowaniem per-tier (`USED_TASKS` linia 55) — ta część DoD spełniona.
+  Streaming odpowiedzi (SSE) — NIE zaimplementowany (`backend/routers/conversation.py` nie ma
+  `StreamingResponse`). To już nie „poprawka", tylko realna zmiana architektury endpointu +
+  frontendu (turowy fetch → strumień) — odłożone do potwierdzenia przez użytkownika.
+- **P2-3 (News) — ✅ już w pełni zrobione.** `frontend/src/pages/News.jsx` ma dokładnie żądany
+  przepływ: klik w dowolne słowo w treści → podświetlenie + „koszyk" zaznaczonych słów z
+  tłumaczeniem → „Dodaj zaznaczone do fiszek" zbiorczo. `docs/BACKLOG_UX_2026-08.md`
+  zaktualizowany.
+- **P2-4 (Bank wiedzy — hierarchia tematów) — NIE zrobione, największe zadanie backlogu.**
+  `backend/routers/topics.py`'s `/tree` endpoint grupuje po `category` (gramatyka/słownictwo/
+  itd.), nie po `parent_id` — model `Topic.parent_id` istnieje w schemacie (i od tej sesji
+  poprawnie w historii Alembic, patrz Faza 1), ale żaden endpoint ani UI go nie używa. Brak
+  realnego drzewa temat→podtemat, brak wzoru na mastery %. To zaprojektowanie nowego
+  endpointu + przebudowa `TopicsPage.jsx` — realna nowa funkcja, nie bugfix. Odłożone do
+  potwierdzenia zakresu przez użytkownika.
+
+`docs/BACKLOG_UX_2026-08.md` — P2-3 oznaczone zamknięte; P2-1/P2-2/P2-4 zostają otwarte z
+notatką o realnym stanie (nie z gruntu błędne jak wcześniej, ale częściowe/duże).
+
+---
+
 ## 🟢 ACTION_PLAN.md Faza 4 — backlog UX P1 (2026-08-19)
 
 Weryfikacja przed implementacją (zgodnie z ustalonym wzorcem sesji — sprawdzać zanim się
