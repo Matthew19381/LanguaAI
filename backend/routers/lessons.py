@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
@@ -14,7 +14,6 @@ from backend.models.flashcard import Flashcard
 from backend.models.lesson import Lesson
 from backend.models.study_plan import StudyPlan
 from backend.models.test_result import TestResult
-from backend.models.topic import Topic
 from backend.models.user import User
 from backend.schemas.lesson import (
     CompleteLessonRequest,
@@ -25,13 +24,16 @@ from backend.services.audio_service import (
     generate_lesson_package_audio,
     generate_vocabulary_audio,
 )
-from backend.services.exercise_service import create_exercises_from_lesson
-from backend.services.flashcard_service import create_flashcards_from_vocab
 from backend.services.gemini_service import generate_json as ai_generate_json
 from backend.services.gemini_service import with_model
 from backend.services.lesson_generator import (
     generate_daily_lesson,
     generate_iplus1_content,
+)
+from backend.services.lesson_service import (
+    create_and_persist_lesson,
+    gather_lesson_context,
+    lesson_to_dict,
 )
 from backend.services.obsidian_service import save_obsidian_md
 from backend.services.pdf_service import EXPORTS_DIR, generate_lesson_pdf
@@ -62,24 +64,6 @@ def get_day_number(user: User, db: Session = None, language: str = None) -> int:
     return max(1, delta.days + 1)
 
 
-def get_recent_errors(user_id: int, db: Session, limit: int = 10) -> list:
-    """Get recent test errors for the user."""
-    recent_tests = db.query(TestResult).filter(
-        TestResult.user_id == user_id
-    ).order_by(TestResult.created_at.desc()).limit(5).all()
-
-    errors = []
-    for test in recent_tests:
-        if test.errors:
-            try:
-                test_errors = json.loads(test.errors)
-                errors.extend(test_errors[:3])
-            except (json.JSONDecodeError, TypeError, KeyError):
-                pass
-
-    return errors[:limit]
-
-
 @router.get("/api/lessons/today/{user_id}")
 async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = get_user_or_404(db, user_id)
@@ -104,18 +88,7 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
     day_number = get_day_number(user, db, user.target_language)
 
     if existing_lesson:
-        content = json.loads(existing_lesson.content)
-        return {
-            "lesson_id": existing_lesson.id,
-            "day_number": existing_lesson.day_number,
-            "title": existing_lesson.title,
-            "topic": existing_lesson.topic,
-            "content": content,
-            "is_completed": existing_lesson.is_completed,
-            "language": existing_lesson.language,
-            "cefr_level": existing_lesson.cefr_level,
-            "created_at": existing_lesson.created_at.isoformat()
-        }
+        return lesson_to_dict(existing_lesson)
 
     # Get active study plan
     study_plan = db.query(StudyPlan).filter(
@@ -127,42 +100,7 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
         raise HTTPException(status_code=404, detail="No active study plan. Please complete placement test first.")
 
     study_plan_data = json.loads(study_plan.plan_data)
-
-    # Recent TEST errors give the lesson a coarse sense of assessed weaknesses.
-    # Fine-grained remediation of individual exercise mistakes is NOT done here —
-    # it lives in the exercise bank (a failed/over-familiar skill spawns fresh
-    # variants), so the lesson stays about introducing material, not drilling
-    # specific past slips.
-    user_errors = get_recent_errors(user_id, db)
-
-    # Get recent topics for interleaving (last 7 days)
-    week_ago = datetime.combine(date.today() - timedelta(days=7), datetime.min.time())
-    recent_lessons = db.query(Lesson).filter(
-        Lesson.user_id == user_id,
-        Lesson.created_at >= week_ago
-    ).order_by(Lesson.created_at.desc()).limit(7).all()
-    recent_topics = [l.topic for l in recent_lessons if l.topic] if recent_lessons else None
-
-    # ── RAG: fetch user's data to personalize the lesson ──
-
-    # User's known vocabulary (flashcards) — 50 cards, genuinely-known first.
-    # SCI-1: mastered words (3 correct recalls across sessions) are the most
-    # reliable "known" input for i+1 comprehensible-input generation.
-    user_flashcards = db.query(Flashcard.word).filter(
-        Flashcard.user_id == user_id,
-        Flashcard.language == user.target_language,
-        Flashcard.is_active == True,
-    ).order_by(Flashcard.is_mastered.desc(), Flashcard.created_at.desc()).limit(50).all()
-    user_vocabulary = [f[0] for f in user_flashcards] if user_flashcards else None
-
-    # Weak topics (low memory_strength) and strong topics (high memory_strength)
-    all_topics = db.query(Topic).filter(
-        Topic.user_id == user_id,
-        Topic.language == user.target_language,
-    ).order_by(Topic.memory_strength.asc()).all()
-
-    weak_topics = [t.name for t in all_topics if t.memory_strength < 0.5][:5] if all_topics else None
-    strong_topics = [t.name for t in reversed(all_topics) if t.memory_strength >= 0.7][:3] if all_topics else None
+    context = gather_lesson_context(db, user)
 
     # Generate new lesson
     lesson_content = await generate_daily_lesson(
@@ -170,31 +108,15 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
         target_language=user.target_language,
         native_language=user.native_language,
         cefr_level=user.cefr_level,
-        recent_topics=recent_topics,
         day_number=day_number,
         db=db,
         study_plan_data=study_plan_data,
-        user_errors=user_errors,
-        user_vocabulary=user_vocabulary,
-        weak_topics=weak_topics,
-        strong_topics=strong_topics,
+        **context,
     )
 
-    # Save lesson to DB (handle race condition via unique constraint)
-    lesson = Lesson(
-        user_id=user_id,
-        day_number=day_number,
-        title=lesson_content.get("title", f"Dzień {day_number}"),
-        topic=lesson_content.get("topic", "General"),
-        content=json.dumps(lesson_content),
-        cefr_level=user.cefr_level,
-        language=user.target_language,
-        is_completed=False
-    )
-    db.add(lesson)
+    # Save lesson + flashcards + exercises (handle race condition via unique constraint)
     try:
-        db.commit()
-        db.refresh(lesson)
+        lesson = create_and_persist_lesson(db, user, day_number, lesson_content)
     except IntegrityError:
         # Another concurrent request already created this lesson — rollback and use existing.
         # Recover by the EXACT unique-constraint key (user_id, language, day_number), not by
@@ -209,32 +131,8 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
             Lesson.day_number == day_number,
         ).first()
         if existing_lesson:
-            content = json.loads(existing_lesson.content)
-            return {
-                "lesson_id": existing_lesson.id,
-                "day_number": existing_lesson.day_number,
-                "title": existing_lesson.title,
-                "topic": existing_lesson.topic,
-                "content": content,
-                "is_completed": existing_lesson.is_completed,
-                "language": existing_lesson.language,
-                "cefr_level": existing_lesson.cefr_level,
-                "created_at": existing_lesson.created_at.isoformat()
-            }
+            return lesson_to_dict(existing_lesson)
         raise
-
-    # Extract vocabulary and create flashcards
-    create_flashcards_from_vocab(
-        db, lesson_content.get("vocabulary", []),
-        user_id, user.target_language, user.cefr_level,
-        lesson.id, lesson.day_number, lesson.topic
-    )
-    # Persist exercises into the reusable bank (spaced retrieval + interleaving)
-    create_exercises_from_lesson(
-        db, lesson_content, user_id, user.target_language,
-        user.cefr_level, lesson.id, lesson.topic
-    )
-    db.commit()
 
     # Generate audio for lesson sections (background, non-blocking)
     background_tasks.add_task(
@@ -253,17 +151,7 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
         content=lesson_content,
     )
 
-    return {
-        "lesson_id": lesson.id,
-        "day_number": lesson.day_number,
-        "title": lesson.title,
-        "topic": lesson.topic,
-        "content": lesson_content,
-        "is_completed": lesson.is_completed,
-        "language": lesson.language,
-        "cefr_level": lesson.cefr_level,
-        "created_at": lesson.created_at.isoformat()
-    }
+    return lesson_to_dict(lesson)
 
 
 @router.get("/api/lessons/iplus1/{user_id}")
@@ -306,18 +194,7 @@ async def get_lesson(lesson_id: int, user_id: int, db: Session = Depends(get_db)
     if lesson.user_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this lesson")
 
-    content = json.loads(lesson.content)
-    return {
-        "lesson_id": lesson.id,
-        "day_number": lesson.day_number,
-        "title": lesson.title,
-        "topic": lesson.topic,
-        "content": content,
-        "is_completed": lesson.is_completed,
-        "language": lesson.language,
-        "cefr_level": lesson.cefr_level,
-        "created_at": lesson.created_at.isoformat()
-    }
+    return lesson_to_dict(lesson)
 
 
 @router.post("/api/lessons/{lesson_id}/complete")
@@ -705,78 +582,21 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
     ).order_by(Lesson.day_number.desc()).first()
     next_day = (latest_lesson.day_number + 1) if latest_lesson else 1
 
-    # Recent TEST errors only (coarse, assessed weaknesses). Individual exercise
-    # mistakes are handled by the exercise bank's variant system, not fed into
-    # lesson generation — see get_today_lesson.
-    user_errors = get_recent_errors(user_id, db)
-
-    # Get recent topics for interleaving
-    week_ago = datetime.combine(date.today() - timedelta(days=7), datetime.min.time())
-    recent_lessons = db.query(Lesson).filter(
-        Lesson.user_id == user_id,
-        Lesson.created_at >= week_ago
-    ).order_by(Lesson.created_at.desc()).limit(7).all()
-    recent_topics = [l.topic for l in recent_lessons if l.topic] if recent_lessons else None
-
-    # RAG: fetch user's vocabulary and topic strengths for next lesson too
-    # SCI-1: mastered words first (most reliable "known" input for i+1).
-    next_flashcards = db.query(Flashcard.word).filter(
-        Flashcard.user_id == user_id,
-        Flashcard.language == user.target_language,
-        Flashcard.is_active == True,
-    ).order_by(Flashcard.is_mastered.desc(), Flashcard.created_at.desc()).limit(50).all()
-    next_vocab = [f[0] for f in next_flashcards] if next_flashcards else None
-
-    next_all_topics = db.query(Topic).filter(
-        Topic.user_id == user_id,
-        Topic.language == user.target_language,
-    ).order_by(Topic.memory_strength.asc()).all()
-    next_weak = [t.name for t in next_all_topics if t.memory_strength < 0.5][:5] if next_all_topics else None
-    next_strong = [t.name for t in reversed(next_all_topics) if t.memory_strength >= 0.7][:3] if next_all_topics else None
+    context = gather_lesson_context(db, user)
 
     # Generate lesson
     lesson_content = await generate_daily_lesson(
         user_id=user_id,
         day_number=next_day,
         study_plan_data=study_plan_data,
-        user_errors=user_errors,
         cefr_level=user.cefr_level,
         target_language=user.target_language,
         native_language=user.native_language,
-        recent_topics=recent_topics,
-        user_vocabulary=next_vocab,
-        weak_topics=next_weak,
-        strong_topics=next_strong,
         db=db,
+        **context,
     )
 
-    # Save lesson to DB
-    lesson = Lesson(
-        user_id=user_id,
-        day_number=next_day,
-        title=lesson_content.get("title", f"Dzień {next_day}"),
-        topic=lesson_content.get("topic", "General"),
-        content=json.dumps(lesson_content),
-        cefr_level=user.cefr_level,
-        language=user.target_language,
-        is_completed=False
-    )
-    db.add(lesson)
-    db.commit()
-    db.refresh(lesson)
-
-    # Create flashcards from vocabulary
-    create_flashcards_from_vocab(
-        db, lesson_content.get("vocabulary", []),
-        user_id, user.target_language, user.cefr_level,
-        lesson.id, lesson.day_number, lesson.topic
-    )
-    # Persist exercises into the reusable bank
-    create_exercises_from_lesson(
-        db, lesson_content, user_id, user.target_language,
-        user.cefr_level, lesson.id, lesson.topic
-    )
-    db.commit()
+    lesson = create_and_persist_lesson(db, user, next_day, lesson_content)
 
     # Extract topics (background, non-blocking)
     background_tasks.add_task(
@@ -790,17 +610,7 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
         content=lesson_content,
     )
 
-    return {
-        "lesson_id": lesson.id,
-        "day_number": lesson.day_number,
-        "title": lesson.title,
-        "topic": lesson.topic,
-        "content": lesson_content,
-        "is_completed": lesson.is_completed,
-        "language": lesson.language,
-        "cefr_level": lesson.cefr_level,
-        "created_at": lesson.created_at.isoformat()
-    }
+    return lesson_to_dict(lesson)
 
 
 @router.delete("/api/lessons/reset-today/{user_id}")

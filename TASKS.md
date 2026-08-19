@@ -4,6 +4,38 @@ _Ostatnia aktualizacja: 2026-08-19_
 
 ---
 
+## 🟢 ACTION_PLAN.md Faza 2 — wydzielenie logiki z lessons.py (2026-08-19)
+
+- **F2-1 ✅** — `backend/routers/lessons.py` (1060 linii) miał zduplikowaną (nie tylko
+  "za dużo logiki w routerze" ogólnikowo, ale dosłownie skopiowaną 1:1) logikę w dwóch
+  miejscach: `get_today_lesson` i `generate_next_lesson`. Wydzielone do nowego
+  `backend/services/lesson_service.py`:
+  - `gather_lesson_context(db, user)` — zbieranie kontekstu RAG (błędy z testów, tematy do
+    interleavingu, słownictwo, słabe/mocne tematy) pod `generate_daily_lesson`. Wcześniej
+    ta sama logika istniała dosłownie dwukrotnie — realne ryzyko rozjazdu przy przyszłej
+    zmianie jednej kopii bez drugiej.
+  - `create_and_persist_lesson(db, user, day_number, content)` — zapis lekcji + fiszek +
+    ćwiczeń. Recovery po `IntegrityError` (bug naprawiony w `4af0665`) **zostało w routerze**
+    świadomie — to jedyny endpoint z realnym race condition (podwójny mount reacta), a
+    decyzja "co zwrócić po złapaniu wyjątku" to kształtowanie odpowiedzi, nie logika
+    biznesowa.
+  - `lesson_to_dict(lesson)` — serializacja, wcześniej powielona w 4 miejscach.
+  - Router: 1060 → 869 linii. `481/481` testów przechodzi bez zmian w assercjach (czysty
+    refaktor), `ruff check backend/` nadal 0 błędów, zweryfikowane też na żywo
+    (`GET /api/lessons/today/4` zwraca poprawną, istniejącą lekcję).
+- **F2-2 ❌ Świadomie pominięte.** Ujednolicenie prefiksów (`topics.py` z `/api/topics` na
+  natywny `/api/v1/topics`) to czysto porządkowy dług — middleware aliasu już obsługuje
+  oba warianty funkcjonalnie (`test_api_v1_alias.py` zielony), więc zero realnej korzyści
+  dla użytkownika. Zmiana wymagałaby odwrócenia kierunku aliasu żeby nie złamać
+  `frontend/src/api/client.js` (woła `/api/*`, nie `/api/v1/*`) — realne ryzyko regresji za
+  zero widocznej wartości. Priorytet oddany zamiast tego na backlog UX (Faza 4), który
+  użytkownik faktycznie zgłaszał. Można wrócić do F2-2 później, jeśli ktoś ma konkretny
+  powód (np. zewnętrzna integracja wymagająca czystych `/api/v1/*`).
+- **F2-3** — `ruff check backend/` zweryfikowany po F2-1 (0 błędów). Nie ma sensu ponownie
+  po F2-2, bo F2-2 nie zostało wykonane.
+
+---
+
 ## 🟢 ACTION_PLAN.md Faza 1 — pełne przejście na Alembic (2026-08-19)
 
 Decyzja użytkownika: zostać na Python 3.11 lokalnie (F0-4 nie zmienia niczego funkcjonalnie,
