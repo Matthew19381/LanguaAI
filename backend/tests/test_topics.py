@@ -101,6 +101,74 @@ def test_topic_tree_grouped(client, sample_user, db):
     assert "vocabulary" in tree
 
 
+# ── GET /api/topics/{user_id}/hierarchy (P2-4) ──────────────────────────────
+
+def test_topic_hierarchy_empty(client, sample_user):
+    uid = sample_user["user_id"]
+    r = client.get(f"/api/topics/{uid}/hierarchy")
+    assert r.status_code == 200
+    assert r.json()["topics"] == []
+
+
+def test_topic_hierarchy_flat_topics_are_roots(client, sample_user, db):
+    uid = sample_user["user_id"]
+    _create_topic(db, uid, "Perfekt", "grammar")
+    _create_topic(db, uid, "Wokabular", "vocabulary")
+
+    r = client.get(f"/api/topics/{uid}/hierarchy")
+    assert r.status_code == 200
+    nodes = r.json()["topics"]
+    assert len(nodes) == 2
+    assert all(n["subtopics"] == [] for n in nodes)
+
+
+def test_topic_hierarchy_nests_children_under_parent(client, sample_user, db):
+    uid = sample_user["user_id"]
+    parent = _create_topic(db, uid, "Czasy przeszłe", "grammar")
+    child = _create_topic(db, uid, "Perfekt mit haben", "grammar")
+    child.parent_id = parent.id
+    db.commit()
+
+    r = client.get(f"/api/topics/{uid}/hierarchy")
+    assert r.status_code == 200
+    nodes = r.json()["topics"]
+    assert len(nodes) == 1  # only the parent is a root
+    assert nodes[0]["name"] == "Czasy przeszłe"
+    assert len(nodes[0]["subtopics"]) == 1
+    assert nodes[0]["subtopics"][0]["name"] == "Perfekt mit haben"
+
+
+def test_topic_hierarchy_group_mastery_averages_subtopics(client, sample_user, db):
+    uid = sample_user["user_id"]
+    parent = _create_topic(db, uid, "Czasy przeszłe", "grammar")
+    c1 = _create_topic(db, uid, "Perfekt", "grammar")
+    c2 = _create_topic(db, uid, "Präteritum", "grammar")
+    c1.parent_id = parent.id
+    c2.parent_id = parent.id
+    c1.memory_strength = 0.8   # 80%
+    c2.memory_strength = 0.4   # 40%
+    db.commit()
+
+    r = client.get(f"/api/topics/{uid}/hierarchy")
+    nodes = r.json()["topics"]
+    assert nodes[0]["group_mastery_percent"] == 60  # avg(80, 40), parent itself has 0 items
+
+
+def test_topic_hierarchy_orphaned_parent_id_falls_back_to_root(client, sample_user, db):
+    """A parent_id pointing at a non-existent/other-user topic must not crash —
+    the node just becomes a root instead."""
+    uid = sample_user["user_id"]
+    t = _create_topic(db, uid, "Perfekt", "grammar")
+    t.parent_id = 999999
+    db.commit()
+
+    r = client.get(f"/api/topics/{uid}/hierarchy")
+    assert r.status_code == 200
+    nodes = r.json()["topics"]
+    assert len(nodes) == 1
+    assert nodes[0]["name"] == "Perfekt"
+
+
 # ── GET /api/topics/{user_id}/due ───────────────────────────────────────────
 
 def test_due_topics_empty(client, sample_user):

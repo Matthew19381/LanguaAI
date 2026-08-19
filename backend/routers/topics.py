@@ -107,6 +107,18 @@ async def topic_tree(
     return {"tree": tree}
 
 
+@router.get("/{user_id}/hierarchy")
+async def topic_hierarchy(
+    user_id: int,
+    language: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """P2-4 (docs/BACKLOG_UX_2026-08.md): topic->subtopic tree via Topic.parent_id,
+    distinct from /tree above (which groups by the fixed category enum)."""
+    nodes = topic_service.get_hierarchy_tree(db, user_id, language)
+    return {"topics": nodes}
+
+
 @router.get("/{user_id}/due")
 async def due_topics(
     user_id: int,

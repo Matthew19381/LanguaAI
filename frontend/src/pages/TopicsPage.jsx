@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   BookOpen, Brain, ChevronDown, ChevronRight, Clock,
-  Filter, Layers, Loader2, RefreshCw, Search,
+  Filter, Layers, Loader2, Network, RefreshCw, Search,
   Star, Target, TrendingUp, Zap, CheckCircle, AlertCircle
 } from 'lucide-react';
 import {
-  getUserId, getTopics, getTopicTree, getDueTopics,
+  getUserId, getTopics, getTopicTree, getTopicHierarchy, getDueTopics,
   getTopicStats, getTopicDetail, reviewTopic,
   generateFlashcardsFromTopic, generateFlashcardsFromErrors,
   batchAddFlashcards
@@ -118,6 +118,96 @@ function MemoryBar({ strength, size = 'md' }) {
         className={`${h} ${color} rounded-full transition-all duration-500`}
         style={{ width: `${pct}%` }}
       />
+    </div>
+  );
+}
+
+// ── Hierarchy tree node (P2-4) ──────────────────────────────────────────────
+// Topic -> subtopics via Topic.parent_id (distinct from the category-grouped
+// "Kategorie" tab above). Duolingo/skill-tree-style color cues (gold/green =
+// mastered, blue/yellow = in progress, gray/red = new) via the existing
+// MemoryBar color scale — no new visual language invented for this view.
+function HierarchyNode({ node, depth, expandedIds, onToggle, selectedTopic, onSelectTopic }) {
+  const hasChildren = node.subtopics && node.subtopics.length > 0;
+  const isExpanded = expandedIds.has(node.id);
+  const displayPct = hasChildren ? node.group_mastery_percent : node.mastery_percent;
+
+  return (
+    <div>
+      <div
+        className={`flex items-center justify-between gap-2 py-2 pr-3 rounded-lg dark:hover:bg-gray-800 hover:bg-gray-50 transition-colors cursor-pointer ${
+          node.is_due ? 'border-l-4 border-l-orange-400' : ''
+        }`}
+        style={{ paddingLeft: `${0.5 + depth * 1.5}rem` }}
+        onClick={() => {
+          if (hasChildren) onToggle(node.id);
+          else onSelectTopic(selectedTopic === node.id ? null : node.id);
+        }}
+      >
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          {hasChildren ? (
+            isExpanded ? <ChevronDown size={16} className="shrink-0 text-gray-400" /> : <ChevronRight size={16} className="shrink-0 text-gray-400" />
+          ) : (
+            <span className="w-4 shrink-0" />
+          )}
+          <span className={`truncate ${hasChildren ? 'font-semibold' : 'font-medium text-sm'}`}>{node.name}</span>
+          {node.is_due && (
+            <span className="shrink-0 text-xs bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 px-1.5 py-0.5 rounded" title="Temat wystygł — czas na powtórkę podstaw">
+              Do powtórki
+            </span>
+          )}
+          {hasChildren && (
+            <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">({node.subtopics.length})</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">{displayPct}%</span>
+          <div className="w-14">
+            <MemoryBar strength={displayPct / 100} size="sm" />
+          </div>
+        </div>
+      </div>
+
+      {!hasChildren && selectedTopic === node.id && (
+        <div style={{ paddingLeft: `${0.5 + depth * 1.5}rem` }} className="pr-3 pb-2">
+          <TopicDetail topicId={node.id} onClose={() => onSelectTopic(null)} />
+        </div>
+      )}
+
+      {hasChildren && isExpanded && (
+        <div>
+          {/* A parent topic can itself have directly-assigned lessons (has_own_items) —
+              give it its own clickable row + detail, same as a leaf, nested one level in. */}
+          {node.has_own_items && (
+            <div>
+              <div
+                className="flex items-center justify-between gap-2 py-1.5 pr-3 rounded-lg dark:hover:bg-gray-800 hover:bg-gray-50 transition-colors cursor-pointer text-sm text-gray-500 dark:text-gray-400"
+                style={{ paddingLeft: `${0.5 + (depth + 1) * 1.5}rem` }}
+                onClick={() => onSelectTopic(selectedTopic === node.id ? null : node.id)}
+              >
+                <span className="italic">↳ ogólne materiały „{node.name}"</span>
+                <span className="tabular-nums">{node.mastery_percent}%</span>
+              </div>
+              {selectedTopic === node.id && (
+                <div style={{ paddingLeft: `${0.5 + (depth + 1) * 1.5}rem` }} className="pr-3 pb-2">
+                  <TopicDetail topicId={node.id} onClose={() => onSelectTopic(null)} />
+                </div>
+              )}
+            </div>
+          )}
+          {node.subtopics.map(child => (
+            <HierarchyNode
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              expandedIds={expandedIds}
+              onToggle={onToggle}
+              selectedTopic={selectedTopic}
+              onSelectTopic={onSelectTopic}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -489,15 +579,17 @@ export default function TopicsPage() {
   const navigate = useNavigate();
   const userId = getUserId();
 
-  const [view, setView] = useState('list'); // 'list' | 'tree' | 'due'
+  const [view, setView] = useState('list'); // 'list' | 'tree' | 'hierarchy' | 'due'
   const [topics, setTopics] = useState([]);
   const [tree, setTree] = useState({});
+  const [hierarchy, setHierarchy] = useState([]);
   const [dueTopics, setDueTopics] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [expandedCategories, setExpandedCategories] = useState({});
+  const [expandedHierarchy, setExpandedHierarchy] = useState(() => new Set());
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [sortBy, setSortBy] = useState('name');
 
@@ -508,15 +600,17 @@ export default function TopicsPage() {
       if (categoryFilter) params.category = categoryFilter;
       if (sortBy) params.sort = sortBy;
 
-      const [topicsRes, treeRes, dueRes, statsRes] = await Promise.all([
+      const [topicsRes, treeRes, hierarchyRes, dueRes, statsRes] = await Promise.all([
         getTopics(userId, params).catch(() => ({ topics: [] })),
         getTopicTree(userId).catch(() => ({ tree: {} })),
+        getTopicHierarchy(userId).catch(() => ({ topics: [] })),
         getDueTopics(userId).catch(() => ({ topics: [] })),
         getTopicStats(userId).catch(() => ({})),
       ]);
 
       setTopics(topicsRes.topics || []);
       setTree(treeRes.tree || {});
+      setHierarchy(hierarchyRes.topics || []);
       setDueTopics(dueRes.topics || []);
       setStats(statsRes);
     } catch (e) {
@@ -539,6 +633,14 @@ export default function TopicsPage() {
 
   const toggleCategory = (cat) => {
     setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
+  };
+
+  const toggleHierarchyNode = (id) => {
+    setExpandedHierarchy(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
   if (loading) return <PageLoader />;
@@ -592,6 +694,7 @@ export default function TopicsPage() {
         {[
           { key: 'list', label: 'Lista', icon: BookOpen },
           { key: 'tree', label: 'Kategorie', icon: Layers },
+          { key: 'hierarchy', label: 'Hierarchia', icon: Network },
           { key: 'due', label: 'Do powtórki', icon: Clock },
         ].map(({ key, label, icon: Icon }) => (
           <button
@@ -763,6 +866,36 @@ export default function TopicsPage() {
                 )}
               </div>
             ))
+          )}
+        </div>
+      )}
+
+      {/* ── HIERARCHY VIEW (P2-4) ── */}
+      {view === 'hierarchy' && (
+        <div className="dark:bg-gray-900 bg-white rounded-xl shadow-sm border dark:border-gray-800 border-gray-200 p-2">
+          {hierarchy.length === 0 ? (
+            <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+              <Network size={48} className="mx-auto mb-3 opacity-50" />
+              <p>Brak tematów. Wygeneruj lekcję, aby rozpocząć.</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-gray-400 dark:text-gray-500 px-2 pb-2">
+                Główny temat → podtematy, z % opanowania. Hierarchię buduje AI przy generowaniu
+                lekcji — nowe tematy dołączają tu automatycznie, starsze mogą zostać płaskie.
+              </p>
+              {hierarchy.map(node => (
+                <HierarchyNode
+                  key={node.id}
+                  node={node}
+                  depth={0}
+                  expandedIds={expandedHierarchy}
+                  onToggle={toggleHierarchyNode}
+                  selectedTopic={selectedTopic}
+                  onSelectTopic={setSelectedTopic}
+                />
+              ))}
+            </>
           )}
         </div>
       )}

@@ -55,9 +55,14 @@ Lesson summary:
 {summary}
 
 Respond with JSON array of topics. Each topic should have:
-- "name": short topic name in {language} (e.g. "Perfekt", "Konjunktiv II", "Trennbare Verben")
+- "name": short, SPECIFIC topic name in {language} (e.g. "Perfekt mit haben", "Konjunktiv II", "Trennbare Verben" — not just "Grammar" or "Verbs")
 - "category": one of: grammar, vocabulary, pronunciation, listening, reading, writing, speaking, culture, idioms, other
 - "description": 1-sentence description in Polish explaining what this topic covers
+- "parent_topic": OPTIONAL — the name (in Polish) of the broader umbrella topic this one
+  belongs under, if there is an obvious one, e.g. "Perfekt mit haben" -> parent_topic
+  "Czasy przeszłe" (Past tenses), "Konjunktiv II" -> parent_topic "Tryb warunkowy"
+  (Conditional mood). Omit or leave empty when the topic IS already the broad umbrella
+  (don't invent a parent just to have one — most topics won't need this field).
 
 Extract 1-5 topics. Be specific (not just "Grammar" but "Perfekt mit haben/sein").
 
@@ -110,6 +115,93 @@ def get_or_create_topic(db: Session, user_id: int, language: str, name: str,
     return topic
 
 
+def get_or_create_topic_with_parent(db: Session, user_id: int, language: str, name: str,
+                                     category: str = TopicCategory.GRAMMAR,
+                                     description: str = None,
+                                     cefr_level: str = None,
+                                     parent_topic_name: str = None) -> Topic:
+    """Like get_or_create_topic, but also resolves an optional umbrella/parent
+    topic (P2-4, docs/BACKLOG_UX_2026-08.md — Bank wiedzy hierarchy). The parent
+    is itself just a plain topic (get_or_create_topic, no parent of its own) —
+    this keeps the hierarchy at the two levels the AI prompt asks for (broad
+    umbrella -> specific topic) without needing special-case modeling.
+
+    parent_id is only ever set once: if a topic already has one (from an
+    earlier lesson), a later lesson proposing a different parent does NOT
+    overwrite it — the AI's parent suggestion isn't perfectly consistent
+    lesson to lesson, and flip-flopping a topic's place in the tree on every
+    regeneration would be worse than leaving it where a human would expect.
+    """
+    parent_name = (parent_topic_name or "").strip()
+    parent_id = None
+    if parent_name and parent_name.lower() != name.strip().lower():
+        parent = get_or_create_topic(db, user_id, language, parent_name, category=category, cefr_level=cefr_level)
+        db.flush()
+        parent_id = parent.id
+
+    topic = get_or_create_topic(db, user_id, language, name, category=category,
+                                 description=description, cefr_level=cefr_level)
+    if parent_id and not topic.parent_id and topic.id != parent_id:
+        topic.parent_id = parent_id
+    return topic
+
+
+def get_hierarchy_tree(db: Session, user_id: int, language: str = None) -> list[dict]:
+    """Build the Topic.parent_id hierarchy for the 'Bank wiedzy' tree view
+    (P2-4). Root nodes are topics with no resolved parent (either parent_id is
+    NULL, or it points at a topic that no longer exists/belongs to this user);
+    everything else nests under its parent, recursively (the AI prompt asks
+    for two levels, but nothing here assumes that depth).
+
+    mastery_percent per node is round(Topic.memory_strength * 100) — the same
+    FSRS-derived value already shown everywhere else in this app (list view,
+    category tree, topic detail), not a new metric invented for this view.
+    group_mastery_percent on a node WITH subtopics is a plain, unweighted
+    average of the node's own mastery (if it has directly-assigned items) and
+    its subtopics' mastery — an aggregate for orientation, not a research
+    metric; see docs/NEURO_FEATURES.md for the evidence-level note this
+    project's standard requires before shipping anything mastery-adjacent.
+    """
+    query = db.query(Topic).filter(Topic.user_id == user_id)
+    if language:
+        query = query.filter(Topic.language == language)
+    topics = query.all()
+
+    by_id = {t.id: t for t in topics}
+    children_of: dict[int, list[Topic]] = {}
+    roots = []
+    for t in topics:
+        if t.parent_id and t.parent_id in by_id and t.parent_id != t.id:
+            children_of.setdefault(t.parent_id, []).append(t)
+        else:
+            roots.append(t)
+
+    def build(t: Topic) -> dict:
+        kids = sorted(children_of.get(t.id, []), key=lambda x: x.name.lower())
+        subtopics = [build(k) for k in kids]
+        node = {
+            "id": t.id,
+            "name": t.name,
+            "category": t.category,
+            "description": t.description,
+            "cefr_level": t.cefr_level,
+            "mastery_percent": round(t.memory_strength * 100),
+            "is_due": t.is_due(),
+            "days_until_review": t.days_until_review(),
+            "items_count": t.total_items,
+            "has_own_items": t.total_items > 0,
+            "subtopics": subtopics,
+        }
+        if subtopics:
+            values = [s.get("group_mastery_percent", s["mastery_percent"]) for s in subtopics]
+            if node["has_own_items"]:
+                values.append(node["mastery_percent"])
+            node["group_mastery_percent"] = round(sum(values) / len(values)) if values else 0
+        return node
+
+    return sorted([build(r) for r in roots], key=lambda n: n["name"].lower())
+
+
 def assign_item_to_topic(db: Session, topic_id: int, item_type: str,
                          item_id: int, title: str = None,
                          day_number: int = None, score: float = None) -> TopicItem:
@@ -158,7 +250,7 @@ async def process_lesson_topics(db: Session, lesson, content: dict) -> list[Topi
 
     created_topics = []
     for td in topics_data:
-        topic = get_or_create_topic(
+        topic = get_or_create_topic_with_parent(
             db=db,
             user_id=lesson.user_id,
             language=lesson.language,
@@ -166,6 +258,7 @@ async def process_lesson_topics(db: Session, lesson, content: dict) -> list[Topi
             category=td.get("category", TopicCategory.GRAMMAR),
             description=td.get("description"),
             cefr_level=lesson.cefr_level,
+            parent_topic_name=td.get("parent_topic"),
         )
         assign_item_to_topic(
             db=db,
@@ -193,7 +286,7 @@ async def process_test_topics(db: Session, test_result, test_content: dict,
     score = test_result.score if hasattr(test_result, 'score') else None
 
     for td in topics_data:
-        topic = get_or_create_topic(
+        topic = get_or_create_topic_with_parent(
             db=db,
             user_id=test_result.user_id,
             language=language,
@@ -201,6 +294,7 @@ async def process_test_topics(db: Session, test_result, test_content: dict,
             category=td.get("category", TopicCategory.GRAMMAR),
             description=td.get("description"),
             cefr_level=cefr_level,
+            parent_topic_name=td.get("parent_topic"),
         )
         assign_item_to_topic(
             db=db,
@@ -359,7 +453,7 @@ async def process_lesson_topics_bg(user_id: int, language: str, cefr_level: str,
         topics_data = await extract_topics_from_lesson(content, language, cefr_level)
 
         for td in topics_data:
-            topic = get_or_create_topic(
+            topic = get_or_create_topic_with_parent(
                 db=db,
                 user_id=user_id,
                 language=language,
@@ -367,6 +461,7 @@ async def process_lesson_topics_bg(user_id: int, language: str, cefr_level: str,
                 category=td.get("category", TopicCategory.GRAMMAR),
                 description=td.get("description"),
                 cefr_level=cefr_level,
+                parent_topic_name=td.get("parent_topic"),
             )
             assign_item_to_topic(
                 db=db,

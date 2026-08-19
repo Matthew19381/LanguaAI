@@ -381,6 +381,11 @@ export const getTopics = (userId, params = {}) =>
 export const getTopicTree = (userId, language) =>
   api.get(`/topics/${userId}/tree`, language ? { params: { language } } : {})
 
+// Parent->subtopic hierarchy (Topic.parent_id), distinct from /tree above
+// (which groups by the fixed category enum, not the AI-inferred hierarchy).
+export const getTopicHierarchy = (userId, language) =>
+  api.get(`/topics/${userId}/hierarchy`, language ? { params: { language } } : {})
+
 export const getDueTopics = (userId, language, limit = 20) =>
   api.get(`/topics/${userId}/due`, { params: { language, limit } })
 

@@ -2,7 +2,7 @@
 
 > **Zasada projektowa**: każda funkcja wpływająca na naukę musi mieć (a) wsparcie w recenzowanych badaniach, (b) implementację zgodną z tym, co badania faktycznie pokazują. Konkretne stałe liczbowe bez podstawy empirycznej traktujemy jako hipotezy do zweryfikowania na danych — nie jako fakty.
 
-_Ostatnia aktualizacja: 2026-08-07 — SCI-1…SCI-7 przeniesione z backlogu (sekcja 4) do „Stan faktyczny" (sekcja 1), zgodnie z rzeczywistym stanem kodu._
+_Ostatnia aktualizacja: 2026-08-19 — dodana hierarchia tematów + mastery % (P2-4, sekcja 1). Wcześniej (2026-08-07): SCI-1…SCI-7 przeniesione z backlogu (sekcja 4) do „Stan faktyczny" (sekcja 1), zgodnie z rzeczywistym stanem kodu._
 
 ## Spis treści
 1. [Stan faktyczny — co jest zaimplementowane](#stan)
@@ -29,6 +29,7 @@ _Ostatnia aktualizacja: 2026-08-07 — SCI-1…SCI-7 przeniesione z backlogu (se
 | **SCI-5 Pora nauki dopasowana do rytmu** | ✅ Produkcja (2026-07-25) — sugestia data-driven, dopiero po ≥8 próbkach (≥3/przedział) | `backend/services/analytics_service.py` (`analyze_best_study_time`) |
 | **SCI-6 Dyktando** | ✅ Produkcja (2026-07-25) — odsłuch TTS + zapis ze słuchu, word-level diff | `backend/services/dictation_service.py` |
 | **SCI-7 Production effect** | ✅ Produkcja (2026-07-25) — „powtórz na głos" w Quick Mode, samoocena | `backend/routers/quickmode.py` (`get_read_aloud`) |
+| **Hierarchia tematów + mastery %** (P2-4, Bank wiedzy) | ✅ Produkcja (2026-08-19) — drzewo temat→podtemat (`Topic.parent_id`, AI sugeruje przynależność przy ekstrakcji tematów z lekcji); mastery % per węzeł = `round(memory_strength × 100)`, gdzie `memory_strength` to **ta sama** wartość FSRS (OBS — pochodna z parametrów FSRS: difficulty/stability/retrievability, nie osobno wymyślony wskaźnik) już używana w widoku listy/kategorii/szczegółów tematu od dawna. Dla węzła z podtematami dodatkowo `group_mastery_percent` — **zwykła nieważona średnia** mastery węzła (jeśli ma własne materiały) i jego podtematów, jawnie oznaczona jako agregat porządkujący, nie metryka badawcza (HIPOTEZA/brak dowodu na tę konkretną formułę uśredniania — nie fabrykować pewności, której nie ma). Powtórka „podstaw" tematu wykorzystuje istniejący `review_topic`/FSRS-dla-tematów (nie nowy mechanizm) — węzeł oznaczony jako „Do powtórki" gdy `is_due()`. | `backend/services/topic_service.py` (`get_hierarchy_tree`, `get_or_create_topic_with_parent`), `backend/routers/topics.py` (`GET /{user_id}/hierarchy`), `frontend/src/pages/TopicsPage.jsx` (zakładka „Hierarchia") |
 
 ## 2. Podstawy naukowe zaimplementowanych mechanizmów <a name="nauka"></a>
 

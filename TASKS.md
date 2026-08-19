@@ -4,6 +4,56 @@ _Ostatnia aktualizacja: 2026-08-19_
 
 ---
 
+## 🟢 ACTION_PLAN.md P2-4 — hierarchia Banku wiedzy (2026-08-19)
+
+Największe zadanie backlogu, zrobione. Zanim zacząłem pisać kod, sprawdziłem co już
+istnieje (ten sam wzorzec co przy P1/reszcie P2) i okazało się, że dużo więcej fundamentu
+już było gotowe niż zakładał `ACTION_PLAN.md`:
+
+- `Topic.parent_id` — kolumna już istniała w schemacie (dodana ad-hoc przez `main.py`,
+  poprawnie w historii Alembic od Fazy 1 tej sesji), ale **nic jej nigdy nie ustawiało ani
+  nie czytało** — martwa kolumna.
+- `Topic.memory_strength` — realna, niefabrykowana wartość pochodząca z tego samego
+  `fsrs_service.py` co fiszki (nie nowy wskaźnik do wymyślenia — ryzyko #2 z
+  `ACTION_PLAN.md` o niefabrykowaniu mastery % okazało się już rozwiązane przez istniejący
+  kod).
+- `review_topic`/`topic.apply_fsrs()` — pełny FSRS-dla-tematów mechanizm powtórek już
+  istniał i był podłączony (`POST /api/topics/{id}/review`, używany w `TopicDetail`) —
+  „cyklicznie przepytywany z podstaw" z DoD było już częściowo spełnione, brakowało tylko
+  wyeksponowania w nowym widoku hierarchii.
+
+Zaimplementowane w tej sesji:
+- **Backend** (`backend/services/topic_service.py`): `extract_topics_from_lesson`'s prompt
+  AI rozszerzony o opcjonalne pole `parent_topic` (nazwa szerszego tematu-parasola).
+  `get_or_create_topic_with_parent()` — resolve/create parent, **nigdy nie nadpisuje**
+  już ustawionego `parent_id` (AI bywa niespójne między lekcjami — migotanie hierarchii
+  przy każdej regeneracji byłoby gorsze niż zostawienie tematu tam, gdzie już jest).
+  `get_hierarchy_tree()` — buduje drzewo z płaskiej listy tematów, odporne na osierocony
+  `parent_id` (spada do roota zamiast crashować). `GET /api/topics/{user_id}/hierarchy`
+  nowy endpoint w `routers/topics.py`, odrębny od istniejącego `/tree` (ten grupuje po
+  stałym enum `category`, nie po realnej hierarchii).
+- **Frontend** (`TopicsPage.jsx`): nowa zakładka „Hierarchia" (`Network` ikona) —
+  rekurencyjny `HierarchyNode`, expand/collapse, mastery bar (reużyty istniejący
+  `MemoryBar`), badge „Do powtórki" łączący się z istniejącym mechanizmem review. Kolory/
+  wzorzec zaczerpnięte z krótkiego researchu (Duolingo skill tree — kolor-kodowanie
+  opanowania, expand/collapse jak w standardowych tree view) i dopasowane do już
+  istniejącego design systemu apki (`.badge-*`, `MemoryBar`), nie osobny nowy styl.
+- Zweryfikowano na żywo przez bezpośrednie zapytanie do `GET /api/topics/4/hierarchy` po
+  tymczasowym ustawieniu `parent_id` na dwóch realnych tematach usera 4 (przywrócone od
+  razu po weryfikacji): drzewo i `group_mastery_percent` (65% = avg(96,98,0)) policzone
+  poprawnie.
+- `docs/NEURO_FEATURES.md` zaktualizowany — poziom dowodu mastery %/`group_mastery_percent`
+  jawnie opisany (OBS dla `memory_strength`, brak-dowodu/HIPOTEZA dla formuły uśredniania
+  grupy), zgodnie ze standardem projektu.
+- Testy: `test_topic_service_hierarchy.py` (4 nowe), `test_topics.py` (+5),
+  `TopicsPage.test.jsx` (nowy plik, 3 testy). **497/497** backend, **95/95** frontend,
+  ruff i eslint czyste (0 nowych ostrzeżeń).
+- Świadomie NIE zrobione: starsze tematy sprzed tej zmiany nie dostają retroaktywnie
+  `parent_id` — hierarchia buduje się od teraz w przód, nie wstecz (nie fabrykowano danych
+  historycznych).
+
+---
+
 ## 🟡 ACTION_PLAN.md Faza 4 — audyt P2 (2026-08-19, przed implementacją)
 
 Ten sam wzorzec co przy P1: zweryfikowano stan każdej pozycji w kodzie przed pisaniem

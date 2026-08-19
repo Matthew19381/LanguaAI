@@ -118,7 +118,20 @@ lekcję" istnieje niezależnie (`DailyLesson.jsx` + `Settings.jsx`).
 - **Co zrobić:** klik w wyraz w treści → podświetlenie na zielono + dodanie do panelu (bok/dół) z tłumaczeniem (`translateWord`); dopiero przycisk „Dodaj zaznaczone do fiszek" zapisuje wybrane.
 - **DoD:** dowolne słowo z artykułu można zaznaczyć, zebrać na liście i zbiorczo dodać do fiszek.
 
-### P2-4. Bank wiedzy — budowa/przebudowa (największe)
+### P2-4. Bank wiedzy — budowa/przebudowa (największe) — ✅ Zamknięte 2026-08-19
+Nowa zakładka „Hierarchia" w `TopicsPage.jsx`: temat→podtematy (`Topic.parent_id`, dotąd
+nieużywana kolumna — AI teraz sugeruje przynależność przy ekstrakcji tematów z lekcji),
+expand/collapse, mastery % per węzeł (ta sama wartość FSRS co reszta apki, nie nowy wzór),
+badge „Do powtórki" wykorzystujący już istniejący `review_topic`/FSRS-dla-tematów (nie
+budowany od zera — sprawdzono przed implementacją, że mechanizm już istniał, tylko nie był
+wyeksponowany w widoku hierarchii). Poziom dowodu formuły `group_mastery_percent`
+(zwykła średnia, nie badawcza metryka) udokumentowany w `docs/NEURO_FEATURES.md`, zgodnie
+ze standardem projektu zakazującym fabrykowania pewności naukowej. Backend:
+`GET /api/topics/{user_id}/hierarchy`. Testy: `test_topic_service_hierarchy.py` (4),
+`test_topics.py` (+5), `TopicsPage.test.jsx` (nowy, 3 testy).
+Nie zrobione (świadomie, poza zakresem tej iteracji): starsze tematy sprzed tej zmiany
+zostają płaskie (brak retroaktywnego przypisania parent_id) — hierarchia buduje się do
+przodu, nie wstecz.
 - **Problem:** brak realnego dostępu do „banku wiedzy" z hierarchią i opanowaniem.
 - **Przyczyna:** `TopicsPage.jsx` (783 l.) istnieje, ale nie realizuje struktury tematy→podtematy→materiały; słabo dostępny z nawigacji.
 - **Co zrobić (model + UI):**
