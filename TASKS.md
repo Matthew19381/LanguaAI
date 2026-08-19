@@ -4,6 +4,42 @@ _Ostatnia aktualizacja: 2026-08-19_
 
 ---
 
+## 🏁 ACTION_PLAN.md — zamknięcie planu (2026-08-19, Faza 5)
+
+Weryfikacja końcowa: `503/503` testów backendu, `98/98` testów frontendu, `ruff check
+backend/` i `npm run lint` (frontend, 0 błędów, 49 ostrzeżeń — bez zmian względem stanu
+sprzed sesji), `alembic check` → „No new upgrade operations detected". `README.md`
+zaktualizowany o realne liczby testów. `CHANGELOG.md` ma zbiorczy wpis `## 2026-08-19`.
+
+**Zrobione (Fazy 0, 1, 2, 4, 5)**: pełna lista w odpowiednich sekcjach wyżej w tym pliku,
+per-faza, z uzasadnieniami i wynikami weryfikacji.
+
+**Świadomie odłożone/pominięte — z decyzją i uzasadnieniem, nie po cichu:**
+- **F0-4 (Python 3.12 lokalnie)** — decyzja użytkownika 2026-08-19: zostać na 3.11
+  ("jeżeli niczego nie zmienia"). CI (`.github/workflows/ci.yml`) już poprawnie pinuje 3.12
+  — luka dotyczy wyłącznie środowiska deweloperskiego tej maszyny, nie repo.
+- **Faza 3 (integracja z Systemem Głównym, `INT-2`/`INT-3`)** — decyzja użytkownika
+  2026-08-19: "Integrację z Systemem Głównym możesz zostawić na później". Nie rozpoczęte.
+- **F2-2 (ujednolicenie prefiksów `/api/*` → `/api/v1/*`)** — świadomie pominięte, czysto
+  porządkowe, alias middleware już obsługuje oba warianty funkcjonalnie; zmiana bez
+  ponownego przemyślenia kierunku aliasu ryzykowałaby złamanie
+  `frontend/src/api/client.js`. Zero wartości dla użytkownika, realne ryzyko regresji.
+- **P2-1 (przebudowa Fiszek)** — rdzeń UX (4 przyciski oceny zawsze widoczne, skróty
+  klawiszowe) już działał z wcześniejszej sesji; nie kontynuowano dalej (licznik postępu
+  sesji, ekran podsumowania) z powodu wcześniejszej, jawnej instrukcji użytkownika w tej
+  samej sesji: „zaimplementować to, ale zostaw te fiszki".
+- **Retroaktywna hierarchia tematów (P2-4)** — tematy sprzed tej sesji zostają płaskie;
+  hierarchia buduje się do przodu, nie wstecz (decyzja projektowa, nie przeoczenie —
+  fabrykowanie historycznych powiązań byłoby gorsze niż ich brak).
+
+**Kryteria K1–K14 z `ACTION_PLAN.md`**: K2 (testy), K3 (ruff), K4 (eslint), K8 (alembic
+upgrade head odtwarza schemat), K9 (`/api/v1/summary` zielony), K13 (`.env`/`.db` poza
+gitem), K14 (martwy plik usunięty) — spełnione i zweryfikowane w tej sesji. K1 (Python 3.12)
+świadomie nie — patrz F0-4 wyżej. K10/K11 (`INT-2`/`INT-3` stuby) — nie dotyczy, Faza 3
+odłożona. K5, K6, K7 — spełnione w Fazie 0.
+
+---
+
 ## 🟢 ACTION_PLAN.md P2-2 — streaming w Konwersacji (2026-08-19)
 
 Ostatnia duża pozycja backlogu UX. Sprawdzone przed implementacją: `model_router.py` już

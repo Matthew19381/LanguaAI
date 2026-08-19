@@ -4,6 +4,39 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-08-19 — ACTION_PLAN.md, Fazy 0–5
+
+Pełne wykonanie planu re-audytu (`ACTION_PLAN.md`), Faza po Fazie. Integracja z Systemem
+Głównym (Faza 3) świadomie odłożona na później na życzenie użytkownika. Pełny opis każdej
+pozycji w `TASKS.md`; tu tylko podsumowanie commitów.
+
+- **Faza 0 (higiena)** — poprawiona ścieżka `GoogleDriveSync` w `CLAUDE.md`, usunięty martwy
+  `backend/lingua_ai.db`, doinstalowany `ruff` (0 błędów), uzupełniony `CHANGELOG.md`,
+  zamknięte pozycje backlogu UX które faktycznie już działały.
+- **Faza 1 (Alembic)** — realny problem, nie kosmetyka: `main.py` miał równoległy własny
+  system migracji (ad-hoc `ALTER TABLE` przy starcie) obok Alembica, który od miesięcy
+  faktycznie ewoluował schemat, podczas gdy historia Alembica stała w miejscu. Dwie nowe
+  rewizje (`8dfdfadd8a31`, `9c1a1e9b7b4f`) domykają dryf; `main.py` teraz uruchamia
+  `alembic upgrade head` zamiast `create_all()` + ręcznej listy.
+- **Faza 2** — wydzielona zduplikowana logika z `routers/lessons.py` (1060→869 linii) do
+  nowego `services/lesson_service.py`.
+- **Faza 4 (backlog UX)** — P1-1…P1-7: 5/7 już działało (zweryfikowane przed naprawą),
+  naprawione: puste ćwiczenia/wyjaśnienia gramatyki (retry + walidacja server-side).
+  P2-1 (fiszki) świadomie nietknięte na życzenie użytkownika. P2-2 (streaming w
+  Konwersacji) — nowy `generate_text_stream()`, SSE endpoint, w trakcie implementacji
+  znaleziony i naprawiony realny bug (sesja DB zamykana przed zapisem historii przez
+  FastAPI's dependency cleanup timing). P2-3 (News) już gotowe. P2-4 (hierarchia Banku
+  wiedzy) — największe zadanie backlogu: `Topic.parent_id` (istniejąca, ale martwa kolumna)
+  teraz wypełniana przez AI przy ekstrakcji tematów, nowy endpoint drzewa z mastery %.
+  P3-3 (dzienne wskazówki) już działało.
+- **Faza 5** — ten wpis; `README.md` liczby testów zaktualizowane (503 backend / 98
+  frontend), `alembic check` czysty, `ruff`/`eslint` czyste.
+
+Pełna lista commitów: `7c19916`, `c2ccac5`, `793b89c`, `e2747a8`, `0d03421`, `764c44d`,
+`e9a7cad`, `824c76e`.
+
+---
+
 ## 2026-08-09
 
 ### feat: zwolnione tempo w ReadAloud + pełny dark-mode pass na Banku wiedzy (`80882fd`)

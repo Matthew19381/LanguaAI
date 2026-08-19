@@ -60,10 +60,10 @@ API Docs: http://localhost:8001/docs
 ## Testy
 
 ```bash
-# Backend (457 testów)
+# Backend (503 testy)
 py -3.11 -m pytest backend/tests/ -v
 
-# Frontend (75 testów, Vitest)
+# Frontend (98 testów, Vitest)
 cd frontend && npm test
 
 # E2E (Playwright)
