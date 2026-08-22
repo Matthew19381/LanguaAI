@@ -155,6 +155,11 @@ export const getDueFlashcards = (userId, topicId) =>
 export const getFlashcardAltContext = (flashcardId, userId) =>
   api.post(`/flashcards/${flashcardId}/alt-context`, {}, { params: { user_id: userId } })
 
+// On-demand visual mnemonic (dual coding — Wariant B). Generated once, then
+// cached server-side — a repeat call returns the same saved image instantly.
+export const getFlashcardMnemonicImage = (flashcardId, userId) =>
+  api.post(`/flashcards/${flashcardId}/mnemonic-image`, {}, { params: { user_id: userId } })
+
 export const bulkImportFlashcards = (userId, file) => {
   const formData = new FormData()
   formData.append("file", file)

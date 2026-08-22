@@ -111,6 +111,7 @@ async def get_flashcards(
                 "correct_recall_sessions": f.correct_recall_sessions,
                 "is_mastered": f.is_mastered,
                 "mnemonic": f.mnemonic,
+                "mnemonic_image_path": f.mnemonic_image_path,
             }
             for f in flashcards
         ],
@@ -163,6 +164,7 @@ async def get_due_flashcards(user_id: int, topic_id: int | None = None, db: Sess
                 "gender": f.gender,
                 "isImportant": f.isImportant,
                 "mnemonic": f.mnemonic,
+                "mnemonic_image_path": f.mnemonic_image_path,
                 "lesson_id": f.lesson_id,
                 "lesson_topic": f.lesson_topic,
             }
@@ -215,6 +217,7 @@ async def get_flashcards_offline_pack(user_id: int, size: int = 100, db: Session
                 "correct_recall_sessions": f.correct_recall_sessions,
                 "next_review_date": f.next_review_date.isoformat() if f.next_review_date else None,
                 "mnemonic": f.mnemonic,
+                "mnemonic_image_path": f.mnemonic_image_path,
             }
             for f in cards
         ],
@@ -419,6 +422,45 @@ Return ONLY valid JSON:
     except Exception:
         logger.exception("Unexpected error generating alt context")
         raise HTTPException(status_code=500, detail="Failed to generate alternate context")
+
+
+@router.post("/api/flashcards/{flashcard_id}/mnemonic-image")
+async def get_flashcard_mnemonic_image(flashcard_id: int, user_id: int, db: Session = Depends(get_db)):
+    """Wariant B (fiszki, 2026-08-19): on-demand visual mnemonic (dual coding
+    — Paivio). Only for cards that already have a text mnemonic (SCI-13) —
+    there's no vivid image description to draw from otherwise, and this app
+    doesn't invent one just to have something to illustrate.
+
+    Generated ONCE per card and cached in mnemonic_image_path — real
+    per-image cost (~$0.02-0.04, Gemini 2.5 Flash Image), so a repeat request
+    returns the saved file instead of generating again.
+    """
+    flashcard = db.query(Flashcard).filter(Flashcard.id == flashcard_id).first()
+    if not flashcard:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+    if flashcard.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this flashcard")
+
+    if flashcard.mnemonic_image_path:
+        return {"success": True, "image_path": flashcard.mnemonic_image_path, "cached": True}
+
+    if not flashcard.mnemonic:
+        raise HTTPException(status_code=400, detail="This card has no text mnemonic to illustrate")
+
+    try:
+        from backend.services.image_service import generate_mnemonic_image
+        image_path = await generate_mnemonic_image(
+            flashcard.word, flashcard.mnemonic, flashcard.language, flashcard.id
+        )
+        flashcard.mnemonic_image_path = image_path
+        db.commit()
+        return {"success": True, "image_path": image_path, "cached": False}
+    except httpx.RequestError as e:
+        logger.error(f"AI service error generating mnemonic image: {e}")
+        raise HTTPException(status_code=503, detail="AI service unavailable")
+    except Exception:
+        logger.exception("Unexpected error generating mnemonic image")
+        raise HTTPException(status_code=500, detail="Failed to generate mnemonic image")
 
 
 @router.post("/api/flashcards/{user_id}/export-anki")

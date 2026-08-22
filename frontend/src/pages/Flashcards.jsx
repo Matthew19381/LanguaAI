@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import {
   Brain, ChevronLeft, ChevronRight, Download, Eye,
   CheckCircle, AlertCircle, Clock, Plus, CloudOff, UploadCloud, RotateCcw,
-  BookOpen, X, Sparkles, Loader2
+  BookOpen, X, Sparkles, Loader2, Image as ImageIcon
 } from 'lucide-react'
-import { getUserId, getFlashcards, getDueFlashcards, reviewFlashcard, exportAnki, addFlashcard, addFlashcardAI, bulkImportFlashcards, getFlashcardOfflinePack, getFlashcardAltContext } from '../api/client'
+import { getUserId, getFlashcards, getDueFlashcards, reviewFlashcard, exportAnki, addFlashcard, addFlashcardAI, bulkImportFlashcards, getFlashcardOfflinePack, getFlashcardAltContext, getFlashcardMnemonicImage } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
 import { useOfflineSync } from '../hooks/useOfflineSync'
@@ -142,6 +142,13 @@ export default function Flashcards() {
   const [altContext, setAltContext] = useState(null)
   const [altContextLoading, setAltContextLoading] = useState(false)
 
+  // Wariant B: on-demand visual mnemonic (dual coding). Keyed by card id so a
+  // freshly-generated image is remembered for the rest of this session even
+  // though `dueCards`/`allCards` aren't re-fetched after generating one.
+  const [mnemonicImages, setMnemonicImages] = useState({})
+  const [mnemonicImageLoading, setMnemonicImageLoading] = useState(false)
+  const [mnemonicImageError, setMnemonicImageError] = useState('')
+
   const [showAddForm, setShowAddForm] = useState(true)
 
   // Add card form
@@ -250,6 +257,7 @@ export default function Flashcards() {
     ? buildCloze(currentCard.example_sentence, currentCard.word)
     : null
   const isStruggling = currentCard?.fsrs_state === 'Relearning'
+  const mnemonicImagePath = currentCard ? (mnemonicImages[currentCard.id] || currentCard.mnemonic_image_path) : null
 
   // Use refs to avoid stale closures in keyboard handler
   const stateRef = useRef({ currentCard, isFlipped, currentIndex, displayCards, tab })
@@ -265,6 +273,11 @@ export default function Flashcards() {
     setTypedChecked(false)
     setAltContext(null)
     setAltContextLoading(false)
+    // mnemonicImages is NOT reset here — it's a session-wide cache keyed by
+    // card id, so a previously-generated image stays visible if the learner
+    // navigates away and back to the same card.
+    setMnemonicImageLoading(false)
+    setMnemonicImageError('')
   }, [currentCard?.id])
 
   const handleFlip = useCallback(() => {
@@ -338,6 +351,22 @@ export default function Flashcards() {
       setAltContext({ success: false, error: e.message })
     } finally {
       setAltContextLoading(false)
+    }
+  }
+
+  // Wariant B: on-demand visual mnemonic (dual coding, Paivio). A real
+  // per-image cost, so only generated on click — never automatically.
+  const handleGenerateMnemonicImage = async () => {
+    if (!currentCard) return
+    setMnemonicImageLoading(true)
+    setMnemonicImageError('')
+    try {
+      const res = await getFlashcardMnemonicImage(currentCard.id, userId)
+      setMnemonicImages(prev => ({ ...prev, [currentCard.id]: res.image_path }))
+    } catch (e) {
+      setMnemonicImageError(e.message || (t('flash.mnemonicImageError') || 'Nie udało się wygenerować obrazu.'))
+    } finally {
+      setMnemonicImageLoading(false)
     }
   }
 
@@ -760,6 +789,32 @@ export default function Flashcards() {
                           <p className="text-amber-300/80 text-xs mt-2 max-w-xs mx-auto">
                             💡 {currentCard.mnemonic}
                           </p>
+                        )}
+                        {/* Wariant B: on-demand visual mnemonic (dual coding) —
+                            only offered when there's already a text mnemonic
+                            to illustrate; real per-image cost, so never automatic. */}
+                        {currentCard.mnemonic && (
+                          <div className="mt-2" onClick={e => e.stopPropagation()}>
+                            {mnemonicImagePath ? (
+                              <img
+                                src={mnemonicImagePath}
+                                alt={t('flash.mnemonicImageAlt') || 'Obraz mnemoniczny'}
+                                className="max-w-[160px] max-h-[160px] rounded-lg mx-auto border border-amber-700/30"
+                              />
+                            ) : (
+                              <button
+                                onClick={handleGenerateMnemonicImage}
+                                disabled={mnemonicImageLoading}
+                                className="flex items-center gap-1.5 mx-auto text-xs text-amber-300/80 hover:text-amber-200 disabled:opacity-50 transition-colors"
+                              >
+                                {mnemonicImageLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+                                {mnemonicImageLoading ? (t('flash.mnemonicImageLoading') || 'Generowanie obrazu...') : (t('flash.mnemonicImageButton') || 'Pokaż obraz')}
+                              </button>
+                            )}
+                            {mnemonicImageError && (
+                              <p className="text-red-400 text-xs text-center mt-1">{mnemonicImageError}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

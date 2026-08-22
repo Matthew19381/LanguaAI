@@ -14,6 +14,7 @@ vi.mock("../../api/client", () => ({
   addFlashcardAI: vi.fn(() => Promise.resolve({})),
   bulkImportFlashcards: vi.fn(() => Promise.resolve({})),
   getFlashcardAltContext: vi.fn(() => Promise.resolve({ success: true, sentence: "", translation: "" })),
+  getFlashcardMnemonicImage: vi.fn(() => Promise.resolve({ success: true, image_path: "/images/mnemonic_1.png", cached: false })),
 }))
 
 vi.mock("../../hooks/useLanguage", () => ({
@@ -281,5 +282,79 @@ describe("Flashcards — Wariant B+D (kontekst/produkcja + integracja z lekcjami
       expect(screen.getByText("Wir essen Brot beim Picknick.")).toBeInTheDocument()
     })
     expect(getFlashcardAltContext).toHaveBeenCalledWith(1, 42)
+  })
+})
+
+describe("Flashcards — visual mnemonic image (Wariant B, on demand)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    localStorage.setItem("userId", "42")
+  })
+
+  it("shows a 'Show image' button for a card with a text mnemonic and no image yet", async () => {
+    const { getDueFlashcards } = await import("../../api/client")
+    getDueFlashcards.mockResolvedValue({
+      due_cards: [{ id: 1, word: "Angst", translation: "fear", language: "German", mnemonic: "A jolt of dread." }],
+    })
+    renderPage()
+    await waitFor(() => expect(screen.getAllByText("Angst").length).toBeGreaterThan(0))
+    expect(screen.getByText("flash.mnemonicImageButton")).toBeInTheDocument()
+  })
+
+  it("does not offer an image for a card with no text mnemonic", async () => {
+    const { getDueFlashcards } = await import("../../api/client")
+    getDueFlashcards.mockResolvedValue({
+      due_cards: [{ id: 1, word: "Brot", translation: "bread", language: "German", mnemonic: null }],
+    })
+    renderPage()
+    await waitFor(() => expect(screen.getAllByText("Brot").length).toBeGreaterThan(0))
+    expect(screen.queryByText("flash.mnemonicImageButton")).not.toBeInTheDocument()
+  })
+
+  it("clicking 'Show image' generates and then displays the image", async () => {
+    const { getDueFlashcards, getFlashcardMnemonicImage } = await import("../../api/client")
+    getDueFlashcards.mockResolvedValue({
+      due_cards: [{ id: 1, word: "Angst", translation: "fear", language: "German", mnemonic: "A jolt of dread." }],
+    })
+    renderPage()
+    await waitFor(() => expect(screen.getAllByText("Angst").length).toBeGreaterThan(0))
+
+    fireEvent.click(screen.getByText("flash.mnemonicImageButton"))
+    expect(getFlashcardMnemonicImage).toHaveBeenCalledWith(1, 42)
+
+    await waitFor(() => {
+      expect(screen.getByAltText("flash.mnemonicImageAlt")).toHaveAttribute("src", "/images/mnemonic_1.png")
+    })
+    expect(screen.queryByText("flash.mnemonicImageButton")).not.toBeInTheDocument()
+  })
+
+  it("shows the image directly (no button) when the card already has one cached", async () => {
+    const { getDueFlashcards } = await import("../../api/client")
+    getDueFlashcards.mockResolvedValue({
+      due_cards: [{
+        id: 1, word: "Angst", translation: "fear", language: "German",
+        mnemonic: "A jolt of dread.", mnemonic_image_path: "/images/mnemonic_1.png",
+      }],
+    })
+    renderPage()
+    await waitFor(() => expect(screen.getAllByText("Angst").length).toBeGreaterThan(0))
+    expect(screen.getByAltText("flash.mnemonicImageAlt")).toHaveAttribute("src", "/images/mnemonic_1.png")
+    expect(screen.queryByText("flash.mnemonicImageButton")).not.toBeInTheDocument()
+  })
+
+  it("shows an error message if generation fails", async () => {
+    const { getDueFlashcards, getFlashcardMnemonicImage } = await import("../../api/client")
+    getDueFlashcards.mockResolvedValue({
+      due_cards: [{ id: 1, word: "Angst", translation: "fear", language: "German", mnemonic: "A jolt of dread." }],
+    })
+    getFlashcardMnemonicImage.mockRejectedValue(new Error("upstream broke"))
+    renderPage()
+    await waitFor(() => expect(screen.getAllByText("Angst").length).toBeGreaterThan(0))
+
+    fireEvent.click(screen.getByText("flash.mnemonicImageButton"))
+    await waitFor(() => expect(screen.getByText("upstream broke")).toBeInTheDocument())
+    // Button is still there — nothing was generated, so it should still be offered.
+    expect(screen.getByText("flash.mnemonicImageButton")).toBeInTheDocument()
   })
 })

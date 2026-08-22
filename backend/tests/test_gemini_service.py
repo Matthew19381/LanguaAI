@@ -354,3 +354,104 @@ class TestDefaultModelResolution:
         assert ":free" not in model, "default model resolves to a free tier - router ignored"
         # cheap tier default per model_router._tier_default_openrouter
         assert model == "google/gemini-2.5-flash"
+
+
+class TestGenerateImage:
+    """Wariant B (fiszki, 2026-08-19): on-demand visual mnemonics."""
+
+    @pytest.mark.asyncio
+    async def test_generate_image_openrouter_decodes_data_url(self):
+        import base64
+        raw = b"fake-png-bytes"
+        b64 = base64.b64encode(raw).decode()
+        mock_response = {
+            "choices": [{"message": {"images": [
+                {"image_url": {"url": f"data:image/png;base64,{b64}"}}
+            ]}}]
+        }
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=MagicMock(
+            raise_for_status=MagicMock(),
+            json=MagicMock(return_value=mock_response)
+        ))
+
+        with patch("backend.services.gemini_service.settings") as mock_settings:
+            mock_settings.AI_PROVIDER = "openrouter"
+            mock_settings.OPENROUTER_API_KEY = "test-key"
+            mock_settings.OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+            mock_settings.FRONTEND_URL = "http://x"
+            with patch("backend.services.gemini_service.httpx.AsyncClient") as mock_client_class:
+                mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client_class.return_value.__aexit__ = AsyncMock(return_value=False)
+                from backend.services.gemini_service import generate_image
+                result = await generate_image("draw something")
+                assert result == raw
+
+    @pytest.mark.asyncio
+    async def test_generate_image_openrouter_no_images_raises(self):
+        mock_response = {"choices": [{"message": {"images": []}}]}
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=MagicMock(
+            raise_for_status=MagicMock(),
+            json=MagicMock(return_value=mock_response)
+        ))
+
+        with patch("backend.services.gemini_service.settings") as mock_settings:
+            mock_settings.AI_PROVIDER = "openrouter"
+            mock_settings.OPENROUTER_API_KEY = "test-key"
+            mock_settings.OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+            mock_settings.FRONTEND_URL = "http://x"
+            with patch("backend.services.gemini_service.httpx.AsyncClient") as mock_client_class:
+                mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client_class.return_value.__aexit__ = AsyncMock(return_value=False)
+                from backend.services.gemini_service import generate_image
+                with pytest.raises(ValueError):
+                    await generate_image("draw something")
+
+    @pytest.mark.asyncio
+    async def test_generate_image_gemini_decodes_inline_data(self):
+        import base64
+        raw = b"fake-gemini-png"
+        b64 = base64.b64encode(raw).decode()
+        mock_response = {
+            "candidates": [{"content": {"parts": [
+                {"text": "here you go"},
+                {"inlineData": {"mimeType": "image/png", "data": b64}},
+            ]}}]
+        }
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=MagicMock(
+            raise_for_status=MagicMock(),
+            json=MagicMock(return_value=mock_response)
+        ))
+
+        with patch("backend.services.gemini_service.settings") as mock_settings:
+            mock_settings.AI_PROVIDER = "gemini"
+            mock_settings.GEMINI_API_KEY = "test-key"
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+            with patch("backend.services.gemini_service.httpx.AsyncClient") as mock_client_class:
+                mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client_class.return_value.__aexit__ = AsyncMock(return_value=False)
+                from backend.services.gemini_service import generate_image
+                result = await generate_image("draw something")
+                assert result == raw
+
+    @pytest.mark.asyncio
+    async def test_generate_image_gemini_no_inline_data_raises(self):
+        mock_response = {"candidates": [{"content": {"parts": [{"text": "no image here"}]}}]}
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=MagicMock(
+            raise_for_status=MagicMock(),
+            json=MagicMock(return_value=mock_response)
+        ))
+
+        with patch("backend.services.gemini_service.settings") as mock_settings:
+            mock_settings.AI_PROVIDER = "gemini"
+            mock_settings.GEMINI_API_KEY = "test-key"
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+            with patch("backend.services.gemini_service.httpx.AsyncClient") as mock_client_class:
+                mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client_class.return_value.__aexit__ = AsyncMock(return_value=False)
+                from backend.services.gemini_service import generate_image
+                with pytest.raises(ValueError):
+                    await generate_image("draw something")

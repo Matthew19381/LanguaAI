@@ -25,6 +25,10 @@ class Flashcard(Base):
     # ── SCI-13: keyword mnemonic for abstract/hard-to-visualize words (Atkinson 1975) ──
     # Populated only for words the lesson generator judged abstract; most cards leave this null.
     mnemonic = Column(Text, nullable=True)
+    # ── Wariant B (fiszki, 2026-08-19): on-demand visual mnemonic (dual coding — Paivio) ──
+    # Generated once per card on request (not automatically — real per-image cost), then
+    # cached here so it's never regenerated. Null until the learner asks for one.
+    mnemonic_image_path = Column(String, nullable=True)
     # ── FSRS Spaced Repetition ──
     difficulty = Column(Float, default=5.0)          # FSRS difficulty (0-10, lower=easier)
     stability = Column(Float, default=0.0)           # FSRS stability (days)

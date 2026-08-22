@@ -265,6 +265,11 @@ audio_dir = os.path.join(os.path.dirname(__file__), "audio")
 os.makedirs(audio_dir, exist_ok=True)
 app.mount("/audio", StaticFiles(directory=audio_dir), name="audio")
 
+# Serve generated images (Wariant B, fiszki: on-demand visual mnemonics)
+images_dir = os.path.join(os.path.dirname(__file__), "images")
+os.makedirs(images_dir, exist_ok=True)
+app.mount("/images", StaticFiles(directory=images_dir), name="images")
+
 @app.get("/api/health")
 async def health_check():
     return {

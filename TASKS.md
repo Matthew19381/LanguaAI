@@ -4,6 +4,52 @@ _Ostatnia aktualizacja: 2026-08-19_
 
 ---
 
+## 🟢 Fiszki — mnemonik wizualny na żądanie (2026-08-19, dokończenie Wariantu B)
+
+Po wdrożeniu Wariantu B+D użytkownik zapytał o opcje generacji obrazu (część oryginalnego
+Wariantu B odłożona wcześniej bez decyzji o koszcie). Sprawdzone realne opcje: zarówno
+OpenRouter jak i Gemini Direct (oba już skonfigurowane w `backend/.env`, zero nowych kluczy)
+obsługują Gemini 2.5 Flash Image („Nano Banana"), ~$0.02-0.04/obraz, ~4s generacji.
+Zaprezentowane 3 warianty (na żądanie / automatycznie przy lekcji / tylko emoji za darmo) —
+użytkownik wybrał **„na żądanie"** (rekomendowane): koszt tylko za faktycznie obejrzane karty.
+
+**Backend:**
+- `backend/models/flashcard.py` + nowa rewizja Alembic (`9792016c36df`) — kolumna
+  `mnemonic_image_path`, testowana na świeżej bazie i kopii realnej (`alembic check` → brak
+  dryfu na obu), zastosowana na produkcyjnej bazie.
+- `backend/services/gemini_service.py` — nowa `generate_image()`, czwarty „kształt" wywołania
+  AI (obok `generate_text`/`generate_json`/`generate_text_stream`) z osobną implementacją per
+  provider: OpenRouter (`modalities: ["image","text"]`, obraz w
+  `choices[0].message.images[0].image_url.url` jako data URL) i Gemini Direct
+  (`generationConfig.responseModalities: ["TEXT","IMAGE"]`, obraz w `inlineData.data`) — oba
+  formaty zweryfikowane w dokumentacji dostawców PRZED napisaniem parsera, potem dodatkowo na
+  żywo prawdziwym wywołaniem (patrz niżej).
+- `backend/services/image_service.py` (nowy) — zapis obrazu do pliku, wzorem
+  `audio_service.py` (`backend/images/`, montowane w `main.py` jako `/images`, dodane do
+  `.gitignore` jak `backend/audio/`).
+- `POST /api/flashcards/{flashcard_id}/mnemonic-image` — generuje TYLKO gdy karta ma już
+  tekstowy mnemonik (SCI-13); generuje RAZ, cache w `mnemonic_image_path`, powtórne żądanie
+  zwraca zapisany plik bez ponownego wywołania AI.
+- Testy: `test_gemini_service.py` +4 (parsowanie odpowiedzi obu providerów, sukces + brak
+  obrazu → ValueError), `test_flashcards.py` +4 (wymaga tekstowego mnemonika, generuje+cache'uje,
+  404/403).
+
+**Frontend:** `Flashcards.jsx` — przycisk „Pokaż obraz" przy karcie z mnemonikiem (bez obrazu
+jeszcze), po wygenerowaniu obraz wyświetlany inline zamiast przycisku; cache trzymany lokalnie
+per-sesja (`mnemonicImages` keyed by card id) tak, żeby powrót do karty nie chował
+wygenerowanego obrazu. Testy: `Flashcards.test.jsx` +5.
+
+**Weryfikacja**: 517/517 backend, 116/116 frontend, ruff/eslint czyste. **Na żywo, prawdziwym
+wywołaniem AI** (nie mock) na realnej karcie usera 3 („hier"): wygenerowany, poprawny plik PNG
+1024×1024 (potwierdzone przez `file` i przez przeglądarkę faktycznie dekodującą obraz),
+cache przy drugim żądaniu (`cached: true`, bez ponownego wywołania AI) potwierdzony. Dane
+testowe (kolumna + plik) wyczyszczone po weryfikacji — nie zostawione na koncie realnego
+użytkownika.
+
+`docs/NEURO_FEATURES.md` zaktualizowany o poziom dowodu (RCT — podwójne kodowanie, Paivio).
+
+---
+
 ## 🟢 Fiszki — Wariant B+D: kontekst/produkcja + integracja z nauką (2026-08-19)
 
 Po dokończeniu DoD P2-1 (pasek postępu + podsumowanie sesji) użytkownik poprosił o research

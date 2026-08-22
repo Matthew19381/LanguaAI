@@ -9,8 +9,9 @@ backend/.env
 *.sqlite3
 *.db.locked
 
-# Audio & exports
+# Audio, images & exports
 backend/audio/
+backend/images/
 backend/exports/
 backend/__pycache__/
 

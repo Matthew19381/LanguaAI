@@ -1,3 +1,4 @@
+import base64
 import contextvars
 import functools
 import json
@@ -21,6 +22,16 @@ def _default_openrouter_model() -> str:
 # Gemini Direct API settings
 _GEMINI_BASE_URL = settings.GEMINI_BASE_URL
 _GEMINI_DEFAULT_MODEL = "gemini-2.0-flash"
+
+# Image generation (Wariant B, fiszki — on-demand visual mnemonics, 2026-08-19).
+# Not part of model_router.py's tiered text-task catalog: there's no free/cheap/
+# best equivalent for image models in this app, it's a single opt-in feature,
+# so the model id is just a plain constant here, same pattern as
+# _GEMINI_DEFAULT_MODEL above. "2.5" (not the newer "3.1" preview) because it's
+# the more established, broadly-available id at the time this was written —
+# verify against the provider's current model list if this ever 404s.
+_OPENROUTER_IMAGE_MODEL = "google/gemini-2.5-flash-image"
+_GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image"
 
 
 # ContextVar for per-request model override (async-safe)
@@ -273,6 +284,71 @@ async def _generate_text_stream_gemini(prompt: str, model: str = None):
                     continue
                 if text:
                     yield text
+
+
+async def generate_image(prompt: str) -> bytes:
+    """Generate a single image (Wariant B, fiszki — on-demand visual mnemonics).
+    Returns raw image bytes (PNG). Raises on failure — callers decide how to
+    surface that (this app's existing pattern of returning a fallback dict
+    doesn't make sense for binary image data).
+    """
+    provider = _get_provider()
+    if provider == "gemini":
+        return await _generate_image_gemini(prompt)
+    else:
+        return await _generate_image_openrouter(prompt)
+
+
+async def _generate_image_openrouter(prompt: str) -> bytes:
+    """OpenRouter image generation: request modalities=["image","text"] on a
+    chat/completions call; the image comes back as a base64 data URL at
+    choices[0].message.images[0].image_url.url.
+    """
+    url = _get_openrouter_url()
+    headers = _get_openrouter_headers()
+    payload = {
+        "model": _OPENROUTER_IMAGE_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "modalities": ["image", "text"],
+    }
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+    try:
+        images = data["choices"][0]["message"]["images"]
+        data_url = images[0]["image_url"]["url"]
+    except (KeyError, IndexError, TypeError) as e:
+        raise ValueError(f"OpenRouter response had no image: {e}") from e
+    if not data_url.startswith("data:"):
+        raise ValueError("Unexpected image_url format (not a data: URL)")
+    _, _, b64 = data_url.partition(",")
+    return base64.b64decode(b64)
+
+
+async def _generate_image_gemini(prompt: str) -> bytes:
+    """Gemini Direct image generation: generationConfig.responseModalities
+    must include "IMAGE", or the API returns text only. The image comes back
+    as inlineData.data (base64) on one of the response parts.
+    """
+    url = _get_gemini_url(_GEMINI_IMAGE_MODEL)
+    headers = _get_gemini_headers()
+    params = {"key": settings.GEMINI_API_KEY}
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
+    }
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(url, json=payload, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+        image_part = next(p for p in parts if "inlineData" in p)
+        b64 = image_part["inlineData"]["data"]
+    except (KeyError, IndexError, TypeError, StopIteration) as e:
+        raise ValueError(f"Gemini response had no image: {e}") from e
+    return base64.b64decode(b64)
 
 
 async def generate_json(prompt: str, model: str = None, fallback: dict = None) -> dict:

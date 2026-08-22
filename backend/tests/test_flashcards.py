@@ -210,6 +210,68 @@ def test_alt_context_empty_ai_response_is_502(client, sample_user, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# POST /api/flashcards/{flashcard_id}/mnemonic-image (Wariant B — on demand)
+# ---------------------------------------------------------------------------
+
+def test_mnemonic_image_requires_a_text_mnemonic(client, sample_user):
+    uid = sample_user["user_id"]
+    add_card(client, uid, "Brot", "bread")  # no mnemonic
+    fc_id = client.get(f"/api/flashcards/{uid}").json()["flashcards"][0]["id"]
+
+    r = client.post(f"/api/flashcards/{fc_id}/mnemonic-image?user_id={uid}")
+    assert r.status_code == 400
+
+
+def test_mnemonic_image_generates_and_caches(client, sample_user, db, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from backend.models.flashcard import Flashcard
+    uid = sample_user["user_id"]
+    add_card(client, uid, "Angst", "fear")
+    card = db.query(Flashcard).filter(Flashcard.word == "Angst").first()
+    card.mnemonic = "Picture an anxious ant carrying a huge backpack."
+    db.commit()
+
+    mock_generate = AsyncMock(return_value="/images/mnemonic_1.png")
+    monkeypatch.setattr(
+        "backend.services.image_service.generate_mnemonic_image", mock_generate,
+    )
+
+    r = client.post(f"/api/flashcards/{card.id}/mnemonic-image?user_id={uid}")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["success"] is True
+    assert data["cached"] is False
+    assert data["image_path"] == "/images/mnemonic_1.png"
+    mock_generate.assert_called_once()
+
+    # Second call: served from the cached path, generator not called again.
+    mock_generate.reset_mock()
+    r2 = client.post(f"/api/flashcards/{card.id}/mnemonic-image?user_id={uid}")
+    assert r2.status_code == 200
+    assert r2.json()["cached"] is True
+    mock_generate.assert_not_called()
+
+
+def test_mnemonic_image_not_found(client, sample_user):
+    uid = sample_user["user_id"]
+    r = client.post(f"/api/flashcards/99999/mnemonic-image?user_id={uid}")
+    assert r.status_code == 404
+
+
+def test_mnemonic_image_wrong_user(client, sample_user, db):
+    from backend.models.flashcard import Flashcard
+    uid = sample_user["user_id"]
+    add_card(client, uid, "Angst", "fear")
+    card = db.query(Flashcard).filter(Flashcard.word == "Angst").first()
+    card.mnemonic = "x"
+    db.commit()
+
+    r = client.post(f"/api/flashcards/{card.id}/mnemonic-image?user_id={uid + 1}")
+    assert r.status_code == 403
+
+
+# ---------------------------------------------------------------------------
 # POST /api/flashcards/{flashcard_id}/review
 # ---------------------------------------------------------------------------
 
