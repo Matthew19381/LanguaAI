@@ -94,6 +94,121 @@ def test_due_flashcards_user_not_found(client):
     assert r.status_code == 404
 
 
+def test_due_flashcards_include_lesson_link(client, sample_user, db):
+    """Wariant D (fiszki): the due-card payload must carry lesson_id so the
+    frontend can offer a 'Zobacz w lekcji' link."""
+    from backend.models.lesson import Lesson
+    uid = sample_user["user_id"]
+    lesson = Lesson(user_id=uid, day_number=1, title="T", topic="Essen",
+                     content="{}", cefr_level="A1", language="German")
+    db.add(lesson)
+    db.commit()
+    db.refresh(lesson)
+
+    add_card(client, uid, "Brot", "bread")
+    from backend.models.flashcard import Flashcard
+    card = db.query(Flashcard).filter(Flashcard.word == "Brot").first()
+    card.lesson_id = lesson.id
+    card.lesson_topic = "Essen"
+    db.commit()
+
+    r = client.get(f"/api/flashcards/{uid}/due")
+    due = next(c for c in r.json()["due_cards"] if c["word"] == "Brot")
+    assert due["lesson_id"] == lesson.id
+    assert due["lesson_topic"] == "Essen"
+
+
+def test_due_flashcards_filtered_by_topic(client, sample_user, db):
+    """topic_id filters to only cards whose lesson is linked to that topic
+    (Topic -> TopicItem(item_type='lesson') -> Lesson.id -> Flashcard.lesson_id)."""
+    from backend.models.lesson import Lesson
+    from backend.models.topic import ItemType, Topic, TopicItem
+    uid = sample_user["user_id"]
+
+    lesson_a = Lesson(user_id=uid, day_number=1, title="A", topic="Essen",
+                       content="{}", cefr_level="A1", language="German")
+    lesson_b = Lesson(user_id=uid, day_number=2, title="B", topic="Reisen",
+                       content="{}", cefr_level="A1", language="German")
+    db.add_all([lesson_a, lesson_b])
+    db.commit()
+    db.refresh(lesson_a)
+    db.refresh(lesson_b)
+
+    topic = Topic(user_id=uid, name="Essen", category="vocabulary", language="German")
+    db.add(topic)
+    db.commit()
+    db.refresh(topic)
+    db.add(TopicItem(topic_id=topic.id, item_type=ItemType.LESSON, item_id=lesson_a.id))
+    db.commit()
+
+    add_card(client, uid, "Brot", "bread")
+    add_card(client, uid, "Zug", "train")
+    from backend.models.flashcard import Flashcard
+    db.query(Flashcard).filter(Flashcard.word == "Brot").update({"lesson_id": lesson_a.id})
+    db.query(Flashcard).filter(Flashcard.word == "Zug").update({"lesson_id": lesson_b.id})
+    db.commit()
+
+    r = client.get(f"/api/flashcards/{uid}/due?topic_id={topic.id}")
+    words = {c["word"] for c in r.json()["due_cards"]}
+    assert words == {"Brot"}
+
+
+# ---------------------------------------------------------------------------
+# POST /api/flashcards/{flashcard_id}/alt-context (Wariant D)
+# ---------------------------------------------------------------------------
+
+def test_alt_context_success(client, sample_user, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    import backend.routers.flashcards as flashcards_router
+
+    uid = sample_user["user_id"]
+    add_card(client, uid, "Brot", "bread", "Ich kaufe Brot im Laden.")
+    fc_id = client.get(f"/api/flashcards/{uid}").json()["flashcards"][0]["id"]
+
+    monkeypatch.setattr(
+        flashcards_router, "_ai_generate_alt_context",
+        AsyncMock(return_value={"sentence": "Wir essen Brot beim Picknick.",
+                                  "translation": "Jemy chleb na pikniku."}),
+    )
+    r = client.post(f"/api/flashcards/{fc_id}/alt-context?user_id={uid}")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["success"] is True
+    assert "Picknick" in data["sentence"]
+
+
+def test_alt_context_not_found(client, sample_user):
+    uid = sample_user["user_id"]
+    r = client.post(f"/api/flashcards/99999/alt-context?user_id={uid}")
+    assert r.status_code == 404
+
+
+def test_alt_context_wrong_user(client, sample_user):
+    uid = sample_user["user_id"]
+    add_card(client, uid, "Brot", "bread")
+    fc_id = client.get(f"/api/flashcards/{uid}").json()["flashcards"][0]["id"]
+    r = client.post(f"/api/flashcards/{fc_id}/alt-context?user_id={uid + 1}")
+    assert r.status_code == 403
+
+
+def test_alt_context_empty_ai_response_is_502(client, sample_user, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    import backend.routers.flashcards as flashcards_router
+
+    uid = sample_user["user_id"]
+    add_card(client, uid, "Brot", "bread")
+    fc_id = client.get(f"/api/flashcards/{uid}").json()["flashcards"][0]["id"]
+
+    monkeypatch.setattr(
+        flashcards_router, "_ai_generate_alt_context",
+        AsyncMock(return_value={}),
+    )
+    r = client.post(f"/api/flashcards/{fc_id}/alt-context?user_id={uid}")
+    assert r.status_code == 502
+
+
 # ---------------------------------------------------------------------------
 # POST /api/flashcards/{flashcard_id}/review
 # ---------------------------------------------------------------------------

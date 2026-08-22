@@ -120,16 +120,33 @@ async def get_flashcards(
 
 
 @router.get("/api/flashcards/{user_id}/due")
-async def get_due_flashcards(user_id: int, db: Session = Depends(get_db)):
+async def get_due_flashcards(user_id: int, topic_id: int | None = None, db: Session = Depends(get_db)):
+    """topic_id (Wariant D, fiszki 2026-08-19): review only the cards whose
+    lesson belongs to that topic — "Przećwicz fiszki" from the Bank wiedzy
+    hierarchy view. Flashcards aren't linked to Topic directly; the join goes
+    through TopicItem(item_type='lesson') -> Lesson.id -> Flashcard.lesson_id,
+    the same path generate_flashcards_from_topic already uses for context.
+    """
     user = get_user_or_404(db, user_id)
 
     now = datetime.now(timezone.utc)
-    due_cards = db.query(Flashcard).filter(
+    query = db.query(Flashcard).filter(
         Flashcard.user_id == user_id,
         Flashcard.language == user.target_language,
         Flashcard.is_active == True,
         Flashcard.next_review_date <= now
-    ).order_by(Flashcard.next_review_date.asc()).all()
+    )
+    if topic_id is not None:
+        from backend.models.topic import ItemType, TopicItem
+        lesson_ids = [
+            row[0] for row in
+            db.query(TopicItem.item_id).filter(
+                TopicItem.topic_id == topic_id,
+                TopicItem.item_type == ItemType.LESSON,
+            ).all()
+        ]
+        query = query.filter(Flashcard.lesson_id.in_(lesson_ids))
+    due_cards = query.order_by(Flashcard.next_review_date.asc()).all()
 
     return {
         "due_cards": [
@@ -146,6 +163,8 @@ async def get_due_flashcards(user_id: int, db: Session = Depends(get_db)):
                 "gender": f.gender,
                 "isImportant": f.isImportant,
                 "mnemonic": f.mnemonic,
+                "lesson_id": f.lesson_id,
+                "lesson_topic": f.lesson_topic,
             }
             for f in due_cards
         ],
@@ -350,6 +369,56 @@ async def review_flashcard(
         "interference_penalty": interference_penalty,
         "new_achievements": new_achievements,
     }
+
+
+@with_model("lesson")
+async def _ai_generate_alt_context(prompt: str) -> dict:
+    return await generate_json(prompt, fallback={})
+
+
+@router.post("/api/flashcards/{flashcard_id}/alt-context")
+async def get_flashcard_alt_context(flashcard_id: int, user_id: int, db: Session = Depends(get_db)):
+    """Wariant D (fiszki, 2026-08-19): a fresh example sentence for a word
+    stuck in a relearning/lapse loop, deliberately set in a DIFFERENT
+    everyday situation than the card's own lesson_topic — semantic
+    interleaving (SCI-4) applied to one hard word on demand, rather than
+    across a whole review session. Not persisted: cheap, single short call,
+    generated fresh each time the learner asks for it.
+    """
+    flashcard = db.query(Flashcard).filter(Flashcard.id == flashcard_id).first()
+    if not flashcard:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+    if flashcard.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this flashcard")
+
+    get_user_or_404(db, user_id)  # 404s if the user doesn't exist; ownership already checked above
+    own_context = flashcard.lesson_topic or "ogólny kontekst"
+
+    prompt = f"""Give ONE new example sentence in {flashcard.language} using the word or phrase "{flashcard.word}"
+(which means "{flashcard.translation}" in Polish), suitable for a {flashcard.cefr_level} learner.
+
+The sentence MUST be set in an everyday situation clearly DIFFERENT from "{own_context}" — pick a
+fresh, unrelated context so the learner sees this word used somewhere new, not a rephrasing of the
+same scene.
+
+Return ONLY valid JSON:
+{{"sentence": "the new example sentence in {flashcard.language}", "translation": "its Polish translation"}}"""
+
+    try:
+        result = await _ai_generate_alt_context(prompt)
+        sentence = (result or {}).get("sentence", "").strip()
+        translation = (result or {}).get("translation", "").strip()
+        if not sentence:
+            raise HTTPException(status_code=502, detail="AI did not return a usable sentence")
+        return {"success": True, "sentence": sentence, "translation": translation}
+    except HTTPException:
+        raise
+    except httpx.RequestError as e:
+        logger.error(f"AI service error generating alt context: {e}")
+        raise HTTPException(status_code=503, detail="AI service unavailable")
+    except Exception:
+        logger.exception("Unexpected error generating alt context")
+        raise HTTPException(status_code=500, detail="Failed to generate alternate context")
 
 
 @router.post("/api/flashcards/{user_id}/export-anki")

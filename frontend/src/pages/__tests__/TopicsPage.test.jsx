@@ -25,6 +25,7 @@ function renderPage() {
     <MemoryRouter initialEntries={["/topics"]}>
       <Routes>
         <Route path="/topics" element={<TopicsPage />} />
+        <Route path="/flashcards" element={<div>Flashcards page</div>} />
         <Route path="/" element={<div>Home</div>} />
       </Routes>
     </MemoryRouter>
@@ -103,5 +104,32 @@ describe("TopicsPage — Hierarchia tab (P2-4)", () => {
 
     fireEvent.click(screen.getByText("Perfekt"))
     await waitFor(() => expect(getTopicDetail).toHaveBeenCalledWith(2))
+  })
+})
+
+describe("TopicsPage — Hierarchia -> 'Przećwicz fiszki' link (Wariant D)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    localStorage.setItem("userId", "42")
+  })
+
+  it("links a topic node to a flashcard session scoped to that topic", async () => {
+    const { getTopicHierarchy } = await import("../../api/client")
+    getTopicHierarchy.mockResolvedValue({
+      topics: [{
+        id: 9, name: "Jedzenie", category: "vocabulary", mastery_percent: 40,
+        is_due: false, days_until_review: 3, items_count: 2, has_own_items: true,
+        subtopics: [],
+      }],
+    })
+    renderPage()
+
+    await waitFor(() => expect(screen.getByText("Hierarchia")).toBeInTheDocument())
+    fireEvent.click(screen.getByText("Hierarchia"))
+    await waitFor(() => expect(screen.getByText("Jedzenie")).toBeInTheDocument())
+
+    const link = screen.getByTitle("Przećwicz fiszki z tego tematu")
+    expect(link).toHaveAttribute("href", "/flashcards?topic_id=9&topic_name=Jedzenie")
   })
 })

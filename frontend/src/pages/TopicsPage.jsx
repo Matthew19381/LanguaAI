@@ -161,6 +161,17 @@ function HierarchyNode({ node, depth, expandedIds, onToggle, selectedTopic, onSe
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {/* Wariant D (fiszki, 2026-08-19): jump straight into reviewing
+              just this topic's flashcards — something a standalone
+              flashcard app has no equivalent entry point for. */}
+          <Link
+            to={`/flashcards?topic_id=${node.id}&topic_name=${encodeURIComponent(node.name)}`}
+            onClick={e => e.stopPropagation()}
+            className="text-gray-400 dark:text-gray-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+            title="Przećwicz fiszki z tego tematu"
+          >
+            <Brain size={15} />
+          </Link>
           <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">{displayPct}%</span>
           <div className="w-14">
             <MemoryBar strength={displayPct / 100} size="sm" />

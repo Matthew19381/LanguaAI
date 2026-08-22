@@ -4,6 +4,68 @@ _Ostatnia aktualizacja: 2026-08-19_
 
 ---
 
+## 🟢 Fiszki — Wariant B+D: kontekst/produkcja + integracja z nauką (2026-08-19)
+
+Po dokończeniu DoD P2-1 (pasek postępu + podsumowanie sesji) użytkownik poprosił o research
+nad dalszą przebudową fiszek. Przygotowany artefakt „Warianty Fiszek" (4 kierunki, oparte na
+Slamecka & Graf 1978 — efekt generacji, Woźniak/SuperMemo — minimalna informacja, Paivio —
+podwójne kodowanie, Atkinson 1975 — metoda słów kluczowych, meta-analiza 2022 — spacing, oraz
+przegląd Anki/Quizlet/RemNote/Mochi/Memrise). Użytkownik wybrał **B (kontekst i produkcja) +
+D (zintegrowane z nauką)** — rekomendowaną kombinację, bo obie odpowiadają na „czym to się
+różni od Anki" przez rzeczy, których samodzielna apka do fiszek nie ma, zamiast upodabniać
+LinguaAI do Anki (co robił odrzucony Wariant A).
+
+**Backend** (`backend/routers/flashcards.py`, `backend/services/gemini_service.py` niezmieniony):
+- `GET /api/flashcards/{user_id}/due?topic_id=` — filtr do kart, których lekcja jest
+  przypisana do danego tematu (join `TopicItem(item_type='lesson') -> Lesson.id ->
+  Flashcard.lesson_id`, ten sam wzorzec co istniejący `generate_flashcards_from_topic`).
+  Odpowiedź `/due` rozszerzona o `lesson_id`/`lesson_topic` (potrzebne dla linku „Zobacz w
+  lekcji").
+- `POST /api/flashcards/{flashcard_id}/alt-context` — nowe, jednorazowe (nie cache'owane)
+  zdanie przykładowe dla trudnego słowa, jawnie w INNYM kontekście niż własna lekcja karty
+  (interleaving semantyczne — SCI-4 — zastosowane do pojedynczego słowa na żądanie, nie do
+  całej sesji automatycznie).
+- Testy: `test_flashcards.py` +9 (filtr topic_id, lesson_id w odpowiedzi, alt-context sukces/
+  404/403/pusta-odpowiedź-AI-502).
+
+**Frontend** (`frontend/src/pages/Flashcards.jsx`, `TopicsPage.jsx`, `api/client.js`):
+- **Tryb cloze** — `buildCloze()`, czysto klient-side (bez AI), zamienia słowo w
+  `example_sentence` na `___`; przełącznik obok istniejącego „cel → PL”. Cicha degradacja do
+  gołego słowa, gdy karta nie ma pasującego zdania.
+- **Tryb wpisywania odpowiedzi** — dla kart w stanie FSRS `Relearning`: pole tekstowe przed
+  odsłonięciem zamiast bezpośredniego flip. Wpisanie NIE zastępuje samooceny 1-4 — to tylko
+  wymuszenie produkcji przed zobaczeniem odpowiedzi (efekt generacji).
+- **„Zobacz w innym kontekście"** — przycisk widoczny po odsłonięciu trudnej karty, wywołuje
+  nowy endpoint, pokazuje zdanie+tłumaczenie inline.
+- **„Zobacz w lekcji"** — link do `/lesson/:id` (trasa już istniała), widoczny gdy karta ma
+  `lesson_id`.
+- **„Przećwicz fiszki” z Banku wiedzy** — ikona w `HierarchyNode` (`TopicsPage.jsx`)
+  linkująca do `/flashcards?topic_id=&topic_name=`; `Flashcards.jsx` czyta te parametry
+  (`useSearchParams`), pokazuje baner z nazwą tematu i przyciskiem czyszczenia filtra.
+- Nowe klucze i18n (PL+EN) wzorem istniejących `flash.*`.
+- Testy: `Flashcards.test.jsx` +9 (cloze pokazuje/nie pokazuje, link do lekcji obecny/
+  nieobecny, baner filtra tematu + wywołanie API z `topic_id`, wpisywanie poprawne/
+  niepoprawne, brak panelu dla kart niebędących w Relearning, alt-context happy path),
+  `TopicsPage.test.jsx` +1 (link „Przećwicz fiszki” z poprawnym href).
+
+**Weryfikacja**: 509/509 backend, 111/111 frontend, ruff/eslint czyste (0 nowych ostrzeżeń).
+Na żywo (port 5173 zajęty przez inny, niepowiązany projekt na tej maszynie — zweryfikowano
+tylko backend przez bezpośrednie zapytania do realnej bazy usera 4): filtr `topic_id`
+poprawnie zwrócił 13 fiszek z tematu „Adjektive: groß und klein”; `alt-context` z prawdziwym
+wywołaniem AI wygenerował zdanie o rezerwacji pokoju hotelowego dla słowa „Guten Tag”
+(kontekst wyraźnie inny niż powitania/„General” tej karty) — potwierdza, że prompt faktycznie
+wymusza inny kontekst, nie tylko parafrazę tej samej sceny.
+
+`docs/NEURO_FEATURES.md` zaktualizowany o poziom dowodu (RCT dla cloze/generacji, ten sam
+mechanizm co SCI-4 dla kontekstu krzyżowego — nie nowa, niesprawdzona hipoteza).
+`docs/BACKLOG_UX_2026-08.md` P2-1 zaktualizowane o tę drugą turę.
+
+**Świadomie nie zrobione w tej turze**: mnemoniki wizualne (obrazy, część oryginalnego
+Wariantu B) — wymagałyby osobnego dostawcy generacji obrazów (koszt/latencja/decyzja o
+providerze), nie zaimplementowane bez wyraźnej zgody użytkownika na tę zależność.
+
+---
+
 ## 🟢 P2-1 — dokończenie DoD Fiszek (2026-08-19)
 
 Rdzeń przepływu oceny już wcześniej działał (4 przyciski zawsze widoczne, skróty 1-4).

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import {
   Brain, ChevronLeft, ChevronRight, Download, Eye,
-  CheckCircle, AlertCircle, Clock, Plus, CloudOff, UploadCloud, RotateCcw
+  CheckCircle, AlertCircle, Clock, Plus, CloudOff, UploadCloud, RotateCcw,
+  BookOpen, X, Sparkles, Loader2
 } from 'lucide-react'
-import { getUserId, getFlashcards, getDueFlashcards, reviewFlashcard, exportAnki, addFlashcard, addFlashcardAI, bulkImportFlashcards, getFlashcardOfflinePack } from '../api/client'
+import { getUserId, getFlashcards, getDueFlashcards, reviewFlashcard, exportAnki, addFlashcard, addFlashcardAI, bulkImportFlashcards, getFlashcardOfflinePack, getFlashcardAltContext } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
 import { useOfflineSync } from '../hooks/useOfflineSync'
@@ -77,6 +78,21 @@ function highlightWordInSentence(sentence, word, gender, isImportant = false) {
   return safeSentence.replace(regex, `<mark class="${finalColorClass} rounded px-0.5">$1</mark>`);
 }
 
+// ── Wariant B (fiszki, 2026-08-19): cloze mode ──────────────────────────────
+// A card's own example_sentence, with the target word blanked out — retrieval
+// in context beats a bare word/translation pair for retention (retrieval
+// practice research). Client-side only: no AI call, uses data already on
+// every card. Returns null when the sentence doesn't actually contain the
+// word (can't build a meaningful blank), so callers can fall back to the
+// plain word front for that one card.
+function buildCloze(sentence, word) {
+  if (!sentence || !word) return null
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`\\b(${escaped})\\b`, 'i')
+  if (!regex.test(sentence)) return null
+  return sentence.replace(regex, '___')
+}
+
 const TABS = { ALL: 'all', DUE: 'due' }
 
 export default function Flashcards() {
@@ -103,6 +119,29 @@ export default function Flashcards() {
   const { t, targetLanguage } = useLanguage()
   const { pending, refresh: refreshPending } = useOfflineSync()
 
+  // Wariant D (fiszki, 2026-08-19): "Przećwicz fiszki" from a Bank wiedzy
+  // topic node lands here with ?topic_id=&topic_name= — scopes the due queue.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const topicFilterId = searchParams.get('topic_id')
+  const topicFilterName = searchParams.get('topic_name')
+  const clearTopicFilter = () => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    next.delete('topic_id'); next.delete('topic_name')
+    return next
+  })
+
+  // Wariant B: cloze mode (sentence-with-blank instead of the bare word) and
+  // typed-answer mode (forces production instead of pure self-rating) for
+  // cards the FSRS scheduler has already flagged as struggling.
+  const [clozeMode, setClozeMode] = useState(false)
+  const [typedAnswer, setTypedAnswer] = useState('')
+  const [typedChecked, setTypedChecked] = useState(false)
+  const typedInputRef = useRef(null)
+
+  // Wariant D: on-demand alternate-context sentence for a hard card.
+  const [altContext, setAltContext] = useState(null)
+  const [altContextLoading, setAltContextLoading] = useState(false)
+
   const [showAddForm, setShowAddForm] = useState(true)
 
   // Add card form
@@ -127,15 +166,16 @@ export default function Flashcards() {
 
   useEffect(() => {
     if (!userId) { navigate('/placement'); return }
+    if (topicFilterId) setTab(TABS.DUE)
     loadCards()
-  }, [userId])
+  }, [userId, topicFilterId])
 
   const loadCards = async (p = page) => {
     setLoading(true)
     try {
       const [all, due] = await Promise.all([
         getFlashcards(userId, { limit: PAGE_SIZE, offset: p * PAGE_SIZE }),
-        getDueFlashcards(userId)
+        getDueFlashcards(userId, topicFilterId || undefined)
       ])
       setAllCards(all.flashcards || [])
       setAllTotal(all.total || 0)
@@ -204,12 +244,28 @@ export default function Flashcards() {
   }
   const displayCards = filterCards(tab === TABS.DUE ? dueCards : allCards)
   const currentCard = displayCards[currentIndex]
+  // Wariant B: only meaningful when the card actually has a sentence
+  // containing the word — otherwise falls back to the plain word front.
+  const clozeText = (clozeMode && !reversed && currentCard)
+    ? buildCloze(currentCard.example_sentence, currentCard.word)
+    : null
+  const isStruggling = currentCard?.fsrs_state === 'Relearning'
 
   // Use refs to avoid stale closures in keyboard handler
   const stateRef = useRef({ currentCard, isFlipped, currentIndex, displayCards, tab })
   useEffect(() => {
     stateRef.current = { currentCard, isFlipped, currentIndex, displayCards, tab }
   }, [currentCard, isFlipped, currentIndex, displayCards, tab])
+
+  // Per-card scratch state (typed answer, alt-context result) belongs to
+  // whichever card is showing — clear it the moment the card changes, from
+  // any cause (next/prev/rating/progress-dot jump).
+  useEffect(() => {
+    setTypedAnswer('')
+    setTypedChecked(false)
+    setAltContext(null)
+    setAltContextLoading(false)
+  }, [currentCard?.id])
 
   const handleFlip = useCallback(() => {
     const { isFlipped: flipped } = stateRef.current
@@ -255,6 +311,35 @@ export default function Flashcards() {
       queueIt()
     }
   }, [userId])
+
+  // Wariant B: typed-answer forcing function for struggling cards. Typing
+  // doesn't replace self-rating — it just makes the learner actually produce
+  // the word before seeing it, then they still pick 1-4 themselves.
+  const checkTypedAnswer = () => {
+    setTypedChecked(true)
+    setIsFlipped(true)
+  }
+  const typedIsCorrect = (card, given) => {
+    if (!card || !given.trim()) return false
+    const norm = s => s.trim().toLowerCase()
+    const target = norm(reversed ? card.word : card.translation)
+    const answer = norm(given)
+    return answer === target || target.includes(answer) || answer.includes(target)
+  }
+
+  // Wariant D: on-demand alternate-context sentence for a hard card.
+  const handleAltContext = async () => {
+    if (!currentCard) return
+    setAltContextLoading(true)
+    try {
+      const res = await getFlashcardAltContext(currentCard.id, userId)
+      setAltContext(res)
+    } catch (e) {
+      setAltContext({ success: false, error: e.message })
+    } finally {
+      setAltContextLoading(false)
+    }
+  }
 
   // Keyboard navigation: Space/Enter = flip, 1-4 = review rating, ←/→ = prev/next
   useEffect(() => {
@@ -366,6 +451,19 @@ export default function Flashcards() {
           </span>
         )}
       </div>
+
+      {/* Wariant D: "Przećwicz fiszki" scoped to one Bank wiedzy topic */}
+      {topicFilterId && (
+        <div className="flex items-center justify-between gap-3 mb-4 px-3 py-2 rounded-lg bg-indigo-900/30 border border-indigo-700/40 text-sm">
+          <span className="flex items-center gap-1.5 text-indigo-200">
+            <BookOpen className="w-4 h-4" />
+            {(t('flash.topicFilterActive') || 'Fiszki z tematu: {name}').replace('{name}', topicFilterName || '—')}
+          </span>
+          <button onClick={clearTopicFilter} className="flex items-center gap-1 text-indigo-300 hover:text-white transition-colors">
+            <X className="w-3.5 h-3.5" /> {t('flash.clearTopicFilter') || 'Pokaż wszystkie'}
+          </button>
+        </div>
+      )}
 
       {/* Offline status + pack download */}
       <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
@@ -572,6 +670,15 @@ export default function Flashcards() {
                   >
                     {reversed ? 'PL → cel' : 'cel → PL'}
                   </button>
+                  {!reversed && (
+                    <button
+                      onClick={() => { setClozeMode(c => !c); setIsFlipped(false) }}
+                      className={`text-xs px-2 py-0.5 rounded transition-colors ${clozeMode ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200'}`}
+                      title={t('flash.clozeModeHint') || 'Zamiast słowa: zdanie z luką (gdy karta ma przykład)'}
+                    >
+                      {t('flash.clozeMode') || 'Tryb: kontekst'}
+                    </button>
+                  )}
                 </div>
               </div>
               {tab === TABS.DUE && (
@@ -599,10 +706,12 @@ export default function Flashcards() {
                     <div className="flashcard-front">
                       <div className="text-center">
                         <p className="text-gray-400 text-xs mb-2 uppercase tracking-wider">
-                          {reversed ? 'Polski' : t('flash.wordSide')}
+                          {reversed ? 'Polski' : clozeText ? (t('flash.clozeSide') || 'kontekst') : t('flash.wordSide')}
                         </p>
                         {reversed ? (
                           <p className="text-3xl font-bold text-emerald-300">{currentCard.translation}</p>
+                        ) : clozeText ? (
+                          <p className="text-xl font-medium text-indigo-200 leading-relaxed max-w-xs">{clozeText}</p>
                         ) : (
                           <div className="flex items-center justify-center gap-2">
                             <GenderBadge gender={currentCard.gender} />
@@ -658,6 +767,57 @@ export default function Flashcards() {
                 </div>
               )}
 
+              {/* Wariant D: jump back to the lesson this word came from —
+                  something a standalone flashcard app has no way to offer. */}
+              {currentCard?.lesson_id && (
+                <div className="text-center -mt-4 mb-4">
+                  <Link
+                    to={`/lesson/${currentCard.lesson_id}`}
+                    className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    {t('flash.viewInLesson') || 'Zobacz w lekcji'}
+                  </Link>
+                </div>
+              )}
+
+              {/* Wariant B: typed-answer forcing function for cards FSRS has
+                  flagged as struggling (Relearning state) — production
+                  before revealing, not just self-report. */}
+              {isStruggling && !isFlipped && currentCard && (
+                <div className="mb-4 p-3 rounded-lg bg-orange-900/20 border border-orange-700/30">
+                  <p className="text-orange-300 text-xs mb-2 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {t('flash.strugglingHint') || 'Ta karta sprawia trudność — wpisz odpowiedź, zanim ją odkryjesz.'}
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      ref={typedInputRef}
+                      type="text"
+                      className="input-field text-sm flex-1"
+                      placeholder={reversed ? (t('flash.typeWord') || 'Wpisz słowo w języku docelowym') : (t('flash.typeTranslation') || 'Wpisz tłumaczenie')}
+                      value={typedAnswer}
+                      onChange={e => { setTypedAnswer(e.target.value); setTypedChecked(false) }}
+                      onKeyDown={e => e.key === 'Enter' && checkTypedAnswer()}
+                    />
+                    <button className="btn-secondary text-sm px-3" onClick={checkTypedAnswer}>
+                      {t('flash.check') || 'Sprawdź'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {isStruggling && isFlipped && typedChecked && (
+                <div className={`mb-4 p-2.5 rounded-lg text-sm text-center ${
+                  typedIsCorrect(currentCard, typedAnswer)
+                    ? 'bg-emerald-900/30 text-emerald-300'
+                    : 'bg-red-900/30 text-red-300'
+                }`}>
+                  {typedIsCorrect(currentCard, typedAnswer)
+                    ? (t('flash.typedCorrect') || '✓ Dobrze!')
+                    : (t('flash.typedIncorrect') || '✗ Nie do końca — porównaj z odpowiedzią powyżej.')}
+                </div>
+              )}
+
               {/* Self-rating — shown whenever a card is revealed, on ANY tab.
                   Previously gated to the DUE tab, which is why browsing "All"
                   cards offered only flip+next with no way to mark recall.
@@ -685,6 +845,33 @@ export default function Flashcards() {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Wariant D: on-demand alternate-context sentence for a card
+                  stuck in the relearning/lapse loop — semantic interleaving
+                  applied to one hard word, not the whole session. */}
+              {isStruggling && isFlipped && (
+                <div className="mb-4">
+                  {!altContext ? (
+                    <button
+                      onClick={handleAltContext}
+                      disabled={altContextLoading}
+                      className="w-full flex items-center justify-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 disabled:opacity-50 transition-colors py-1.5"
+                    >
+                      {altContextLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      {altContextLoading ? (t('flash.altContextLoading') || 'Generowanie...') : (t('flash.altContextButton') || 'Zobacz w innym kontekście')}
+                    </button>
+                  ) : altContext.success === false ? (
+                    <p className="text-xs text-red-400 text-center">{t('flash.altContextError') || 'Nie udało się wygenerować.'}</p>
+                  ) : (
+                    <div className="p-3 rounded-lg bg-purple-900/20 border border-purple-700/30 text-center">
+                      <p className="text-sm text-gray-100 italic">{altContext.sentence}</p>
+                      {altContext.translation && (
+                        <p className="text-xs text-gray-400 mt-1">{altContext.translation}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

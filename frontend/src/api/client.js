@@ -145,8 +145,15 @@ export const getTestFromErrors = (userId) =>
 export const getFlashcards = (userId, params = {}) =>
   api.get(`/flashcards/${userId}`, { params })
 
-export const getDueFlashcards = (userId) =>
-  api.get(`/flashcards/${userId}/due`)
+// topicId (Wariant D, fiszki 2026-08-19): "Przećwicz fiszki" from a Bank
+// wiedzy topic node — limits the due queue to cards from that topic's lessons.
+export const getDueFlashcards = (userId, topicId) =>
+  api.get(`/flashcards/${userId}/due`, topicId ? { params: { topic_id: topicId } } : {})
+
+// A fresh example sentence for a word stuck in a relearning/lapse loop, set
+// in a different everyday context than the card's own lesson (Wariant D).
+export const getFlashcardAltContext = (flashcardId, userId) =>
+  api.post(`/flashcards/${flashcardId}/alt-context`, {}, { params: { user_id: userId } })
 
 export const bulkImportFlashcards = (userId, file) => {
   const formData = new FormData()

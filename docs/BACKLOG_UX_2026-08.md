@@ -98,8 +98,17 @@ przykładowe zdanie) — brakowało tylko licznika postępu sesji i ekranu podsu
 Dodane: pasek postępu podczas przeglądania (`reviewDone.size / displayCards.length`),
 ekran „Sesja ukończona!" po ocenieniu wszystkich kart z rozkładem ocen (Again/Hard/Good/
 Easy) i przyciskami „Przejrzyj ponownie"/„Przeglądaj karty". Wszystkie 4 punkty DoD
-spełnione. Użytkownik rozważa jednak głębszą przebudowę fiszek (nie tylko dokończenie tego
-DoD) — patrz notatka „Fiszki — warianty przebudowy" w `TASKS.md` z 2026-08-19.
+spełnione.
+
+**Aktualizacja 2026-08-19 (później tego samego dnia)**: użytkownik wybrał dalszą przebudowę
+wg researchu w `TASKS.md`/artefakcie „Warianty Fiszek" — **Wariant B (kontekst i produkcja)
++ Wariant D (zintegrowane z nauką)**, zamiast Wariantu A (władza/Anki-parity) czy samego C
+(minimalizm). Zaimplementowane:
+- Tryb cloze (zdanie z luką zamiast gołego słowa), tryb wpisywania odpowiedzi dla kart w
+  stanie FSRS Relearning, „Zobacz w innym kontekście" na żądanie dla trudnych kart.
+- „Zobacz w lekcji" (link do lekcji źródłowej), „Przećwicz fiszki" z poziomu hierarchii
+  Banku wiedzy (P2-4) — filtr `topic_id` na `/due`.
+Szczegóły i uzasadnienie badawcze: `TASKS.md`, sekcja z tego dnia.
 
 ### P2-2. Konwersacja — realna rozmowa + właściwy model — ✅ Zamknięte 2026-08-19
 Dedykowany model/tier „conversation" w `model_router.py` już istniał (zweryfikowano przed
