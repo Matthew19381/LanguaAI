@@ -5,7 +5,7 @@ startu zobacz [README.md](../README.md); dla wskazówek pracy z kodem —
 [CLAUDE.md](../CLAUDE.md); dla wdrożenia — [deployment.md](deployment.md) i
 [PRODUCTION_AND_MOBILE.md](PRODUCTION_AND_MOBILE.md).
 
-_Ostatnia aktualizacja: 2026-08-07 (dodano stronę Settings) · Backend: 457 testów · Frontend: 75 testów._
+_Ostatnia aktualizacja: 2026-08-26 (dodano stronę Settings) · Backend: 517 testów · Frontend: 116 testów._
 
 ---
 
