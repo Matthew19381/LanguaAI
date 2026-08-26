@@ -4,6 +4,33 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-08-26 — Fix: Alembic CWD isolation (`alembic_wrapper.py`)
+
+**Problem:** Agent uruchamiał `alembic revision` z kanban workspace zamiast z roota projektu,
+powodując błęd exit 127 („No config file 'alembic.ini' found"). Bug powtarzał się pomimo
+wcześniejszej dokumentacji w CLAUDE.md.
+
+**Rozwiązanie:** Nowy `backend/alembic_wrapper.py` — wrapper, który gwarantuje, że alembic
+zawsze uruchamia się z roota projektu, niezależnie od CWD agenta. Wrapper:
+1. Określa katalog `backend/` (katalog skryptu)
+2. Zmienia CWD na root projektu (parent katalogu `backend/`)
+3. Uruchamia `python -m alembic -c backend/alembic.ini` z absolutną ścieżką do konfigu
+4. Przekazuje wszystkie argumenty do alembica
+
+**Użycie:** `python backend/alembic_wrapper.py revision --autogenerate -m "opis"` (z dowolnego CWD)
+
+**Alternatywa (ręczna):** Zawsze używaj absolutnej ścieżki:
+```bash
+python -m alembic -c "C:\Projects\LinguaAI\backend\alembic.ini" revision --autogenerate -m "opis"
+```
+
+**Zmiany:**
+- Dodany plik `backend/alembic_wrapper.py` (nowy)
+- Dokumentacja w CLAUDE.md (sekcja Migracje) zaktualizowana o obie opcje
+- Testowanie: wrapper zadziałał poprawnie z kanban workspace
+
+---
+
 ## 2026-08-19 — ACTION_PLAN.md, Fazy 0–5
 
 Pełne wykonanie planu re-audytu (`ACTION_PLAN.md`), Faza po Fazie. Integracja z Systemem
