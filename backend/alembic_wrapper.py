@@ -5,9 +5,9 @@ This solves CWD isolation issues when agents run commands from kanban workspace.
 Usage: python alembic_wrapper.py [alembic args...]
 """
 
-import sys
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 # Get the directory containing this script (backend/)
