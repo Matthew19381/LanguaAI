@@ -215,6 +215,115 @@ export default function Practice() {
     )
   }
 
+  const normalizeAnswer = (text) => {
+    if (!text) return ''
+    return text.toLowerCase().trim().replace(/[\s.,!?;:]/g, '')
+  }
+
+  const getAnswerHighlighting = () => {
+    if (!result || !current) return null
+
+    const highlighted = {
+      currentQuestion: null,
+      options: [],
+      textInput: null,
+      dictation: null
+    }
+
+    if (showAnswerCheck && result) {
+      // For multiple choice questions
+      if (current.options?.length > 0 && result.correct !== undefined) {
+        highlighted.currentQuestion = {
+          type: 'multiple_choice',
+          selectedOption: answers[current.id],
+          correctOption: result.expected_answer,
+          isCorrect: result.correct,
+          allOptions: current.options.map(opt => {
+            const letter = opt.split('.')[0]?.trim()
+            return {
+              letter,
+              text: opt.substring(opt.indexOf('.') + 1).trim(),
+              isSelected: answers[current.id] === letter,
+              isCorrect: result.expected_answer === letter,
+              isIncorrect: result.expected_answer !== letter && answers[current.id] === letter
+            }
+          })
+        }
+      }
+      // For text input questions
+      else if (typed && result.expected_answer) {
+        highlighted.textInput = {
+          userAnswer: typed,
+          expectedAnswer: result.expected_answer,
+          isCorrect: result.correct,
+          wordAnalysis: typed.split(' ').map((word, index) => {
+            const expectedWords = result.expected_answer.split(' ')
+            const expectedWord = expectedWords[index] || ''
+            const userWord = word || ''
+            return {
+              userWord,
+              expectedWord,
+              isCorrect: normalizeAnswer(userWord) === normalizeAnswer(expectedWord),
+              isPartial: userWord.length > 0 && userWord.length < expectedWord.length
+            }
+          })
+        }
+      }
+      // For dictation questions (check if this is a dictation type)
+      else if (current.type === 'dictation' || current.prompt.includes('(oddykaj')) {
+        highlighted.dictation = {
+          userAnswer: typed,
+          expectedAnswer: result.expected_answer,
+          isCorrect: result.correct,
+          wordAnalysis: typed.split(' ').map((word, index) => {
+            const expectedWords = result.expected_answer.split(' ')
+            const expectedWord = expectedWords[index] || ''
+            const userWord = word || ''
+            return {
+              userWord,
+              expectedWord,
+              isCorrect: normalizeAnswer(userWord) === normalizeAnswer(expectedWord),
+              isPartial: userWord.length > 0 && userWord.length < expectedWord.length
+            }
+          })
+        }
+      }
+    }
+
+    return highlighted
+  }
+
+  const highlighting = getAnswerHighlighting()
+
+  // Apply highlighting styles to the DOM after render
+  useEffect(() => {
+    if (showAnswerCheck && result && highlighting) {
+      // Apply highlighting to the answer field
+      if (highlighting.textInput) {
+        const inputElement = answerRef.current
+        if (inputElement) {
+          inputElement.style.borderColor = result.correct ? '#10b981' : '#ef4444'
+          inputElement.style.backgroundColor = result.correct ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'
+        }
+      }
+
+      // Apply highlighting to option buttons
+      if (highlighting.currentQuestion?.allOptions) {
+        highlighting.currentQuestion.allOptions.forEach(opt => {
+          // This would require DOM manipulation of option buttons
+          // For now, we'll rely on CSS classes applied via state
+        })
+      }
+    } else if (showAnswerCheck) {
+      // Reset styles when disabled
+      const inputElement = answerRef.current
+      if (inputElement) {
+        inputElement.style.borderColor = ''
+        inputElement.style.backgroundColor = ''
+      }
+    }
+  }, [showAnswerCheck, result, highlighting])
+
   return (
     <div className="max-w-2xl mx-auto p-4">
       <h1 className="text-2xl font-bold flex items-center gap-2 mb-1 text-indigo-300">
@@ -246,6 +355,15 @@ export default function Practice() {
             {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <UploadCloud className="w-3 h-3" />}
             {t('practice.pending').replace('{n}', pending)}
           </span>
+        )}
+        {current && (
+          <button
+            onClick={() => setShowAnswerCheck(!showAnswerCheck)}
+            className="px-2.5 py-1 rounded-lg bg-emerald-900/40 text-emerald-200 hover:bg-emerald-800/40 transition-colors flex items-center gap-1 cursor-pointer"
+            title="Sprawdź poprawne odpowiedzi (podświetli zielony/czerwony)"
+          >
+            <Check className="w-3 h-3" /> {t('practice.checkCorrect')}
+          </button>
         )}
       </div>
       {lastSynced > 0 && pending === 0 && (

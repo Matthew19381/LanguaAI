@@ -206,6 +206,14 @@ async def answer_exercise(
 
     result = {**base, "duplicate": False, **scheduling}
 
+    # ── Track first-attempt incorrect answers for FSRS ──
+    if exercise.times_seen == 1 and rating < 3:  # First attempt and incorrect
+        exercise.first_attempt_incorrect = True
+        exercise.first_attempt_incorrect_date = occurred_at
+        db.commit()
+        result["first_attempt_incorrect"] = True
+        result["first_attempt_incorrect_date"] = occurred_at.isoformat()
+
     # ── Auto-generate fresh variants when the skill needs new surface forms ──
     # Two triggers, both bounded by the shared fresh-variant guard and surfaced
     # in the response so the "AI spend is deliberate and visible" contract holds

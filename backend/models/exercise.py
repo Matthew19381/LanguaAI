@@ -44,6 +44,10 @@ class Exercise(Base):
     times_seen = Column(Integer, default=0)
     times_correct = Column(Integer, default=0)
 
+    # ── Error tracking (FSRS) ──
+    first_attempt_incorrect = Column(Boolean, default=False, nullable=False)
+    first_attempt_incorrect_date = Column(DateTime, nullable=True)
+
     # ── FSRS scheduling (same fields/scheduler as flashcards) ──
     difficulty = Column(Float, default=5.0)
     stability = Column(Float, default=0.0)

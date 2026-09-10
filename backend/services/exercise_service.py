@@ -315,6 +315,11 @@ def review_exercise(
     if rating >= 3:
         exercise.times_correct = (exercise.times_correct or 0) + 1
 
+    # ── Track first-attempt incorrect answers for FSRS ──
+    if exercise.times_seen == 1 and rating < 3:  # First attempt and incorrect
+        exercise.first_attempt_incorrect = True
+        exercise.first_attempt_incorrect_date = now
+
     return {
         "interval_days": result.interval,
         "state": result.state,
