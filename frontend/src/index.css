@@ -68,7 +68,7 @@
   }
 
   .input-field {
-    @apply dark:bg-gray-800 bg-gray-50 dark:border dark:border-gray-700 border border-gray-300 dark:text-gray-100 text-gray-800 rounded-lg px-4 py-2 w-full focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors duration-200 dark:placeholder-gray-500 placeholder-gray-400;
+    @apply dark:bg-gray-800 bg-gray-50 dark:border dark:border-gray-700 border border-gray-400 dark:text-gray-100 text-gray-800 rounded-lg px-4 py-2 w-full focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors duration-200 dark:placeholder-gray-500 placeholder-gray-400;
   }
 
   .badge {
@@ -84,7 +84,7 @@
   }
 
   .badge-yellow {
-    @apply badge dark:bg-yellow-900 bg-yellow-100 dark:text-yellow-300 text-yellow-700;
+    @apply badge dark:bg-yellow-900 bg-yellow-200 dark:text-yellow-300 text-yellow-800;
   }
 
   .badge-red {
@@ -192,7 +192,7 @@
 
 /* Progress bar */
 .progress-bar {
-  @apply h-2 rounded-full overflow-hidden dark:bg-gray-800 bg-gray-200;
+  @apply h-2 rounded-full overflow-hidden dark:bg-gray-800 bg-gray-300;
 }
 
 .progress-fill {
@@ -205,7 +205,7 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #111827;
+  background: #f3f4f6;
 }
 
 .light ::-webkit-scrollbar-track {
@@ -213,12 +213,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: #6b7280;
   border-radius: 4px;
 }
 
 .light ::-webkit-scrollbar-thumb {
-  background: #9ca3af;
+  background: #6b7280;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -226,7 +226,7 @@
 }
 
 .light ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+  background: #4b5563;
 }
 
 /* Answer option styles */
