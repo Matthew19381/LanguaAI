@@ -196,27 +196,6 @@ export default function Practice() {
     }
   }
 
-  if (loading) return <PageLoader />
-
-  if (!set || exercises.length === 0) {
-    return (
-      <div className="max-w-2xl mx-auto p-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2 mb-1 text-indigo-300">
-          <Dumbbell className="w-6 h-6" /> {t('practice.title')}
-        </h1>
-        <div className="card mt-4 text-center">
-          <p className="text-gray-300">{t('practice.emptyBank')}</p>
-          <div className="flex gap-2 justify-center mt-4 flex-wrap">
-            <button className="btn-primary" onClick={() => navigate('/lesson')}>
-              {t('practice.goToLesson')}
-            </button>
-          </div>
-          {genMsg && <p className="text-sm text-gray-400 mt-3">{genMsg}</p>}
-        </div>
-      </div>
-    )
-  }
-
   const normalizeAnswer = (text) => {
     if (!text) return ''
     return text.toLowerCase().trim().replace(/[\s.,!?;:]/g, '')
@@ -325,6 +304,27 @@ export default function Practice() {
       }
     }
   }, [showAnswerCheck, result, highlighting])
+
+  if (loading) return <PageLoader />
+
+  if (!set || exercises.length === 0) {
+    return (
+      <div className="max-w-2xl mx-auto p-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2 mb-1 text-indigo-300">
+          <Dumbbell className="w-6 h-6" /> {t('practice.title')}
+        </h1>
+        <div className="card mt-4 text-center">
+          <p className="text-gray-300">{t('practice.emptyBank')}</p>
+          <div className="flex gap-2 justify-center mt-4 flex-wrap">
+            <button className="btn-primary" onClick={() => navigate('/lesson')}>
+              {t('practice.goToLesson')}
+            </button>
+          </div>
+          {genMsg && <p className="text-sm text-gray-400 mt-3">{genMsg}</p>}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-4">
