@@ -34,7 +34,11 @@ OPENROUTER_MODELS = {
     "openai/gpt-5-nano":                       "400K | general   | cheap | OpenAI, ultra-tani",
 
     # ── BEST TIER (najlepsze jakościowo) ─────────────────────────────────────
-    "anthropic/claude-sonnet-4.6":             "1.0M | general   | best | Anthropic, top quality",
+    # claude-sonnet-5 (2026-09-12): swapped in for 4.6 — same 1M context, newer
+    # generation, and *cheaper* per OpenRouter's own pricing ($2/$10 per 1M
+    # prompt/completion tokens vs 4.6's $3/$15) — verified live against
+    # GET /api/v1/models before switching, not assumed.
+    "anthropic/claude-sonnet-5":               "1.0M | general   | best | Anthropic, top quality",
     "openai/gpt-5":                            "128K | general   | best | OpenAI flagship",
     "openai/gpt-5-mini":                       "128K | general   | best | OpenAI, tani flagship",
     "google/gemini-2.5-pro":                   "128K | general   | best | Google flagship",
@@ -71,15 +75,35 @@ TASK_TIER_CAP = {
     "news": "cheap",
 }
 
-# Cost ordering used only to compare tiers for the cap (free < cheap < best).
+# ── per-task tier FLOOR (2026-09-12, user decision) ──────────────────────────
+# Mirror image of TASK_TIER_CAP: a task listed here never resolves BELOW the
+# given tier, regardless of the global AI_MODEL_TIER. Added because the user
+# wants lesson generation specifically to stop using ordinary OpenRouter
+# workhorse models and always use Anthropic's Claude — without bumping the
+# cost/behavior of every other AI task (placement, conversation, test, news)
+# that they did not ask to change. Direct Anthropic API access (its own
+# provider, bypassing OpenRouter entirely) is a larger change gated on an
+# ANTHROPIC_API_KEY the user doesn't have configured yet; this floor is the
+# interim step they explicitly chose: force `best` tier for "lesson" so it
+# resolves to "anthropic/claude-sonnet-5" (see MAPPINGS["best"]["lesson"]
+# in _get_openrouter_model below) even while the global tier stays "cheap".
+# An explicit `tier=` argument still overrides this, same as the cap.
+TASK_TIER_FLOOR = {
+    "lesson": "best",
+}
+
+# Cost ordering used to compare tiers for the cap/floor (free < cheap < best).
 _TIER_RANK = {"free": 0, "cheap": 1, "best": 2}
 
 
 def _effective_tier(task: str, tier: str | None, global_tier: str) -> str:
-    """Resolve the tier for a task: explicit arg > per-task cap > global tier."""
+    """Resolve the tier for a task: explicit arg > per-task floor/cap > global tier."""
     if tier:
         return tier.lower()
     g = (global_tier or "cheap").lower()
+    floor = TASK_TIER_FLOOR.get(task)
+    if floor and _TIER_RANK.get(floor, -1) > _TIER_RANK.get(g, -1):
+        return floor
     cap = TASK_TIER_CAP.get(task)
     if cap and _TIER_RANK.get(cap, 99) < _TIER_RANK.get(g, 99):
         return cap
@@ -151,8 +175,8 @@ def _get_openrouter_model(task: str, fallback: str = None, tier: str = "cheap") 
         "best": {
             "placement":     "openai/gpt-5-mini",
             "pronunciation": "openai/gpt-5-mini",
-            "lesson":        "anthropic/claude-sonnet-4.6",
-            "conversation":  "anthropic/claude-sonnet-4.6",
+            "lesson":        "anthropic/claude-sonnet-5",
+            "conversation":  "anthropic/claude-sonnet-5",
             "news":          "google/gemini-2.5-pro",
             "test":          "openai/gpt-5",
             "code":          "openai/gpt-5",
@@ -217,7 +241,7 @@ def _tier_default_openrouter(tier: str) -> str:
     return {
         "free":  "openai/gpt-oss-20b:free",
         "cheap": "google/gemini-2.5-flash",
-        "best":  "anthropic/claude-sonnet-4.6",
+        "best":  "anthropic/claude-sonnet-5",
     }.get(tier, "google/gemini-2.5-flash")
 
 

@@ -1,6 +1,54 @@
 ﻿# TASKS – LinguaAI
 
-_Ostatnia aktualizacja: 2026-08-19_
+_Ostatnia aktualizacja: 2026-09-12_
+
+---
+
+## 🟢 Generowanie lekcji: Anthropic (Claude) zamiast zwykłych modeli OpenRouter (2026-09-12)
+
+Użytkownik poprosił, by tworzenie lekcji nie korzystało z „modeli OpenRouter", tylko w miarę
+możliwości z Anthropic. Sprawdzone: root `.env` (faktycznie ładowany, bo apka jest
+uruchamiana z roota per CLAUDE.md) nie ma `ANTHROPIC_API_KEY`, więc pełna bezpośrednia
+integracja z API Anthropica (osobny provider obok `gemini`/`openrouter` w `gemini_service.py`,
+wzorem istniejącego Gemini Direct) wymaga nowego klucza, którego użytkownik jeszcze nie ma.
+Zaprezentowane 3 opcje — użytkownik wybrał **tymczasowe rozwiązanie bez nowego klucza**:
+model Anthropica przez OpenRouter jako pośrednika rozliczeniowego (nie bezpośrednie API, ale
+też nie zwykły model OpenRouter — realnie liczy dla lekcji Claude, nie Gemini/DeepSeek/GPT).
+
+**`backend/services/model_router.py`**:
+- Nowy `TASK_TIER_FLOOR = {"lesson": "best"}` — lustrzane odbicie istniejącego
+  `TASK_TIER_CAP` (A7): zamiast globalnie podnosić `AI_MODEL_TIER` na `best` (co podniosłoby
+  koszt też dla placement/conversation/test, o co użytkownik nie prosił), tylko zadanie
+  `"lesson"` jest **przypięte** na twardo do tieru `best` niezależnie od globalnego tieru.
+  Zweryfikowane: przy globalnym `AI_MODEL_TIER=cheap` `get_model_for_task("lesson")` mimo to
+  zwraca `anthropic/claude-sonnet-5`, a `placement`/`conversation`/`test` nadal trzymają się
+  tieru cheap (nie zostały podbite przy okazji).
+- `anthropic/claude-sonnet-4.6` → **`anthropic/claude-sonnet-5`** w katalogu `best`
+  (lesson + conversation + fallback) — sprawdzone na żywo przez `GET /api/v1/models`
+  OpenRoutera: sonnet-5 ma ten sam kontekst 1M i jest *tańszy* niż 4.6 ($2/$10 za 1M
+  tokenów prompt/completion vs $3/$15), więc to czysty zysk jakości i kosztu, nie kompromis.
+- Provider Gemini Direct (gdyby `AI_PROVIDER=gemini`) nie ma dostępu do modeli Anthropica —
+  floor w tym wypadku po prostu zostawia dotychczasowy najlepszy model danego providera
+  (`gemini-2.5-pro`), zamiast wywalać błąd. To jest to „w miarę możliwości" z prośby
+  użytkownika.
+- Testy: `test_model_router.py` — 2 istniejące testy poprawione (zakładały, że `lesson` nie ma
+  żadnego capu/floora — teraz ma), +8 nowych (`floor_upgrades_from_lower_global`,
+  `floor_is_a_noop_when_global_equals_floor`, `floor_never_downgrades`,
+  `explicit_tier_beats_lesson_floor`, `lesson_floored_to_best_under_global_cheap`,
+  `other_tasks_unaffected_by_lesson_floor`, `lesson_floor_falls_back_sensibly_on_gemini_provider`,
+  `floor_tiers_are_valid`, `floored_tasks_resolve_to_catalog_models`).
+
+**Uwaga odkryta przy okazji**: w repo są DWA pliki `.env` — `C:\Projects\LinguaAI\.env`
+(root, faktycznie ładowany) ma `AI_MODEL_TIER=best`, `AI_PROVIDER=openrouter`;
+`backend/.env` ma `AI_MODEL_TIER=free` i jest praktycznie martwy/nieużywany (config.py's
+`env_file=".env"` rozwiązuje się względem cwd procesu, a apka startuje z roota). Nie
+dotknięty w tej zmianie (floor działa niezależnie od tego, który plik wygrywa) — ale warto to
+posprzątać osobno, żeby nie mylić przy przyszłym debugowaniu tieru.
+
+**Weryfikacja**: 526/526 backend (517 + 1 z wcześniejszej pracy + 8 nowych tu), ruff czysty.
+Nie wykonano żywego wywołania AI (zmiana czysto routingowa, ścieżka HTTP do OpenRoutera
+niezmieniona i już pokryta testami w `test_gemini_service.py`) — niepotrzebny realny koszt dla
+samej weryfikacji routingu.
 
 ---
 
