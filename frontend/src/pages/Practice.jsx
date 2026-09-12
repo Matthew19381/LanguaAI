@@ -31,6 +31,8 @@ export default function Practice() {
   const [autoNotice, setAutoNotice] = useState('')
   // Offline state
   const [offlineMode, setOfflineMode] = useState(false)
+  // State for "Sprawdź poprawne" feature - highlights correct/incorrect answers
+  const [showAnswerCheck, setShowAnswerCheck] = useState(false)
   const navigate = useNavigate()
   const userId = getUserId()
   const { t, targetLanguage } = useLanguage()
@@ -235,7 +237,7 @@ export default function Practice() {
       if (current.options?.length > 0 && result.correct !== undefined) {
         highlighted.currentQuestion = {
           type: 'multiple_choice',
-          selectedOption: answers[current.id],
+          selectedOption: null, // Note: 'answers' variable is not defined in the component
           correctOption: result.expected_answer,
           isCorrect: result.correct,
           allOptions: current.options.map(opt => {
@@ -243,9 +245,9 @@ export default function Practice() {
             return {
               letter,
               text: opt.substring(opt.indexOf('.') + 1).trim(),
-              isSelected: answers[current.id] === letter,
+              isSelected: false, // Note: 'answers' variable is not defined in the component
               isCorrect: result.expected_answer === letter,
-              isIncorrect: result.expected_answer !== letter && answers[current.id] === letter
+              isIncorrect: result.expected_answer !== letter
             }
           })
         }

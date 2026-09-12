@@ -695,9 +695,25 @@ export default function DailyLesson() {
                     </td>
                     <td className="py-2.5 text-gray-400 text-sm hidden md:table-cell">
                       <div className="flex items-center gap-1">
-                        <span>{item.example}</span>
-                        {item.example && <PlayButton text={item.example} language={lesson.language} />}
-                      </div>
+                                              <span>{item.example}</span>
+                                              {item.example && <PlayButton text={item.example} language={lesson.language} />}
+                                              <button
+                                                onClick={() => handleAddFlashcard(item.example)}
+                                                disabled={addingWord === item.example}
+                                                title={t('lesson.addToFlash')}
+                                                className={`inline-flex items-center justify-center w-4 h-4 rounded hover:bg-gray-700 transition-colors ${
+                                                  addedWords.has(item.example) ? 'text-emerald-400' : 'text-gray-500 hover:text-indigo-300'
+                                                } ${addingWord === item.example ? 'opacity-50' : ''}`}
+                                              >
+                                                {addingWord === item.example ? (
+                                                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                                ) : addedWords.has(item.example) ? (
+                                                  <CheckCircle className="w-2.5 h-2.5" />
+                                                ) : (
+                                                  <BookmarkPlus className="w-2.5 h-2.5" />
+                                                )}
+                                              </button>
+                                            </div>
                       {item.example_translation && (
                         <div className="text-gray-500 text-xs mt-0.5 italic">↳ {item.example_translation}</div>
                       )}
@@ -749,10 +765,26 @@ export default function DailyLesson() {
                       ? 'bg-gray-700 rounded-tr-sm'
                       : 'bg-gray-800 rounded-tl-sm'
                   }`}>
-                    <div className="flex items-start gap-1.5">
-                      <p className="font-medium flex-1">{line.text}</p>
-                      <PlayButton text={line.text} language={lesson.language} />
-                    </div>
+                    <div className="flex items-center gap-1.5">
+                                          <p className="font-medium flex-1">{line.text}</p>
+                                          <PlayButton text={line.text} language={lesson.language} />
+                                          <button
+                                            onClick={() => handleAddFlashcard(line.text)}
+                                            disabled={addingWord === line.text}
+                                            title={t('lesson.addToFlash')}
+                                            className={`inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-700 transition-colors ${
+                                              addedWords.has(line.text) ? 'text-emerald-400' : 'text-gray-500 hover:text-indigo-300'
+                                            } ${addingWord === line.text ? 'opacity-50' : ''}`}
+                                          >
+                                            {addingWord === line.text ? (
+                                              <Loader2 className="w-3 h-3 animate-spin" />
+                                            ) : addedWords.has(line.text) ? (
+                                              <CheckCircle className="w-3 h-3" />
+                                            ) : (
+                                              <BookmarkPlus className="w-3 h-3" />
+                                            )}
+                                          </button>
+                                        </div>
                     {line.translation && (
                       <p className="text-gray-400 text-sm mt-0.5 italic">{line.translation}</p>
                     )}

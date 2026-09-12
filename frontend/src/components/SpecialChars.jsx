@@ -42,6 +42,9 @@ export default function SpecialChars({ language, inputRef, value = '', onChange,
           el.focus()
           const pos = start + ch.length
           el.setSelectionRange(pos, pos)
+          if (el.scrollLeft !== undefined) {
+            el.scrollLeft = el.scrollWidth
+          }
         } catch { /* element unmounted */ }
       })
     } else {
