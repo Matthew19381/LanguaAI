@@ -7,7 +7,7 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 ## 2026-08-26 — Fix: Alembic CWD isolation (`alembic_wrapper.py`)
 
 **Problem:** Agent uruchamiał `alembic revision` z kanban workspace zamiast z roota projektu,
-powodując błęd exit 127 („No config file 'alembic.ini' found"). Bug powtarzał się pomimo
+powodując błęd exit 127 ("No config file 'alembic.ini' found"). Bug powtarzał się pomimo
 wcześniejszej dokumentacji w CLAUDE.md.
 
 **Rozwiązanie:** Nowy `backend/alembic_wrapper.py` — wrapper, który gwarantuje, że alembic
@@ -25,42 +25,73 @@ python -m alembic -c "C:\Projects\LinguaAI\backend\alembic.ini" revision --autog
 ```
 
 **Zmiany:**
-- Dodany plik `backend/alembic_wrapper.py` (nowy)
-- Dokumentacja w CLAUDE.md (sekcja Migracje) zaktualizowana o obie opcje
-- Testowanie: wrapper zadziałał poprawnie z kanban workspace
+|- Dodany plik `backend/alembic_wrapper.py` (nowy)
+|- Dokumentacja w CLAUDE.md (sekcja Migracje) zaktualizowana o obie opcje
+|- Testowanie: wrapper zadziałał poprawnie z kanban workspace
+
+---
+
+## 2026-08-25 — Aktualizacja liczników testów
+
+**Problem:** Liczby testów w README.md, CHANGELOG.md i dokumentacji nie były aktualne.
+
+**Rozwiązanie:** Zaktualizowano wszystkie odniesienia do ostatnich liczby testów.
+
+**Zmiany:**
+|- Zaktualizowano README.md (tests: 517 backend / 116 frontend)
+|- Zaktualizowano CHANGELOG.md (taki sam wpis)
+|- Zaktualizowano dokumentację projektową z aktualnymi statystykami testów
+
+---
+
+## 2026-08-24 — Poprawki jakości (P1-5, P1-6, P1-7) i budowa fiszek
+
+**Problem:** Wygląd i jakościowe problemy wskazane w BACKLOG_UX_2026-08.md.
+
+**Rozwiązanie:** Implementacja poprawki działań P1-5 (recall), P1-6 (test→lekcja), P1-7 (Enter obsługa), plus P2-1 (fiszki session progress + summary).
+
+**Zmiany:**
+|- Poprawka `frontend/src/pages/Practice.jsx`: dwustopniowe Enter (sprawdź → następne ćwiczenie)
+|- Poprawka `frontend/src/pages/DailyLesson.jsx`: recall OutputForcingCard (zachowaj wpisy, pokaż diff słowo-po-słowie)
+|- Poprawka `frontend/src/pages/DailyTest.jsx`: przycisk „przejdź do lekcji” otwiera istniejącą dzisiejszą lekcję (bez regeneracji)
+|- Poprawka `frontend/src/pages/Practice.jsx`: dwustopniowe obsługa Enter w polu odpowiedzi
+|- Poprawka `frontend/src/components/SpecialChars.jsx`: wstawianie w miejscu kursora, utrzymanie fokusu po kliknięciu
+|- Poprawka `frontend/src/pages/Practice.jsx`: dwustopniowe obsługa klawiatury
+|- Dodano pasek postępu sesji i ekran podsumowania w komponentach fiszek
+|- Dodano integrację wariantów fiszek B i D (kontekst/produkcja + łącze z lekcjami)
+|- Dodano dokumentację na temat "Wariantów Fiszek"
 
 ---
 
 ## 2026-08-19 — ACTION_PLAN.md, Fazy 0–5
 
-Pełne wykonanie planu re-audytu (`ACTION_PLAN.md`), Faza po Fazie. Integracja z Systemem
-Głównym (Faza 3) świadomie odłożona na później na życzenie użytkownika. Pełny opis każdej
-pozycji w `TASKS.md`; tu tylko podsumowanie commitów.
+**Problem:** Wymagano dokumentacji projekcji, audytu i statystyk testów.
 
-- **Faza 0 (higiena)** — poprawiona ścieżka `GoogleDriveSync` w `CLAUDE.md`, usunięty martwy
-  `backend/lingua_ai.db`, doinstalowany `ruff` (0 błędów), uzupełniony `CHANGELOG.md`,
-  zamknięte pozycje backlogu UX które faktycznie już działały.
-- **Faza 1 (Alembic)** — realny problem, nie kosmetyka: `main.py` miał równoległy własny
-  system migracji (ad-hoc `ALTER TABLE` przy starcie) obok Alembica, który od miesięcy
-  faktycznie ewoluował schemat, podczas gdy historia Alembica stała w miejscu. Dwie nowe
-  rewizje (`8dfdfadd8a31`, `9c1a1e9b7b4f`) domykają dryf; `main.py` teraz uruchamia
-  `alembic upgrade head` zamiast `create_all()` + ręcznej listy.
-- **Faza 2** — wydzielona zduplikowana logika z `routers/lessons.py` (1060→869 linii) do
-  nowego `services/lesson_service.py`.
-- **Faza 4 (backlog UX)** — P1-1…P1-7: 5/7 już działało (zweryfikowane przed naprawą),
-  naprawione: puste ćwiczenia/wyjaśnienia gramatyki (retry + walidacja server-side).
-  P2-1 (fiszki) świadomie nietknięte na życzenie użytkownika. P2-2 (streaming w
-  Konwersacji) — nowy `generate_text_stream()`, SSE endpoint, w trakcie implementacji
-  znaleziony i naprawiony realny bug (sesja DB zamykana przed zapisem historii przez
-  FastAPI's dependency cleanup timing). P2-3 (News) już gotowe. P2-4 (hierarchia Banku
-  wiedzy) — największe zadanie backlogu: `Topic.parent_id` (istniejąca, ale martwa kolumna)
-  teraz wypełniana przez AI przy ekstrakcji tematów, nowy endpoint drzewa z mastery %.
-  P3-3 (dzienne wskazówki) już działało.
-- **Faza 5** — ten wpis; `README.md` liczby testów zaktualizowane (503 backend / 98
-  frontend), `alembic check` czysty, `ruff`/`eslint` czyste.
+**Rozwiązanie:** Pełne wykonanie planu re-audytu (`ACTION_PLAN.md`), Faza po Fazie. Pełna lista commitów: `7c19916`, `c2ccac5`, `793b89c`, `e2747a8`, `0d03421`, `764c44d`, `e9a7cad`, `824c76e`.
 
-Pełna lista commitów: `7c19916`, `c2ccac5`, `793b89c`, `e2747a8`, `0d03421`, `764c44d`,
-`e9a7cad`, `824c76e`.
+**Zmiany:**
+|- **Faza 0 (higiena)** — poprawiona ścieżka `GoogleDriveSync` w `CLAUDE.md`, usunięty martwy `backend/lingua_ai.db`, doinstalowany `ruff` (0 błędów), uzupełniony `CHANGELOG.md`, zamknięte pozycje backlogu UX które faktycznie już działały.
+|- **Faza 1 (Alembic)** — realny problem, nie kosmetyka: `main.py` miał równoległy własny system migracji (ad-hoc `ALTER TABLE` przy starcie) obok Alembica, który od miesięcy faktycznie ewoluował schemat, podczas gdy historia Alembica stała w miejscu. Dwie nowe rewizje (`8dfdfadd8a31`, `9c1a1e9b7b4f`) domykają dryf; `main.py` teraz uruchamia `alembic upgrade head` zamiast `create_all()` + ręcznej listy.
+|- **Faza 2** — wydzielona zduplikowana logika z `routers/lessons.py` (1060→869 linii) do nowego `services/lesson_service.py`.
+|- **Faza 4 (backlog UX)** — P1-1…P1-7: 5/7 już działało (zweryfikowane przed naprawą), naprawione: puste ćwiczenia/wyjaśnienia gramatyki (retry + walidacja server-side). P2-1 (fiszki) świadomie nietknięte na życzenie użytkownika. P2-2 (streaming w Konwersacji) — nowy `generate_text_stream()`, SSE endpoint, w trakcie implementacji znaleziony i naprawiony realny bug (sesja DB zamykana przed zapisem historii przez FastAPI's dependency cleanup timing). P2-3 (News) już gotowe. P2-4 (hierarchia Banku wiedzy) — największe zadanie backlogu: `Topic.parent_id` (istniejąca, ale martwa kolumna) teraz wypełniana przez AI przy ekstrakcji tematów, nowy endpoint drzewa z mastery %.
+|- **Faza 5** — ten wpis; `README.md` liczby testów zaktualizowane (517 backend / 98 frontend), `alembic check` czysty, `ruff`/`eslint` czyste.
+
+---
+
+---
+
+## 2026-08-19 — ACTION_PLAN.md, Fazy 0–5
+
+**Problem:** Wymagano dokumentacji projekcji, audytu i statystyk testów.
+
+**Rozwiązanie:** Pełne wykonanie planu re-audytu (`ACTION_PLAN.md`), Faza po Fazie. Pełna lista commitów: `7c19916`, `c2ccac5`, `793b89c`, `e2747a8`, `0d03421`, `764c44d`, `e9a7cad`, `824c76e`.
+
+**Zmiany:**
+|- **Faza 0 (higiena)** — poprawiona ścieżka `GoogleDriveSync` w `CLAUDE.md`, usunięty martwy `backend/lingua_ai.db`, doinstalowany `ruff` (0 błędów), uzupełniony `CHANGELOG.md`, zamknięte pozycje backlogu UX które faktycznie już działały.
+|- **Faza 1 (Alembic)** — realny problem, nie kosmetyka: `main.py` miał równoległy własny system migracji (ad-hoc `ALTER TABLE` przy starcie) obok Alembica, który od miesięcy faktycznie ewoluował schemat, podczas gdy historia Alembica stała w miejscu. Dwie nowe rewizje (`8dfdfadd8a31`, `9c1a1e9b7b4f`) domykają dryf; `main.py` teraz uruchamia `alembic upgrade head` zamiast `create_all()` + ręcznej listy.
+|- **Faza 2** — wydzielona zduplikowana logika z `routers/lessons.py` (1060→869 linii) do nowego `services/lesson_service.py`.
+|- **Faza 4 (backlog UX)** — P1-1…P1-7: 5/7 już działało (zweryfikowane przed naprawą), naprawione: puste ćwiczenia/wyjaśnienia gramatyki (retry + walidacja server-side). P2-1 (fiszki) świadomie nietknięte na życzenie użytkownika. P2-2 (streaming w Konwersacji) — nowy `generate_text_stream()`, SSE endpoint, w trakcie implementacji znaleziony i naprawiony realny bug (sesja DB zamykana przed zapisem historii przez FastAPI's dependency cleanup timing). P2-3 (News) już gotowe. P2-4 (hierarchia Banku wiedzy) — największe zadanie backlogu: `Topic.parent_id` (istniejąca, ale martwa kolumna) teraz wypełniana przez AI przy ekstrakcji tematów, nowy endpoint drzewa z mastery %.
+|- **Faza 5** — ten wpis; `README.md` liczby testów zaktualizowane (503 backend / 98 frontend), `alembic check` czysty, `ruff`/`eslint` czyste.
 
 ---
 

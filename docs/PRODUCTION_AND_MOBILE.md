@@ -220,7 +220,7 @@ In your CI/CD pipeline or startup script, retrieve the secret and export it as a
 | Meta iOS (apple-touch-icon, standalone, theme-color) | ✅ | `frontend/index.html` |
 | Cache offline: ćwiczenia, lekcje, fiszki, staty, audio | ✅ | `workbox.runtimeCaching` |
 | Baner „jesteś offline" | ✅ | `frontend/src/components/OfflineBanner.jsx` |
-| Web Push (VAPID) | ❌ nie zrobione | patrz 3.2 |
+| Web Push (VAPID) | ✅ zaimplementowane (2026-08-26, patrz ARCHITECTURE.md §11) | `backend/services/push_service.py`, `routers/push.py`, `frontend/src/components/PushToggle.jsx`, `public/push-sw.js` |
 | Capacitor / sklepy | ❌ niepotrzebne dziś | patrz 3.3 |
 
 **Zweryfikowane na żywo:** po zatrzymaniu backendu `GET /api/exercises/{id}/practice`
