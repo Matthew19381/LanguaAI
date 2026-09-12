@@ -129,8 +129,8 @@ def _get_openrouter_model(task: str, fallback: str = None, tier: str = "cheap") 
         "free": {
             "placement":     "openai/gpt-oss-20b:free",
             "pronunciation": "openai/gpt-oss-20b:free",
-            "lesson":        "google/gemma-4-31b-it:free",
-            "conversation":  "google/gemma-4-31b-it:free",
+            "lesson":        "nvidia/nemotron-3-super-120b-a12b:free",
+            "conversation":  "nvidia/nemotron-3-super-120b-a12b:free",
             "news":          "google/gemma-4-26b-a4b-it:free",
             "test":          "openai/gpt-oss-20b:free",
             "code":          "openai/gpt-oss-20b:free",
