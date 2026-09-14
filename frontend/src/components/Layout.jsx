@@ -135,7 +135,7 @@ export default function Layout() {
       <OfflineBanner />
       <NavBar dailyTabs={dailyTabs} dark={dark} onToggleDark={toggleDark} />
       <NotificationManager />
-      <main className="flex-1">
+      <main className="flex-1 pb-floating">
         {/* Suspense here (not above the nav) so lazy page chunks only reload the
             content area, keeping the navbar steady during navigation. */}
         <Suspense fallback={<PageLoader />}>
@@ -147,7 +147,7 @@ export default function Layout() {
       {timerDisplay && (
         <button
           onClick={() => navigate('/quickmode')}
-          className={`fixed bottom-6 right-4 z-50 flex items-center gap-2 px-5 py-3 rounded-xl shadow-lg transition-colors ${
+          className={`fixed bottom-safe-6 right-4 z-50 flex items-center gap-2 px-5 py-3 rounded-xl shadow-lg transition-colors ${
             timerSeconds <= 5 ? 'bg-red-700 hover:bg-red-600 animate-blink' :
             timerSeconds < 60 ? 'bg-red-700 hover:bg-red-600' :
             timerSeconds < 300 ? 'bg-yellow-600 hover:bg-yellow-500' :
@@ -163,7 +163,7 @@ export default function Layout() {
       <TranslatorWidget userId={userId} targetLanguage={targetLanguage} />
 
       {/* Achievement toasts */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-xs">
+      <div className="fixed bottom-safe-4 right-4 z-50 flex flex-col gap-2 max-w-xs">
         {toasts.map((toast) => (
           <AchievementToast
             key={toast.id}
@@ -234,7 +234,7 @@ function TranslatorWidget({ userId, targetLanguage }) {
   const close = () => { setOpen(false); setResult(''); setText(''); setFlashAdded(false) }
 
   return (
-    <div className="fixed bottom-6 left-4 z-40">
+    <div className="fixed bottom-safe-6 left-4 z-40">
       {open ? (
         <div className="dark:bg-gray-900 bg-white dark:border dark:border-gray-700 border border-gray-200 rounded-xl shadow-2xl p-3 w-72">
           <div className="flex items-center justify-between mb-2">
@@ -294,9 +294,11 @@ function TranslatorWidget({ userId, targetLanguage }) {
           onClick={() => setOpen(true)}
           className="flex items-center gap-2 dark:bg-gray-800 bg-white hover:bg-indigo-600 dark:border dark:border-gray-700 border border-gray-200 dark:hover:border-indigo-600 dark:text-gray-300 text-gray-600 hover:text-white px-3 py-2 rounded-xl shadow-lg transition-all"
           title="Tłumacz"
+          aria-label="Tłumacz"
         >
           <Languages className="w-5 h-5" />
-          <span className="text-sm font-medium">Tłumacz</span>
+          {/* Icon-only on phones: the labelled pill sat on top of page content */}
+          <span className="text-sm font-medium hidden sm:inline">Tłumacz</span>
         </button>
       )}
     </div>

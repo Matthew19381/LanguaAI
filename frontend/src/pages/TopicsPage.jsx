@@ -701,7 +701,8 @@ export default function TopicsPage() {
       )}
 
       {/* View tabs */}
-      <div className="flex gap-1 mb-4 dark:bg-gray-800 bg-gray-100 rounded-lg p-1">
+      {/* 2x2 grid on phones — four labelled tabs don't fit in one 375px row */}
+      <div className="grid grid-cols-2 sm:flex gap-1 mb-4 dark:bg-gray-800 bg-gray-100 rounded-lg p-1">
         {[
           { key: 'list', label: 'Lista', icon: BookOpen },
           { key: 'tree', label: 'Kategorie', icon: Layers },
@@ -730,8 +731,8 @@ export default function TopicsPage() {
 
       {/* Search & filters */}
       {view === 'list' && (
-        <div className="flex gap-2 mb-4">
-          <div className="flex-1 relative">
+        <div className="flex flex-wrap sm:flex-nowrap gap-2 mb-4">
+          <div className="basis-full sm:basis-auto flex-1 relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
@@ -744,7 +745,7 @@ export default function TopicsPage() {
           <select
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
-            className="border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:focus:ring-indigo-500 focus:ring-indigo-300"
+            className="flex-1 sm:flex-none min-w-0 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:focus:ring-indigo-500 focus:ring-indigo-300"
           >
             <option value="">Wszystkie kategorie</option>
             {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
@@ -754,7 +755,7 @@ export default function TopicsPage() {
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value)}
-            className="border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:focus:ring-indigo-500 focus:ring-indigo-300"
+            className="flex-1 sm:flex-none min-w-0 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:focus:ring-indigo-500 focus:ring-indigo-300"
           >
             <option value="name">Nazwa</option>
             <option value="strength">Siła zapamiętania</option>

@@ -4,6 +4,28 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-09-14 — Fix: wersja mobilna (audyt 375 px)
+
+**Problem:** Audyt w widoku telefonu (375×812, kopia bazy, 9 ekranów) wykazał:
+nawigacja była w całości `sticky` i po zawinięciu do 5 rzędów zajmowała 282 px (~35% ekranu)
+na każdej stronie; Fiszki (przycisk „Import") i Bank wiedzy (zakładki, selecty) przewijały się
+w poziomie (426 / 455 px); pola tekstowe < 16 px powodowały auto-zoom w iOS Safari; mimo
+`viewport-fit=cover` + `black-translucent` nigdzie nie było `safe-area` (treść pod notchem
+w trybie PWA); pływający „Tłumacz" zasłaniał treść.
+
+**Rozwiązanie / Zmiany:**
+- `NavBar.jsx`: `<header>` (statystyki, motyw, szybkie dodawanie) sticky; lista funkcji jako
+  osobny `<nav>` — na telefonie odjeżdża przy przewijaniu, od `md` przykleja się pod nagłówkiem.
+  Wszystkie funkcje nadal zawsze widoczne z etykietami (P3-1 bez zmian).
+- `index.css`: 16 px dla pól na < 768 px; `.pt-safe`, `.bottom-safe-4/6`, `.pb-floating`.
+- `Layout.jsx`: „Tłumacz" jako sama ikona na telefonie (+`aria-label`), przyciski pływające
+  nad paskiem gestów, dolny odstęp treści.
+- `Flashcards.jsx`: zawijanie rzędu zakładek; `TopicsPage.jsx`: zakładki 2×2 i zawijane filtry na telefonie.
+- Weryfikacja: nagłówek sticky 68 px, 0 poziomego przewijania i 0 pól < 16 px na sprawdzonych
+  ekranach, desktop bez zmian; 116/116 vitest.
+
+---
+
 ## 2026-09-14 — Fix: mojibake polskich/niemieckich/francuskich znaków + porządki repo
 
 **Problem:** Poprawka z gałęzi `linguaai/polskie-znaki` nigdy nie trafiła na `master` (zmiana

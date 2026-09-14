@@ -264,6 +264,27 @@
   box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
 }
 
+/* ── Phones / installed PWA ──
+   iOS Safari zooms the whole page when a field with font-size < 16px gets
+   focus, and never zooms back. !important because Tailwind's text-sm/text-xs
+   on the element itself would otherwise win for textarea/select. */
+@media (max-width: 767px) {
+  input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Safe areas: index.html uses viewport-fit=cover + black-translucent status
+   bar, so in standalone mode content would slide under the notch / home
+   indicator without these. env() is 0 on desktop, so they are no-ops there. */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.bottom-safe-4 { bottom: calc(1rem + env(safe-area-inset-bottom)); }
+.bottom-safe-6 { bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+/* Room under page content for the floating translator/timer buttons */
+.pb-floating { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+
 /* Horizontal nav scrolling on phones — keep the swipe, hide the scrollbar */
 .no-scrollbar {
   scrollbar-width: none;

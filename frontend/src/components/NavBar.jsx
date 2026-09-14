@@ -151,8 +151,15 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
     return location.pathname.startsWith(to) && to !== '/'
   }
 
+  // Two siblings instead of one sticky <nav>: on a phone the grouped links
+  // wrap to ~5 rows, and a sticky block that tall covered a third of the
+  // screen on every page. Now only the header (stats, theme, quick-add)
+  // sticks on phones; the links stay fully visible at the top of each page
+  // (P3-1 still holds — nothing moves behind a menu) and scroll away with it.
+  // From `md` up the links fit in 1–2 rows and stick right under the header.
   return (
-    <nav className="dark:bg-gray-900 bg-white dark:border-b dark:border-gray-800 border-b border-gray-200 sticky top-0 z-50">
+    <>
+    <header className="dark:bg-gray-900 bg-white sticky top-0 z-50 pt-safe">
       {/* Daily progress bar */}
       <div className="h-1 dark:bg-gray-800 bg-gray-200 w-full">
         <div
@@ -256,7 +263,11 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
             )}
           </div>
         </div>
+      </div>
+    </header>
 
+    <nav className="dark:bg-gray-900 bg-white dark:border-b dark:border-gray-800 border-b border-gray-200 md:sticky md:top-[68px] md:z-40">
+      <div className="max-w-6xl mx-auto px-4">
         {/* All functions, grouped, with permanent text labels — nothing here
             is hidden behind a breakpoint, a hover, or a menu that has to be
             opened first. Wraps to more lines on narrow screens instead of
@@ -286,5 +297,6 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
         </div>
       </div>
     </nav>
+    </>
   )
 }

@@ -516,8 +516,8 @@ export default function Flashcards() {
         {packMsg && <span className="text-gray-400">{packMsg}</span>}
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 mb-4">
+      {/* Tabs — wrap on phones (4 buttons overflowed a 375px screen) */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         {[
           { key: TABS.DUE, label: `${t('flash.dueTab')} (${dueCards.length})`, icon: <Clock className="w-4 h-4" /> },
           { key: TABS.ALL, label: `${t('flash.allTab')} (${allCards.length})`, icon: <Eye className="w-4 h-4" /> },
