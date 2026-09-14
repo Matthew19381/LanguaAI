@@ -22,8 +22,27 @@ export default function UnlockGate({ children }) {
     const onLocked = () => setLocked(true)
     window.addEventListener('app-locked', onLocked)
 
+    // A link with ?token=... unlocks automatically — no retyping the long
+    // shared secret on a phone keyboard. Used for the one-tap link sent to
+    // a new device instead of the manual-entry form below.
+    const urlToken = new URLSearchParams(window.location.search).get('token')
+
     getAuthStatus()
-      .then(s => setLocked(s.gate_enabled && !s.unlocked))
+      .then(async (s) => {
+        if (s.gate_enabled && !s.unlocked && urlToken) {
+          try {
+            await unlockApp(urlToken)
+            // Strip the token from the URL/history before reloading so it
+            // never lingers in browser history or gets shared accidentally.
+            window.history.replaceState({}, '', window.location.pathname)
+            window.location.reload()
+            return
+          } catch {
+            // Bad/expired token in the link — fall through to the manual form.
+          }
+        }
+        setLocked(s.gate_enabled && !s.unlocked)
+      })
       .catch(() => {}) // offline or gate unreachable — let the app render
 
     return () => window.removeEventListener('app-locked', onLocked)
