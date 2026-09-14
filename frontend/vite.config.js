@@ -122,6 +122,7 @@ export default defineConfig({
   preview: {
     port: 4173,
     host: true,
+    allowedHosts: ['desktop-h6abdhd.tail081a9d.ts.net'],
     proxy: {
       '/api': {
         target: process.env.VITE_API_URL || 'http://localhost:8001',
