@@ -4,6 +4,35 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-09-14 — Fix: mojibake polskich/niemieckich/francuskich znaków + porządki repo
+
+**Problem:** Poprawka z gałęzi `linguaai/polskie-znaki` nigdy nie trafiła na `master` (zmiana
+została niezacommitowana w worktree). W UI widniało „Ĺadowanie…" zamiast „Ładowanie…" (9 kluczy
+w `translations.js`), a przyciski znaków specjalnych w Konwersacji dla niemieckiego i francuskiego
+wstawiały śmieci (`Ă¤` zamiast `ä`) — UTF-8 zapisany kiedyś jako cp1250.
+
+**Rozwiązanie / Zmiany:**
+- `frontend/src/i18n/translations.js`: `Ĺ` → `Ł` (9 kluczy), usunięty BOM.
+- `frontend/src/pages/Conversation.jsx`: poprawne tablice `CONV_SPECIAL_CHARS` dla German/French.
+- `.gitignore`: `.worktrees/` (lokalne worktree agentów).
+- Weryfikacja: 116/116 frontend vitest; skan wszystkich śledzonych plików — zero pozostałych wzorców mojibake.
+- `alembic current` = `9792016c36df (head)` — rozjazd rewizji opisany w `docs/DONE_CHECKLIST.md` (G0) już nie występuje.
+
+---
+
+## 2026-09-02 … 2026-09-14 — Zbiorczy wpis (commity bez wpisu w CHANGELOG)
+
+- `2ccbd78` `UnlockGate.jsx`: automatyczne odblokowanie parametrem `?token=` (link jednym tapnięciem na nowe urządzenie).
+- `8c8a5b7` `vite.config.js`: dozwolony hostname Tailscale dla `vite preview` (testy na telefonie).
+- `357ac3b` `Practice.jsx`: `useEffect` podświetlania odpowiedzi przeniesiony przed wczesne `return` (naruszenie rules-of-hooks).
+- `c52ba20` `model_router.py`: `TASK_TIER_FLOOR` — generowanie lekcji zawsze w tierze `best` (Claude przez OpenRouter), `claude-sonnet-4.6` → `claude-sonnet-5`; +8 testów.
+- `ffb0c8e` UX: autoscroll po wstawieniu znaku specjalnego, „dodaj do fiszek" przy zdaniach/dialogach lekcji, usunięta martwa ścieżka multiple-choice w `Practice.jsx`.
+- `070acb5` `model_router.py`: tier `free` używa Nemotron zamiast Gemma dla lesson/conversation.
+- `9ece800` `docs/DONE_CHECKLIST.md`: bramki weryfikacji G0–G7 (+ zmiany ćwiczeń w `exercise*.py`, `Practice.jsx`).
+- `6f02f1d` `index.css`: kontrast trybu jasnego (WCAG) — obramowania inputów, badge, pasek postępu, scrollbar.
+
+---
+
 ## 2026-08-26 — Fix: Alembic CWD isolation (`alembic_wrapper.py`)
 
 **Problem:** Agent uruchamiał `alembic revision` z kanban workspace zamiast z roota projektu,

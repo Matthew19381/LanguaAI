@@ -1,4 +1,4 @@
-﻿const translations = {
+const translations = {
   pl: {
     // NavBar
     'nav.home': 'Główna',
@@ -107,7 +107,7 @@
 
     // Stats
     'stats.title': 'Statystyki',
-    'stats.loading': 'Ĺadowanie statystyk...',
+    'stats.loading': 'Ładowanie statystyk...',
     'stats.level': 'Poziom',
     'stats.streak': 'Seria',
     'stats.days': 'dni',
@@ -203,7 +203,7 @@
 
     // Flashcards
     'flash.title': 'Fiszki',
-    'flash.loading': 'Ĺadowanie fiszek...',
+    'flash.loading': 'Ładowanie fiszek...',
     'flash.total': 'łącznie',
     'flash.dueToday': 'na dziś',
     'flash.exportAnki': 'Eksportuj do Anki',
@@ -257,7 +257,7 @@
     'flash.again': 'Jeszcze raz',
     'flash.hard': 'Trudna',
     'flash.good': 'Dobra',
-    'flash.easy': 'Ĺatwa',
+    'flash.easy': 'Łatwa',
     'flash.previous': 'Poprzednia',
     'flash.next': 'Następna',
     'flash.reveal': 'Odkryj',
@@ -265,7 +265,7 @@
 
     // QuickMode
     'quick.title': 'Tryb 15-minutowy',
-    'quick.loading': 'Ĺadowanie trybu szybkiego...',
+    'quick.loading': 'Ładowanie trybu szybkiego...',
     'quick.activities': 'aktywności',
     'quick.estimated': 'szacowanych min',
     'quick.start': 'Start',
@@ -294,7 +294,7 @@
     // Pronunciation
     'pronun.title': 'Trener wymowy',
     'pronun.subtitle': 'Nagraj siebie i uzyskaj natychmiastową informację zwrotną',
-    'pronun.loading': 'Ĺadowanie trenera wymowy...',
+    'pronun.loading': 'Ładowanie trenera wymowy...',
     'pronun.fromLessons': 'Z lekcji',
     'pronun.customPhrase': 'Własna fraza',
     'pronun.enterPhrase': 'Wpisz frazę do ćwiczenia...',
@@ -348,7 +348,7 @@
     'place.tellUs': 'Powiedz nam o sobie',
 
     // Home
-    'home.loadingDashboard': 'Ĺadowanie pulpitu...',
+    'home.loadingDashboard': 'Ładowanie pulpitu...',
     'home.welcomeBack': 'Witaj z powrotem,',
     'home.learner': 'Uczniu',
     'home.learning': 'Uczysz się',
@@ -380,7 +380,7 @@
     'home.startTest': 'Zacznij test plasujący',
 
     // DailyTest
-    'test.loading': 'Ĺadowanie dziennego testu...',
+    'test.loading': 'Ładowanie dziennego testu...',
     'test.couldNotLoad': 'Nie można załadować testu',
     'test.tryAgain': 'Spróbuj ponownie',
     'test.goToLesson': 'Przejdź do dzisiejszej lekcji',
@@ -472,7 +472,7 @@
     'history.day': 'Dzień',
     'history.score': 'Wynik',
     'history.noHistory': 'Brak historii lekcji',
-    'history.loading': 'Ĺadowanie historii...',
+    'history.loading': 'Ładowanie historii...',
 
     // Achievements (Polish translations)
     'ach.first_lesson.title': 'Pierwszy krok',
@@ -501,7 +501,7 @@
     'ach.tests_10.desc': 'Ukończono 10 testów',
     'ach.xp_100.title': 'Kolekcjoner XP',
     'ach.xp_100.desc': 'Zdobyto 100 XP',
-    'ach.xp_500.title': 'Ĺowca XP',
+    'ach.xp_500.title': 'Łowca XP',
     'ach.xp_500.desc': 'Zdobyto 500 XP',
     'ach.xp_1000.title': 'Legenda XP',
     'ach.xp_1000.desc': 'Zdobyto 1000 XP',

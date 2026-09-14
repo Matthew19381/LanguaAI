@@ -85,3 +85,6 @@ test-results/
 frontend/,
 frontend/r.json()))
 day_start
+
+# Lokalne worktree agentow (git worktree add .worktrees/...)
+.worktrees/
