@@ -4,6 +4,28 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-09-14 — Fix: brakujące kolumny `exercises` (QuickMode 500, „pusty" bank ćwiczeń) + mobile cz. 2
+
+**Problem:** Commit `9ece800` dodał do modelu `Exercise` kolumny `first_attempt_incorrect` i
+`first_attempt_incorrect_date` bez rewizji Alembica. Na realnej bazie każde zapytanie o ćwiczenia
+kończyło się `no such column` → `GET /api/quickmode/{id}` = 500, a strona Ćwiczenia pokazywała
+„Twój bank ćwiczeń jest pusty" mimo 317 ćwiczeń w bazie. Testy tego nie łapały (`create_all`).
+Dodatkowo audyt mobilny z włączonym AI: nagłówek Lekcji rozpychał stronę do 444 px, a czat
+Konwersacji miał wysokość liczoną od 64 px i `scrollIntoView` przewijał całe okno.
+
+**Rozwiązanie / Zmiany:**
+- `backend/alembic/versions/39248ae77a0a_*.py`: nowa rewizja (autogenerate + ręcznie dodany
+  `server_default=false()` — SQLite nie doda kolumny NOT NULL do istniejących wierszy bez niego).
+  Zweryfikowane na kopii bazy: 317 wierszy zachowane, QuickMode 200, Ćwiczenia 10 zadań do powtórki.
+  **Realna baza zmigruje się przy następnym starcie backendu** (`alembic upgrade head` w lifespan).
+- `backend/tests/conftest.py`: `APP_ACCESS_TOKEN=""` — token z `.env` dewelopera zamieniał całą suitę w 401.
+- `DailyLesson.jsx`: nagłówek w kolumnie na telefonie, zawijane przyciski.
+- `Conversation.jsx`: wysokość czatu `100dvh-68px`, przewijanie tylko listy wiadomości, zawijany nagłówek scenariusza.
+- Sprawdzone na 375 px z realnym AI: Lekcja, Test, Newsy, Konwersacja, Filmy, Wymowa, Czytaj,
+  Timer, Ustawienia, Ćwiczenia — bez poziomego przewijania. 526/526 pytest, 116/116 vitest.
+
+---
+
 ## 2026-09-14 — Fix: wersja mobilna (audyt 375 px)
 
 **Problem:** Audyt w widoku telefonu (375×812, kopia bazy, 9 ekranów) wykazał:

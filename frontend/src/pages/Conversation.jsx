@@ -81,7 +81,12 @@ export default function Conversation() {
   }, [userId])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Scroll only the message list. scrollIntoView() also scrolled the whole
+    // window, which on a phone pushed the scenario header under the sticky
+    // app header on every new message.
+    const list = messagesEndRef.current?.parentElement
+    // Optional call: jsdom (vitest) doesn't implement Element.scrollTo.
+    list?.scrollTo?.({ top: list.scrollHeight, behavior: 'smooth' })
   }, [messages])
 
   const handleStart = async () => {
@@ -466,10 +471,12 @@ export default function Conversation() {
 
   if (mode === MODES.CHAT) {
     return (
-      <div className="max-w-2xl mx-auto flex flex-col h-[calc(100vh-64px)]">
+      // Height = viewport minus the sticky app header (68px, NavBar.jsx);
+      // dvh so the input stays above the mobile browser's collapsing toolbar.
+      <div className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-68px)]">
         <div className="bg-gray-900 border-b border-gray-800 p-4">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="basis-full sm:basis-0 sm:flex-1 min-w-0">
               <h2 className="font-semibold">{scenario?.scenario}</h2>
               <p className="text-gray-400 text-sm">
                 {t('conv.you')}: {scenario?.user_role} | {t('conv.ai')}: {scenario?.ai_role}

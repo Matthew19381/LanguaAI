@@ -453,8 +453,10 @@ export default function DailyLesson() {
   return (
     <div className="page-container">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
+      {/* Stacks on phones: five action buttons next to the title squeezed it
+          to one word per line and pushed the page to 444px wide at 375px. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6">
+        <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="badge-blue">{t('lesson.day')} {lesson.day_number}</span>
             {completed && <span className="badge-green flex items-center gap-1">
@@ -464,7 +466,7 @@ export default function DailyLesson() {
           <h1 className="text-2xl font-bold">{lesson.title}</h1>
           <p className="text-gray-400 mt-1">{lesson.topic}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             onClick={() => navigate('/lesson/history')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition-colors"
