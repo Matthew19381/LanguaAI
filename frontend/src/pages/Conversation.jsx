@@ -443,7 +443,7 @@ export default function Conversation() {
                                 {err.type}
                               </span>
                               <span className={`${isCritical ? 'text-red-400' : 'text-yellow-400'} line-through`}>{err.question}</span>
-                              <span className="text-gray-500">â†’</span>
+                              <span className="text-gray-500">→</span>
                               <span className="text-emerald-400">{err.correct_answer}</span>
                             </div>
                             {err.explanation && <p className="text-gray-500 text-xs">{err.explanation}</p>}
@@ -457,7 +457,7 @@ export default function Conversation() {
                   <div className="bg-indigo-900/20 border border-indigo-700/30 rounded-lg p-3">
                     <p className="text-xs font-semibold text-indigo-400 mb-1">Rekomendacje:</p>
                     {pasteResult.recommendations.map((r, i) => (
-                      <p key={i} className="text-gray-300 text-sm">â€˘ {r}</p>
+                      <p key={i} className="text-gray-300 text-sm">• {r}</p>
                     ))}
                   </div>
                 )}
@@ -471,9 +471,12 @@ export default function Conversation() {
 
   if (mode === MODES.CHAT) {
     return (
-      // Height = viewport minus the sticky app header (68px, NavBar.jsx);
+      // Height = viewport minus the sticky app header (68px, NavBar.jsx) and
+      // the 5rem bottom room Layout keeps for the floating translator/timer —
+      // otherwise the page scrolled 80px too far (chat top under the header)
+      // and the translator button sat on top of the message input.
       // dvh so the input stays above the mobile browser's collapsing toolbar.
-      <div className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-68px)]">
+      <div className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-68px-5rem)]">
         <div className="bg-gray-900 border-b border-gray-800 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="basis-full sm:basis-0 sm:flex-1 min-w-0">
@@ -601,6 +604,8 @@ export default function Conversation() {
               className="btn-primary px-4 flex items-center justify-center"
               onClick={() => handleSend()}
               disabled={!inputText.trim() || aiTyping}
+              aria-label="Wyślij"
+              title="Wyślij"
             >
               <Send className="w-4 h-4" />
             </button>
@@ -644,7 +649,7 @@ export default function Conversation() {
             <ul className="space-y-1">
               {analysis.strengths.map((s, i) => (
                 <li key={i} className="text-gray-300 text-sm flex gap-2">
-                  <span className="text-emerald-500">âś“</span> {s}
+                  <span className="text-emerald-500">✓</span> {s}
                 </li>
               ))}
             </ul>
@@ -665,7 +670,7 @@ export default function Conversation() {
                       </span>
                       {err.type && <span className="text-xs text-gray-500">{err.type}</span>}
                       <span className={`${isCritical ? 'text-red-400' : 'text-yellow-400'} line-through`}>{err.question || err.original}</span>
-                      <span className="text-gray-500">â†’</span>
+                      <span className="text-gray-500">→</span>
                       <span className="text-emerald-400">{err.correct_answer || err.correction}</span>
                     </div>
                     {err.explanation && <p className="text-gray-500 text-xs">{err.explanation}</p>}
@@ -682,7 +687,7 @@ export default function Conversation() {
             <ul className="space-y-2">
               {analysis.recommendations.map((r, i) => (
                 <li key={i} className="text-gray-300 text-sm flex gap-2">
-                  <span className="text-indigo-400 shrink-0">â€˘</span> {r}
+                  <span className="text-indigo-400 shrink-0">•</span> {r}
                 </li>
               ))}
             </ul>

@@ -67,7 +67,7 @@ _UI_EN = {
     "quick.activities": "activities", "quick.estimated": "min estimated",
     "quick.start": "Start", "quick.pause": "Pause",
     "quick.timeUp": "Time's up! Great session!", "quick.allDone": "All done! Amazing session!",
-    "quick.completed15min": "You've completed your 15-minute daily practice.", "quick.go": "Go â†’",
+    "quick.completed15min": "You've completed your 15-minute daily practice.", "quick.go": "Go →",
     "news.title": "News in Target Language", "news.subtitle": "Simplified articles at your CEFR level",
     "news.loading": "Loading news articles...", "news.noArticles": "No articles available. Please try again later.",
     "news.simplified": "Simplified Article", "news.vocabulary": "Key Vocabulary",

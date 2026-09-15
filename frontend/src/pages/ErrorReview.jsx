@@ -188,13 +188,13 @@ ${voiceChatText.trim()}`
                       {err.question && (
                         <p className="text-gray-300 text-xs mb-2 font-medium">{err.question}</p>
                       )}
-                      {/* User answer â†’ Correct answer */}
+                      {/* User answer → Correct answer */}
                       <div className="flex items-center gap-3 flex-wrap mb-2">
                         <div>
                           <span className="text-gray-500 text-xs">Twoja odpowiedź: </span>
-                          <span className="text-red-400 font-medium text-sm line-through">{err.user_answer || 'â€”'}</span>
+                          <span className="text-red-400 font-medium text-sm line-through">{err.user_answer || '—'}</span>
                         </div>
-                        <span className="text-gray-600">â†’</span>
+                        <span className="text-gray-600">→</span>
                         <div className="flex items-center gap-1">
                           <span className="text-gray-500 text-xs">Poprawna: </span>
                           <span className="text-emerald-400 font-medium text-sm">{err.correct_answer}</span>
@@ -242,7 +242,7 @@ ${voiceChatText.trim()}`
                             ) : (
                               <div className="flex items-center gap-2">
                                 <p className={`text-xs font-medium ${ps.correct ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {ps.correct ? 'âś“ Dobrze!' : `âś— Poprawna: ${err.correct_answer}`}
+                                  {ps.correct ? '✓ Dobrze!' : `✗ Poprawna: ${err.correct_answer}`}
                                 </p>
                                 <button
                                   onClick={() => setPracticeState(prev => ({ ...prev, [pk]: {} }))}

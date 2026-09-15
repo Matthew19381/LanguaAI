@@ -48,10 +48,10 @@ export default function NotificationManager() {
   function sendNotif() {
     if (Notification.permission !== 'granted') return
     const messages = [
-      "Time for your daily language lesson! 📚",
-      "Don't break your streak! Practice today 🔥",
-      "Your language skills are waiting for you! 🌍",
-      "15 minutes of practice keeps your streak alive! ⚡",
+      'Czas na dzisiejszą lekcję! 📚',
+      'Nie przerywaj serii — poćwicz dziś 🔥',
+      'Twój język czeka na Ciebie! 🌍',
+      '15 minut ćwiczeń podtrzyma Twoją serię! ⚡',
     ]
     const msg = messages[Math.floor(Math.random() * messages.length)]
     new Notification('LinguaAI', {
@@ -74,9 +74,9 @@ export function NotificationSettings() {
     if ('Notification' in window) {
       const result = await Notification.requestPermission()
       if (result === 'granted') {
-        alert('Notifications enabled!')
+        alert('Powiadomienia włączone!')
       } else {
-        alert('Notifications blocked. Please enable them in your browser settings.')
+        alert('Powiadomienia zablokowane. Włącz je w ustawieniach przeglądarki.')
       }
     }
   }
@@ -87,11 +87,11 @@ export function NotificationSettings() {
     <div className="card mb-6">
       <h2 className="section-title flex items-center gap-2 mb-4">
         <span>🔔</span>
-        Daily Reminder
+        Codzienne przypomnienie
       </h2>
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
-          <label className="text-gray-400 text-sm w-32">Reminder time:</label>
+          <label className="text-gray-400 text-sm w-32">Godzina:</label>
           <select
             defaultValue={hour}
             onChange={handleChange}
@@ -110,16 +110,16 @@ export function NotificationSettings() {
             permissionStatus === 'granted' ? 'text-emerald-400' :
             permissionStatus === 'denied' ? 'text-red-400' : 'text-yellow-400'
           }`}>
-            {permissionStatus === 'granted' ? 'Enabled' :
-             permissionStatus === 'denied' ? 'Blocked' :
-             permissionStatus === 'unsupported' ? 'Not supported' : 'Not set'}
+            {permissionStatus === 'granted' ? 'Włączone' :
+             permissionStatus === 'denied' ? 'Zablokowane' :
+             permissionStatus === 'unsupported' ? 'Nieobsługiwane' : 'Nie ustawiono'}
           </span>
           {permissionStatus !== 'granted' && permissionStatus !== 'unsupported' && (
             <button
               onClick={requestPermission}
               className="btn-primary text-xs py-1 px-3"
             >
-              Enable
+              Włącz
             </button>
           )}
         </div>

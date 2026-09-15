@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import feedparser
@@ -131,17 +132,20 @@ Return JSON:
 
 async def get_news_for_user(language: str, cefr_level: str, native_language: str, limit: int = 5) -> list:
     """Fetch and simplify news articles for the user."""
-    raw_articles = fetch_articles(language, limit=limit + 5)
+    # feedparser.parse() downloads the feeds synchronously — run it in a thread
+    # so it doesn't block every other request while RSS loads.
+    raw_articles = await asyncio.to_thread(fetch_articles, language, limit + 5)
     if not raw_articles:
         # Fallback: generate sample news via Gemini
         return await _generate_sample_news(language, cefr_level, native_language, limit)
 
-    results = []
-    for article in raw_articles[:limit]:
-        simplified = await simplify_article(article, cefr_level, native_language, language)
-        results.append(simplified)
-
-    return results
+    # One AI call per article, run concurrently: awaiting them one after another
+    # made the first load of the News page take ~40 s on a phone.
+    # simplify_article() never raises (it falls back to the raw article).
+    return list(await asyncio.gather(*(
+        simplify_article(article, cefr_level, native_language, language)
+        for article in raw_articles[:limit]
+    )))
 
 
 @with_model("news")

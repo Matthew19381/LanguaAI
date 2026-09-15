@@ -451,8 +451,10 @@ export const getDueTopics = (userId, language, limit = 20) =>
 export const getTopicStats = (userId, language) =>
   api.get(`/topics/${userId}/stats`, language ? { params: { language } } : {})
 
-export const getTopicDetail = (topicId) =>
-  api.get(`/topics/detail/${topicId}`)
+// The endpoint requires user_id (ownership check) — without it every topic
+// detail request was a 422 and the Knowledge Bank showed "topic not found".
+export const getTopicDetail = (topicId, userId = getUserId()) =>
+  api.get(`/topics/detail/${topicId}`, { params: { user_id: userId } })
 
 // Backend ReviewRequest requires user_id in the body — without it the FSRS topic
 // review 422s and never applies. Default to the stored id so callers stay simple.

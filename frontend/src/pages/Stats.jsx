@@ -128,7 +128,7 @@ export default function Stats() {
   }
 
   const CATEGORY_ADVICE = {
-    grammar: 'Popracuj nad zasadami gramatycznymi â€” deklinacje, koniugacje, czasy gramatyczne.',
+    grammar: 'Popracuj nad zasadami gramatycznymi — deklinacje, koniugacje, czasy gramatyczne.',
     vocabulary: 'Rozszerz słownictwo — ucz się nowych słów w kontekście zdań.',
     word_order: 'Ćwicz szyk zdania — zwróć uwagę na kolejność słów w zdaniach podrzędnych.',
     articles: 'Ucz się rodzajników i rodzaju gramatycznego rzeczowników na pamięć.',
@@ -151,7 +151,7 @@ export default function Stats() {
       id: 'grammar_group',
       label: 'Gramatyka',
       color: 'purple',
-      icon: 'đź“',
+      icon: '📐',
       keys: ['grammar', 'word_order', 'articles', 'verb_conjugation', 'prepositions', 'case', 'syntax'],
       advice: 'Skup się na zasadach gramatycznych: odmiana czasowników, przypadki, szyk zdania. Ćwicz ćwiczenia gramatyczne z lekcji i zaglądaj do wyjaśnień.',
     },
@@ -159,7 +159,7 @@ export default function Stats() {
       id: 'comprehension_group',
       label: 'Rozumienie',
       color: 'blue',
-      icon: 'đź“–',
+      icon: '📖',
       keys: ['comprehension', 'vocabulary', 'application'],
       advice: 'Zwiększ ekspozycję na język — czytaj, słuchaj, oglądaj. Dodawaj nowe słówka do fiszek i powtarzaj je regularnie.',
     },
@@ -167,7 +167,7 @@ export default function Stats() {
       id: 'pronunciation_group',
       label: 'Wymowa',
       color: 'emerald',
-      icon: 'đźŽ™ď¸Ź',
+      icon: '🎙️',
       keys: ['pronunciation', 'pronunciation_spelling', 'spelling'],
       advice: 'Słuchaj native speakerów i naśladuj. Korzystaj z zakładki Wymowa — nagrywaj się i analizuj różnice.',
     },
@@ -175,7 +175,7 @@ export default function Stats() {
       id: 'conversation_group',
       label: 'Rozmowa',
       color: 'yellow',
-      icon: 'đź’¬',
+      icon: '💬',
       keys: ['fluency', 'register', 'conversation', 'unknown'],
       advice: 'Mów regularnie — nie bój się błędów. Korzystaj z zakładki Mów: rozmawiaj z AI na różne tematy, proś o korektę.',
     },
@@ -188,7 +188,7 @@ export default function Stats() {
         <BarChart3 className="w-7 h-7 text-blue-400" />
         <div>
           <h1 className="text-2xl font-bold">{t('stats.title')}</h1>
-          <p className="text-gray-400">{user?.name} Â· {LANG_NAMES_PL[user?.target_language] || user?.target_language} Â· {user?.cefr_level}</p>
+          <p className="text-gray-400">{user?.name} · {LANG_NAMES_PL[user?.target_language] || user?.target_language} · {user?.cefr_level}</p>
         </div>
       </div>
 
@@ -201,7 +201,7 @@ export default function Stats() {
           <div className="flex-1">
             <h2 className="text-xl font-bold">{level_info?.level_name}</h2>
             <p className="text-gray-400 text-sm">
-              {t('stats.level')} {level_info?.level}/{level_info?.max_level || 50} Â·{' '}
+              {t('stats.level')} {level_info?.level}/{level_info?.max_level || 50} ·{' '}
               {level_info?.xp} / {level_info?.next_level_xp} XP
             </p>
             <div className="progress-bar mt-2">
@@ -310,7 +310,7 @@ export default function Stats() {
                 </div>
                 <span className="text-xs text-gray-600">{lesson.date}</span>
                 {lesson.completed && (
-                  <div className="w-4 h-4 text-emerald-400">âś“</div>
+                  <div className="w-4 h-4 text-emerald-400">✓</div>
                 )}
               </Link>
             ))}
@@ -566,7 +566,7 @@ export default function Stats() {
                 </div>
                 <p className="text-gray-300 text-sm leading-relaxed">{tip.content}</p>
                 {tip.source && (
-                  <p className="text-gray-500 text-xs mt-2 italic">â€” {tip.source}</p>
+                  <p className="text-gray-500 text-xs mt-2 italic">— {tip.source}</p>
                 )}
               </div>
             ))}
@@ -633,7 +633,7 @@ function ErrorCategoriesCard({ error_categories, error_examples, CATEGORY_LABELS
                   </span>
                   <span className="flex items-center gap-2">
                     {groupCount === 0 && <span className="text-xs text-emerald-500">✓ brak błędów</span>}
-                    <span className="text-gray-600 text-xs">{isOpen ? 'â–˛' : 'â–Ľ'}</span>
+                    <span className="text-gray-600 text-xs">{isOpen ? '▲' : '▼'}</span>
                   </span>
                 </div>
                 {groupCount > 0 && (
@@ -645,7 +645,7 @@ function ErrorCategoriesCard({ error_categories, error_examples, CATEGORY_LABELS
 
               {isOpen && (
                 <div className="px-3 pb-3 space-y-2 border-t border-gray-700/30 pt-2">
-                  <p className="text-xs text-indigo-300 italic">đź’ˇ {group.advice}</p>
+                  <p className="text-xs text-indigo-300 italic">💡 {group.advice}</p>
                   {subEntries.length > 0 && (
                     <div className="space-y-1.5 mt-2">
                       {subEntries.map(key => {
@@ -663,7 +663,7 @@ function ErrorCategoriesCard({ error_categories, error_examples, CATEGORY_LABELS
                                 <span className="flex items-center gap-1">
                                   {CATEGORY_LABELS[key] || key}
                                   {(examples.length > 0 || CATEGORY_ADVICE[key]) && (
-                                    <span className="text-gray-600">{isSubOpen ? 'â–˛' : 'â–Ľ'}</span>
+                                    <span className="text-gray-600">{isSubOpen ? '▲' : '▼'}</span>
                                   )}
                                 </span>
                                 <span className="text-gray-600">{count} ({subPct}%)</span>
@@ -676,13 +676,13 @@ function ErrorCategoriesCard({ error_categories, error_examples, CATEGORY_LABELS
                               <div className="mt-1 pl-2 space-y-1">
                                 {examples.map((ex, ei) => (
                                   <div key={ei} className="text-xs text-gray-500 flex gap-2">
-                                    <span className="text-red-400 shrink-0">âś—</span>
+                                    <span className="text-red-400 shrink-0">✗</span>
                                     <span className="truncate">{ex.question}</span>
-                                    {ex.correct && <span className="text-emerald-500 shrink-0">â†’ {ex.correct}</span>}
+                                    {ex.correct && <span className="text-emerald-500 shrink-0">→ {ex.correct}</span>}
                                   </div>
                                 ))}
                                 {CATEGORY_ADVICE[key] && (
-                                  <p className="text-xs text-gray-500 italic">â†’ {CATEGORY_ADVICE[key]}</p>
+                                  <p className="text-xs text-gray-500 italic">→ {CATEGORY_ADVICE[key]}</p>
                                 )}
                               </div>
                             )}
@@ -744,7 +744,7 @@ function ConceptsCard({ userId, t }) {
           <BookOpen className="w-5 h-5 text-teal-400" />
           Koncepcje gramatyczne z ostatniej lekcji
         </h2>
-        <span className="text-gray-600 text-xs">{open ? 'â–˛' : 'â–Ľ'}</span>
+        <span className="text-gray-600 text-xs">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
@@ -777,7 +777,7 @@ function ConceptsCard({ userId, t }) {
                             className={`shrink-0 text-xs px-2 py-1 rounded transition-colors ${addedIdxs.has(i) ? 'bg-emerald-700/30 text-emerald-400' : 'bg-gray-700 hover:bg-teal-700/40 text-gray-400 hover:text-teal-300'}`}
                             title="Dodaj do fiszek"
                           >
-                            {addedIdxs.has(i) ? 'âś“' : addingIdx === i ? '...' : '+'}
+                            {addedIdxs.has(i) ? '✓' : addingIdx === i ? '...' : '+'}
                           </button>
                         </div>
                       </div>
@@ -848,11 +848,11 @@ function TodayCompletion({ stats }) {
   ) || tabs.includes('test')
 
   const activities = [
-    { key: 'lesson', label: 'Lekcja', icon: 'đź“š', done: lessonDoneToday },
-    { key: 'test', label: 'Test', icon: 'đź“ť', done: testDoneToday },
-    { key: 'conversation', label: 'Rozmowa', icon: 'đź’¬', done: tabs.includes('conversation') },
-    { key: 'flashcards', label: 'Fiszki', icon: 'đźŽ´', done: tabs.includes('flashcards') },
-    { key: 'news', label: 'Newsy/Wymowa', icon: 'đź“°', done: tabs.includes('news') || tabs.includes('pronunciation') || tabs.includes('videos') },
+    { key: 'lesson', label: 'Lekcja', icon: '📚', done: lessonDoneToday },
+    { key: 'test', label: 'Test', icon: '📝', done: testDoneToday },
+    { key: 'conversation', label: 'Rozmowa', icon: '💬', done: tabs.includes('conversation') },
+    { key: 'flashcards', label: 'Fiszki', icon: '🎴', done: tabs.includes('flashcards') },
+    { key: 'news', label: 'Newsy/Wymowa', icon: '📰', done: tabs.includes('news') || tabs.includes('pronunciation') || tabs.includes('videos') },
   ]
 
   const doneCount = activities.filter(a => a.done).length
@@ -876,7 +876,7 @@ function TodayCompletion({ stats }) {
           }`}>
             <span className="text-xl">{act.icon}</span>
             <span className={`text-xs font-medium ${act.done ? 'text-emerald-400' : 'text-gray-500'}`}>{act.label}</span>
-            <span className={`text-xs ${act.done ? 'text-emerald-400' : 'text-gray-600'}`}>{act.done ? 'âś“' : 'â€”'}</span>
+            <span className={`text-xs ${act.done ? 'text-emerald-400' : 'text-gray-600'}`}>{act.done ? '✓' : '—'}</span>
           </div>
         ))}
       </div>
@@ -908,7 +908,7 @@ function LessonPlanCard({ plan, currentLesson }) {
           <BookOpen className="w-5 h-5 text-blue-400" />
           Plan nauki
         </h2>
-        <span className="text-gray-500 text-sm">{expanded ? 'â–˛' : 'â–Ľ'}</span>
+        <span className="text-gray-500 text-sm">{expanded ? '▲' : '▼'}</span>
       </button>
       {expanded && (
         <div className="mt-4 space-y-4">
@@ -927,7 +927,7 @@ function LessonPlanCard({ plan, currentLesson }) {
                       <span className="text-gray-600 shrink-0 w-16 text-xs">Dzień {day.day || di + 1}</span>
                       <div className="flex-1">
                         <span className="text-gray-300">{day.grammar_topic || day.topic || day.title || ''}</span>
-                        {day.vocabulary_theme && <span className="text-gray-500 text-xs ml-2">Â· {day.vocabulary_theme}</span>}
+                        {day.vocabulary_theme && <span className="text-gray-500 text-xs ml-2">· {day.vocabulary_theme}</span>}
                       </div>
                     </div>
                   ))}
@@ -941,7 +941,7 @@ function LessonPlanCard({ plan, currentLesson }) {
                   <span className="text-gray-600 shrink-0 w-16 text-xs">Dzień {day.day}</span>
                   <div className="flex-1">
                     <span className="text-gray-300">{day.grammar_topic}</span>
-                    {day.vocabulary_theme && <span className="text-gray-500 text-xs ml-2">Â· {day.vocabulary_theme}</span>}
+                    {day.vocabulary_theme && <span className="text-gray-500 text-xs ml-2">· {day.vocabulary_theme}</span>}
                   </div>
                 </div>
               ))}

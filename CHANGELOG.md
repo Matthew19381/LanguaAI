@@ -4,6 +4,30 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-09-15 — Fix: przegląd całej aplikacji na telefonie (konto 11, kopia bazy, realne AI)
+
+**Sprawdzone funkcjonalnie na 375 px:** Fiszki (odkryj/ocena/licznik), Ćwiczenia (odpowiedź/następne),
+Dyktando (diff), Powtórz na głos, Newsy (artykuł, zaznaczanie słowa → fiszka zapisana), Bank wiedzy
+(szczegół tematu, generowanie fiszek), Konwersacja (wysłanie wiadomości, odpowiedź AI), Timer,
+Statystyki, Błędy, Historia, Filmy, Wymowa (UI), Profil, Ustawienia. Backend bez błędów w logach.
+
+**Znalezione i naprawione:**
+- Bank wiedzy: każdy szczegół tematu kończył się „Nie znaleziono tematu" — `getTopicDetail` nie wysyłał
+  wymaganego `user_id` (422). `frontend/src/api/client.js`.
+- Mojibake (UTF-8 zapisany jako cp1250) w 5 plikach: `Stats.jsx` (31 miejsc — „Â·", „đź“š", „âś“"),
+  `ErrorReview.jsx`, `Conversation.jsx`, `translations.js` (🎉 🎊 →), `backend/routers/settings.py`.
+  Skan wszystkich śledzonych plików — zero pozostałości (poza celowym przykładem w CHANGELOG).
+- Ćwiczenia: 5 kluczy i18n brakowało w `pl` → „Check", „Your answer…", „Correct!" po angielsku. Skan 403 kluczy.
+- Ustawienia: panel przypomnień (`NotificationManager.jsx`) w całości po angielsku → polski.
+- Newsy ładowały się ~40 s: 5 wywołań AI po kolei + blokujący `feedparser` w pętli zdarzeń.
+  `news_service.py`: `asyncio.gather` + `asyncio.to_thread`.
+- Konwersacja: wysokość czatu uwzględnia dolny odstęp na przyciski pływające (strona przewijała się 80 px
+  za daleko, „Tłumacz" nachodził na pole wiadomości); przycisk wysyłania dostał `aria-label`.
+- Timer: pływający licznik na telefonie mniejszy (180×64 → 118×48 px) — nagłówek i tak pokazuje czas.
+- Testy: 530/530 pytest, 123/123 vitest.
+
+---
+
 ## 2026-09-15 — Fix: sekcje lekcji zgłoszone przez użytkownika (fiszki, ćwiczenia, przegląd, recall)
 
 **Problem (zgłoszenie użytkownika, konto 11):**

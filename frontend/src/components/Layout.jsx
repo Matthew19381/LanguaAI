@@ -147,15 +147,16 @@ export default function Layout() {
       {timerDisplay && (
         <button
           onClick={() => navigate('/quickmode')}
-          className={`fixed bottom-safe-6 right-4 z-50 flex items-center gap-2 px-5 py-3 rounded-xl shadow-lg transition-colors ${
+          // Compact on phones — the header already shows the countdown there.
+          className={`fixed bottom-safe-6 right-4 z-50 flex items-center gap-2 px-3 py-2 sm:px-5 sm:py-3 rounded-xl shadow-lg transition-colors ${
             timerSeconds <= 5 ? 'bg-red-700 hover:bg-red-600 animate-blink' :
             timerSeconds < 60 ? 'bg-red-700 hover:bg-red-600' :
             timerSeconds < 300 ? 'bg-yellow-600 hover:bg-yellow-500' :
             'bg-emerald-700 hover:bg-emerald-600'
           } text-white`}
         >
-          <Timer className="w-8 h-8" />
-          <span className="font-mono font-bold text-4xl">{timerDisplay}</span>
+          <Timer className="w-5 h-5 sm:w-8 sm:h-8" />
+          <span className="font-mono font-bold text-2xl sm:text-4xl">{timerDisplay}</span>
         </button>
       )}
 
