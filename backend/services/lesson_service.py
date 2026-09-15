@@ -18,6 +18,7 @@ by querying for and returning the winner's lesson is a response-shaping
 decision, not business logic.
 """
 import json
+import random
 from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
@@ -44,6 +45,69 @@ def lesson_to_dict(lesson: Lesson) -> dict:
         "cefr_level": lesson.cefr_level,
         "created_at": lesson.created_at.isoformat(),
     }
+
+
+# "Jak po <język>: …?" — Polish locative forms for the supported target languages.
+_TARGET_LANGUAGE_PL = {
+    "German": "niemiecku", "English": "angielsku", "Spanish": "hiszpańsku",
+    "French": "francusku", "Italian": "włosku", "Portuguese": "portugalsku",
+}
+MIXED_REVIEW_SIZE = 4
+
+
+def build_mixed_review(db: Session, lesson: Lesson) -> list:
+    """'Przegląd mieszany' questions from the vocabulary of the learner's
+    previous lessons (interleaving + retrieval practice).
+
+    The generator only stores placeholder prompts built from Lesson.topic —
+    which is usually just "General" — with no answer to check, so the section
+    showed nothing usable. Building it at read time from real earlier
+    vocabulary also fixes lessons generated before this change. Seeded by the
+    lesson id so the questions don't reshuffle on every reload.
+    """
+    previous = db.query(Lesson).filter(
+        Lesson.user_id == lesson.user_id,
+        Lesson.language == lesson.language,
+        Lesson.id < lesson.id,
+    ).order_by(Lesson.id.desc()).limit(5).all()
+
+    candidates, seen = [], set()
+    for prev in previous:
+        try:
+            content = json.loads(prev.content)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(content, dict):
+            continue
+        grammar = content.get("grammar") if isinstance(content.get("grammar"), dict) else {}
+        label = grammar.get("topic") or prev.title or prev.topic or ""
+        for item in content.get("vocabulary") or []:
+            if not isinstance(item, dict) or not item.get("word") or not item.get("translation"):
+                continue
+            key = item["word"].strip().lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append((label, item["word"].strip(), item["translation"].strip()))
+
+    if not candidates:
+        return []
+    picked = random.Random(lesson.id).sample(candidates, min(MIXED_REVIEW_SIZE, len(candidates)))
+    language_pl = _TARGET_LANGUAGE_PL.get(lesson.language)
+    ask = f"Jak po {language_pl}" if language_pl else "Przetłumacz"
+    return [
+        {"topic": label, "question": f"{ask}: „{translation}”?", "answer": word, "type": "vocab"}
+        for label, word, translation in picked
+    ]
+
+
+def lesson_payload(db: Session, lesson: Lesson) -> dict:
+    """lesson_to_dict() plus the mixed review built from the learner's history."""
+    data = lesson_to_dict(lesson)
+    review = build_mixed_review(db, lesson)
+    if review and isinstance(data["content"], dict):
+        data["content"]["interleaved_review"] = review
+    return data
 
 
 def get_recent_errors(user_id: int, db: Session, limit: int = 10) -> list:

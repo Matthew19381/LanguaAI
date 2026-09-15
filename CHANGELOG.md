@@ -4,6 +4,35 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-09-15 — Fix: sekcje lekcji zgłoszone przez użytkownika (fiszki, ćwiczenia, przegląd, recall)
+
+**Problem (zgłoszenie użytkownika, konto 11):**
+- „Dodaj koncepcje do fiszek" nic nie tworzyło — endpoint czytał gramatykę z nieistniejących kluczy
+  `content.grammar_explanation` / `content.explanation` (generator zapisuje `content.grammar.explanation`)
+  i zawsze odpowiadał „Brak treści gramatycznej"; komunikat błędu był do tego zielony.
+- Brak dodawania zdań przykładowych do fiszek — tabela słownictwa czytała `item.example` (generator
+  emituje `example_sentence`), a kolumna przykładów była ukryta na telefonie; przykłady gramatyki bez przycisku.
+- Ćwiczenia Fill in the blank / Translation: po odsłonięciu i ukryciu odpowiedzi pole się odblokowywało
+  (można było przepisać rozwiązanie); sprawdzanie przyjmowało dowolny fragment odpowiedzi („e" dla „kaufe").
+- Fill in the blank po dobrej odpowiedzi pokazywał tylko część zdania przed luką — podział po dokładnie
+  `___`, a luki mają 6–8 podkreśleń.
+- Przegląd mieszany: backend zapisywał `{topic: "General", prompt}` bez odpowiedzi, frontend czytał `question/answer` — pusta sekcja.
+- Recall wymagał zapamiętania 5 zdań.
+
+**Rozwiązanie / Zmiany:**
+- `routers/lessons.py`: koncepcje z `content.grammar` (+ reguła i przykłady w prompcie), szerszy `except`.
+  Zweryfikowane z realnym AI na kopii bazy konta 11: 4 fiszki koncepcji utworzone.
+- `services/lesson_service.py`: `build_mixed_review()` / `lesson_payload()` — pytania „Jak po niemiecku: …?"
+  ze słownictwa do 5 poprzednich lekcji, budowane przy odczycie (działa też dla starych lekcji), stabilne między przeładowaniami.
+- `lesson_generator/daily_lesson.py`: Recall 2–3 zdania (prompt + lekcja zapasowa).
+- `DailyLesson.jsx`: dokładne sprawdzanie odpowiedzi (normalizacja wielkości liter/interpunkcji, alternatywy `a / b`);
+  odsłonięcie całej odpowiedzi lub >1 słowa = błąd i trwała blokada pola (1 słowo podpowiedzi w tłumaczeniu dozwolone,
+  przycisk ostrzega „(= błąd)"); luka `_{3,}`; zdania przykładowe z przyciskiem fiszki (także na telefonie i w gramatyce);
+  przegląd mieszany obsługuje oba formaty; starsze Recall przycinane do 3 zdań (z tłumaczeniem, gdy zdania się pokrywają).
+- Testy: +7 vitest (`DailyLesson.test.jsx`), +4 pytest (`test_lesson_section_fixes.py`); 123/123 vitest, 530/530 pytest.
+
+---
+
 ## 2026-09-14 — Fix: brakujące kolumny `exercises` (QuickMode 500, „pusty" bank ćwiczeń) + mobile cz. 2
 
 **Problem:** Commit `9ece800` dodał do modelu `Exercise` kolumny `first_attempt_incorrect` i

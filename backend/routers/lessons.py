@@ -33,7 +33,7 @@ from backend.services.lesson_generator import (
 from backend.services.lesson_service import (
     create_and_persist_lesson,
     gather_lesson_context,
-    lesson_to_dict,
+    lesson_payload,
 )
 from backend.services.obsidian_service import save_obsidian_md
 from backend.services.pdf_service import EXPORTS_DIR, generate_lesson_pdf
@@ -88,7 +88,7 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
     day_number = get_day_number(user, db, user.target_language)
 
     if existing_lesson:
-        return lesson_to_dict(existing_lesson)
+        return lesson_payload(db, existing_lesson)
 
     # Get active study plan
     study_plan = db.query(StudyPlan).filter(
@@ -131,7 +131,7 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
             Lesson.day_number == day_number,
         ).first()
         if existing_lesson:
-            return lesson_to_dict(existing_lesson)
+            return lesson_payload(db, existing_lesson)
         raise
 
     # Generate audio for lesson sections (background, non-blocking)
@@ -151,7 +151,7 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
         content=lesson_content,
     )
 
-    return lesson_to_dict(lesson)
+    return lesson_payload(db, lesson)
 
 
 @router.get("/api/lessons/iplus1/{user_id}")
@@ -194,7 +194,7 @@ async def get_lesson(lesson_id: int, user_id: int, db: Session = Depends(get_db)
     if lesson.user_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this lesson")
 
-    return lesson_to_dict(lesson)
+    return lesson_payload(db, lesson)
 
 
 @router.post("/api/lessons/{lesson_id}/complete")
@@ -610,7 +610,7 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
         content=lesson_content,
     )
 
-    return lesson_to_dict(lesson)
+    return lesson_payload(db, lesson)
 
 
 @router.delete("/api/lessons/reset-today/{user_id}")
@@ -657,21 +657,40 @@ async def generate_concept_flashcards(lesson_id: int, user_id: int, db: Session 
         content = json.loads(lesson.content)
     except (json.JSONDecodeError, TypeError):
         content = {}
-    # lesson content stores grammar as "explanation" (frontend uses content.explanation)
-    grammar_explanation = content.get("grammar_explanation") or content.get("explanation", "")
-    topic = lesson.topic
+    # The generator stores grammar as content["grammar"] = {topic, explanation,
+    # rule, examples}. This used to read only top-level "grammar_explanation" /
+    # "explanation" keys that are never emitted, so every lesson answered
+    # "no grammar" and the "Dodaj koncepcje do fiszek" button never made a card.
+    grammar = content.get("grammar") if isinstance(content.get("grammar"), dict) else {}
+    grammar_explanation = (
+        grammar.get("explanation")
+        or content.get("grammar_explanation")
+        or content.get("explanation", "")
+    )
+    topic = grammar.get("topic") or lesson.topic
     language = lesson.language
     cefr_level = lesson.cefr_level
 
     if not grammar_explanation:
         return {"success": False, "message": "Brak treści gramatycznej w tej lekcji.", "created": 0}
 
+    extra_context = ""
+    if grammar.get("rule"):
+        extra_context += f"\nRule: {grammar['rule']}"
+    example_sentences = [
+        ex.get("sentence") or ex.get("text")
+        for ex in grammar.get("examples") or []
+        if isinstance(ex, dict) and (ex.get("sentence") or ex.get("text"))
+    ]
+    if example_sentences:
+        extra_context += "\nExamples: " + " | ".join(example_sentences[:5])
+
     # Ask AI to extract key concepts as flashcard pairs
     prompt = f"""From this {language} grammar explanation, extract 3-5 key grammar CONCEPTS as flashcard pairs.
 Each flashcard: front = the grammar rule/concept name (in Polish), back = brief explanation + example in {language}.
 
 Grammar topic: {topic}
-Explanation: {grammar_explanation[:800]}
+Explanation: {grammar_explanation[:1200]}{extra_context}
 
 Return JSON:
 {{

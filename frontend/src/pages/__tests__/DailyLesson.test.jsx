@@ -13,6 +13,8 @@ vi.mock("../../api/client", () => ({
   evaluateProduction: vi.fn(() => Promise.resolve({})),
   getLesson: vi.fn(() => Promise.resolve({})),
   generateTTS: vi.fn(() => Promise.resolve({})),
+  addFlashcardAI: vi.fn(() => Promise.resolve({})),
+  generateConceptFlashcards: vi.fn(() => Promise.resolve({ success: true, created: 2, skipped: 0 })),
 }))
 
 // Mock useLanguage hook
@@ -253,5 +255,130 @@ describe("DailyLesson", () => {
       expect(screen.getByText(/Ich ___ Anna\./)).toBeInTheDocument()
     })
     expect(screen.queryByText(/Du ___ nett\./)).not.toBeInTheDocument()
+  })
+
+  async function openExercises(exercises) {
+    const { getTodayLesson } = await import("../../api/client")
+    getTodayLesson.mockReturnValue(Promise.resolve({
+      lesson_id: 1, day_number: 1, language: "German", is_completed: false,
+      content: { exercises },
+    }))
+    renderLesson()
+    const { waitFor, fireEvent } = await import("@testing-library/react")
+    await waitFor(() => expect(screen.getByText(/^lesson\.exercises \(/)).toBeInTheDocument())
+    fireEvent.click(screen.getByText(/^lesson\.exercises \(/))
+    await waitFor(() => expect(screen.getByPlaceholderText("lesson.yourAnswer")).toBeInTheDocument())
+    return { fireEvent, waitFor }
+  }
+
+  it("fill-in-the-blank: a correct answer shows the WHOLE sentence, even with a long ________ blank", async () => {
+    const { fireEvent } = await openExercises([{
+      type: "fill-in-the-blank", instruction: "Uzupełnij",
+      items: [{ prompt: "Ich ________ heute Gemüse. (kaufen)", answer: "kaufe" }],
+    }])
+    fireEvent.change(screen.getByPlaceholderText("lesson.yourAnswer"), { target: { value: "kaufe" } })
+    fireEvent.click(screen.getByText("Sprawdź"))
+    expect(screen.getByText("✓ Dobrze!")).toBeInTheDocument()
+    // Splitting on exactly "___" used to drop everything after the blank.
+    expect(screen.getByText(/heute Gemüse\. \(kaufen\)/)).toBeInTheDocument()
+  })
+
+  it("exercise check: a fragment of the answer is no longer accepted as correct", async () => {
+    const { fireEvent } = await openExercises([{
+      type: "fill-in-the-blank", instruction: "Uzupełnij",
+      items: [{ prompt: "Ich ___ heute Gemüse.", answer: "kaufe" }],
+    }])
+    fireEvent.change(screen.getByPlaceholderText("lesson.yourAnswer"), { target: { value: "e" } })
+    fireEvent.click(screen.getByText("Sprawdź"))
+    expect(screen.getByText(/Nie do końca/)).toBeInTheDocument()
+  })
+
+  it("fill-in-the-blank: revealing the answer counts as wrong and stays locked after hiding it", async () => {
+    const { fireEvent } = await openExercises([{
+      type: "fill-in-the-blank", instruction: "Uzupełnij",
+      items: [{ prompt: "Ich ___ heute Gemüse.", answer: "kaufe" }],
+    }])
+    const input = screen.getByPlaceholderText("lesson.yourAnswer")
+    fireEvent.change(input, { target: { value: "kaufen" } })
+    fireEvent.click(screen.getByText("Sprawdź"))
+    fireEvent.click(screen.getByText(/lesson\.showExerciseAnswer/))
+    fireEvent.click(screen.getByText("lesson.hideExerciseAnswer"))
+    // Hidden again, but the wrong answer can't be corrected by copying it.
+    expect(input).toBeDisabled()
+    expect(screen.getByText(/Podejrzano odpowiedź/)).toBeInTheDocument()
+    expect(screen.queryByText("Sprawdź")).not.toBeInTheDocument()
+  })
+
+  it("translation: a one-word hint is allowed, a second revealed word counts as wrong", async () => {
+    const { fireEvent } = await openExercises([{
+      type: "translation", instruction: "Przetłumacz",
+      items: [{ prompt: "Kupuję chleb.", answer: "Ich kaufe Brot." }],
+    }])
+    const input = screen.getByPlaceholderText("lesson.yourAnswer")
+    fireEvent.click(screen.getByText("lesson.showExerciseAnswer"))
+    expect(input).not.toBeDisabled()
+    fireEvent.click(screen.getByText(/lesson\.nextWord.*= błąd/))
+    expect(input).toBeDisabled()
+    expect(screen.getByText(/Podejrzano odpowiedź/)).toBeInTheDocument()
+  })
+
+  it("mixed review: renders backend items that carry a prompt or a question/answer pair", async () => {
+    const { getTodayLesson } = await import("../../api/client")
+    getTodayLesson.mockReturnValue(Promise.resolve({
+      lesson_id: 1, day_number: 2, language: "German", is_completed: false,
+      content: {
+        interleaved_review: [
+          { topic: "Einkaufen", question: "Jak po niemiecku: „gotować”?", answer: "kochen", type: "vocab" },
+          { topic: "General", prompt: "Przypomnij sobie 3 słowa z tematu: General", type: "recall" },
+        ],
+      },
+    }))
+    renderLesson()
+    const { waitFor, fireEvent } = await import("@testing-library/react")
+    await waitFor(() => expect(screen.getByText(/^lesson\.mixedReview/)).toBeInTheDocument())
+    fireEvent.click(screen.getByText(/^lesson\.mixedReview/))
+    expect(screen.getByText("Jak po niemiecku: „gotować”?")).toBeInTheDocument()
+    expect(screen.getByText("Przypomnij sobie 3 słowa z tematu: General")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("lesson.showAnswer"))
+    expect(screen.getByText("kochen")).toBeInTheDocument()
+  })
+
+  it("recall (output forcing): an older 5-sentence text is trimmed to 3 sentences", async () => {
+    const { getTodayLesson } = await import("../../api/client")
+    getTodayLesson.mockReturnValue(Promise.resolve({
+      lesson_id: 1, day_number: 2, language: "German", is_completed: false,
+      content: {
+        output_forcing: {
+          instruction: "Przeczytaj 5 zdań.",
+          text: "1. Ich gehe. 2. Du kommst. 3. Er isst. 4. Wir lesen. 5. Ihr schlaft.",
+          translation: "1. Idę. 2. Przychodzisz. 3. On je. 4. Czytamy. 5. Śpicie.",
+        },
+      },
+    }))
+    renderLesson()
+    const { waitFor, fireEvent } = await import("@testing-library/react")
+    await waitFor(() => expect(screen.getByText("lesson.outputForcing")).toBeInTheDocument())
+    fireEvent.click(screen.getByText("lesson.outputForcing"))
+    // 3 sentences × 2 words = 6 hidden words, numbering dropped.
+    expect(screen.getByText(/Pokaż słowo \(0\/6\)/)).toBeInTheDocument()
+    expect(screen.getByText("Przeczytaj 3 zdań.")).toBeInTheDocument()
+  })
+
+  it("vocabulary: shows example_sentence and adds it to flashcards", async () => {
+    const { getTodayLesson, addFlashcardAI } = await import("../../api/client")
+    getTodayLesson.mockReturnValue(Promise.resolve({
+      lesson_id: 1, day_number: 1, language: "German", is_completed: false,
+      content: {
+        vocabulary: [{ word: "kochen", translation: "gotować", example_sentence: "Ich koche heute Suppe." }],
+      },
+    }))
+    renderLesson()
+    const { waitFor, fireEvent } = await import("@testing-library/react")
+    await waitFor(() => expect(screen.getByText(/^lesson\.vocabulary/)).toBeInTheDocument())
+    if (!screen.queryByText("kochen")) fireEvent.click(screen.getByText(/^lesson\.vocabulary/))
+    // Rendered twice: desktop column + the phone line under the translation.
+    expect(screen.getAllByText("Ich koche heute Suppe.").length).toBeGreaterThan(0)
+    fireEvent.click(screen.getAllByLabelText("lesson.addToFlash")[0])
+    await waitFor(() => expect(addFlashcardAI).toHaveBeenCalledWith(42, "Ich koche heute Suppe."))
   })
 })

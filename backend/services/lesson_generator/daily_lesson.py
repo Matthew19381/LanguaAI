@@ -107,7 +107,7 @@ async def generate_daily_lesson(
     6. Speaking practice (5-10 min): Prompts for pronunciation and fluency
     7. Writing exercise (5-10 min): Short writing prompt with guidance
     8. Wrap-up (2-3 min): Summary and preview of next day
-    9. Output forcing (retrieval practice): Exactly 5 connected sentences in {target_language} at {cefr_level} level,
+    9. Output forcing (retrieval practice): 2-3 short connected sentences (never more than 3) in {target_language} at {cefr_level} level,
        built mainly from THIS lesson's vocabulary and grammar. The student will read them, cover them,
        and recall them from memory. Write the instruction in {native_language}.
 
@@ -177,9 +177,9 @@ async def generate_daily_lesson(
             "motivational_message": "encouraging message to continue learning"
         }},
         "output_forcing": {{
-            "instruction": "instruction in {native_language}: read the 5 sentences, cover them, recall them from memory",
-            "text": "5 connected sentences in {target_language} using this lesson's vocabulary",
-            "translation": "translation of the 5 sentences into {native_language}"
+            "instruction": "instruction in {native_language}: read the 2-3 sentences, cover them, recall them from memory",
+            "text": "2-3 short connected sentences in {target_language} using this lesson's vocabulary",
+            "translation": "translation of those sentences into {native_language}"
         }}
     }}
     """
@@ -319,8 +319,8 @@ async def generate_daily_lesson(
             },
             "interleaved_review": [],
             "output_forcing": {
-                "instruction": "Przeczytaj 5 zdań poniżej, zakryj je i spróbuj odtworzyć z pamięci. To trudne ćwiczenie na pamięć długotrwałą.",
-                "text": "Hallo, ich heiße Max und ich komme aus Polen. In meiner Freizeit lerne ich Deutsch und treffe meine Freunde. Die Universität ist groß und ich studiere dort seit zwei Jahren. Meine Familie wohnt in Warschau und wir besuchen uns oft am Wochenende. Deutsch zu lernen macht viel Spaß und ich habe schon viele neue Freunde gefunden."
+                "instruction": "Przeczytaj 3 zdania poniżej, zakryj je i spróbuj odtworzyć z pamięci.",
+                "text": "Hallo, ich heiße Max und ich komme aus Polen. In meiner Freizeit lerne ich Deutsch. Meine Familie wohnt in Warschau."
             }
         }
 

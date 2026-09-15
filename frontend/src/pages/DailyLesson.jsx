@@ -103,6 +103,7 @@ export default function DailyLesson() {
   const [generatingNext, setGeneratingNext] = useState(false)
   const [conceptsLoading, setConceptsLoading] = useState(false)
   const [conceptsMsg, setConceptsMsg] = useState('')
+  const [conceptsFailed, setConceptsFailed] = useState(false)
   const [exportError, setExportError] = useState('')
   const navigate = useNavigate()
   const userId = getUserId()
@@ -303,9 +304,11 @@ export default function DailyLesson() {
     if (!lesson) return
     setConceptsLoading(true)
     setConceptsMsg('')
+    setConceptsFailed(false)
     try {
       const res = await generateConceptFlashcards(lesson.lesson_id, userId)
       if (!res.success) {
+        setConceptsFailed(true)
         setConceptsMsg(res.message || 'Brak gramatyki w tej lekcji.')
       } else if (res.created > 0 && res.skipped > 0) {
         setConceptsMsg(`Dodano ${res.created} fiszek (${res.skipped} już istniało) ✓`)
@@ -315,6 +318,7 @@ export default function DailyLesson() {
         setConceptsMsg(`Wszystkie ${res.total_concepts || ''} koncepcje już są w fiszkach.`)
       }
     } catch (e) {
+      setConceptsFailed(true)
       setConceptsMsg('Błąd: ' + e.message)
     } finally {
       setConceptsLoading(false)
@@ -401,6 +405,29 @@ export default function DailyLesson() {
     }
   }
 
+  // Icon button that adds an example sentence to flashcards — used by the
+  // grammar examples and the vocabulary example sentences.
+  const renderAddToFlash = (text) => text ? (
+    <button
+      type="button"
+      onClick={() => handleAddFlashcard(text)}
+      disabled={addingWord === text || addedWords.has(text)}
+      title={t('lesson.addToFlash')}
+      aria-label={t('lesson.addToFlash')}
+      className={`inline-flex items-center justify-center w-6 h-6 shrink-0 align-middle rounded hover:bg-gray-700 transition-colors ${
+        addedWords.has(text) ? 'text-emerald-400' : 'text-gray-500 hover:text-indigo-300'
+      }`}
+    >
+      {addingWord === text ? (
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+      ) : addedWords.has(text) ? (
+        <CheckCircle className="w-3.5 h-3.5" />
+      ) : (
+        <BookmarkPlus className="w-3.5 h-3.5" />
+      )}
+    </button>
+  ) : null
+
   const handleEvaluateProduction = async () => {
     if (!productionAnswer.trim() || !lesson) return
     setEvaluating(true)
@@ -449,6 +476,7 @@ export default function DailyLesson() {
   // so the section rendered empty. Fall back to the legacy field just in case.
   const grammar = content.grammar || {}
   const grammarExplanation = grammar.explanation || content.explanation || ''
+  const recall = limitRecallSentences(content.output_forcing)
 
   return (
     <div className="page-container">
@@ -614,6 +642,7 @@ export default function DailyLesson() {
               <div key={i} className="p-2 rounded bg-gray-800/60 text-sm">
                 <span className="text-gray-100">{ex.sentence || ex.text}</span>
                 {ex.translation && <span className="text-gray-400"> — {ex.translation}</span>}
+                {' '}{renderAddToFlash(ex.sentence || ex.text)}
               </div>
             ))}
           </div>
@@ -634,7 +663,7 @@ export default function DailyLesson() {
             <BookmarkPlus className="w-3.5 h-3.5" />
             {conceptsLoading ? 'Generowanie...' : 'Dodaj koncepcje do fiszek'}
           </button>
-          {conceptsMsg && <p className="text-xs text-emerald-400 mt-1">{conceptsMsg}</p>}
+          {conceptsMsg && <p className={`text-xs mt-1 ${conceptsFailed ? 'text-red-400' : 'text-emerald-400'}`}>{conceptsMsg}</p>}
         </div>
       </Section>
 
@@ -694,28 +723,20 @@ export default function DailyLesson() {
                     </td>
                     <td className="py-2.5 pr-4">
                       <span className="text-emerald-300">{item.translation}</span>
+                      {/* The example column is desktop-only — on phones show it here */}
+                      {(item.example_sentence || item.example) && (
+                        <div className="md:hidden mt-1 flex items-start gap-1 text-gray-400 text-sm">
+                          <span>{item.example_sentence || item.example}</span>
+                          {renderAddToFlash(item.example_sentence || item.example)}
+                        </div>
+                      )}
                     </td>
                     <td className="py-2.5 text-gray-400 text-sm hidden md:table-cell">
                       <div className="flex items-center gap-1">
-                                              <span>{item.example}</span>
-                                              {item.example && <PlayButton text={item.example} language={lesson.language} />}
-                                              <button
-                                                onClick={() => handleAddFlashcard(item.example)}
-                                                disabled={addingWord === item.example}
-                                                title={t('lesson.addToFlash')}
-                                                className={`inline-flex items-center justify-center w-4 h-4 rounded hover:bg-gray-700 transition-colors ${
-                                                  addedWords.has(item.example) ? 'text-emerald-400' : 'text-gray-500 hover:text-indigo-300'
-                                                } ${addingWord === item.example ? 'opacity-50' : ''}`}
-                                              >
-                                                {addingWord === item.example ? (
-                                                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                                                ) : addedWords.has(item.example) ? (
-                                                  <CheckCircle className="w-2.5 h-2.5" />
-                                                ) : (
-                                                  <BookmarkPlus className="w-2.5 h-2.5" />
-                                                )}
-                                              </button>
-                                            </div>
+                        <span>{item.example_sentence || item.example}</span>
+                        {(item.example_sentence || item.example) && <PlayButton text={item.example_sentence || item.example} language={lesson.language} />}
+                        {renderAddToFlash(item.example_sentence || item.example)}
+                      </div>
                       {item.example_translation && (
                         <div className="text-gray-500 text-xs mt-0.5 italic">↳ {item.example_translation}</div>
                       )}
@@ -1024,7 +1045,7 @@ export default function DailyLesson() {
             {content.interleaved_review.map((item, i) => (
               <div key={i} className="bg-orange-900/10 border border-orange-700/30 rounded-lg p-3">
                 <p className="text-xs text-orange-400 mb-1">{t('lesson.topic')} {item.topic}</p>
-                <ComprehensionQ question={item.question} answer={item.answer} t={t} />
+                <ComprehensionQ question={item.question || item.prompt} answer={item.answer} t={t} />
               </div>
             ))}
           </div>
@@ -1040,9 +1061,9 @@ export default function DailyLesson() {
           onToggle={() => toggleSection('outputForcing')}
         >
           <OutputForcingCard
-            instruction={content.output_forcing.instruction}
-            text={content.output_forcing.text}
-            translation={content.output_forcing.translation}
+            instruction={recall.instruction}
+            text={recall.text}
+            translation={recall.translation}
             language={lesson.language}
             t={t}
           />
@@ -1140,13 +1161,17 @@ function ComprehensionQ({ question, answer, t }) {
   return (
     <div className="bg-gray-800 rounded p-3">
       <p className="text-gray-200 text-sm">{question}</p>
-      <button
-        onClick={() => setShow(s => !s)}
-        className="text-indigo-400 hover:text-indigo-300 text-xs mt-1"
-      >
-        {show ? t('lesson.hideAnswer') : t('lesson.showAnswer')}
-      </button>
-      {show && <p className="text-emerald-300 text-sm mt-1">{answer}</p>}
+      {answer && (
+        <>
+          <button
+            onClick={() => setShow(s => !s)}
+            className="text-indigo-400 hover:text-indigo-300 text-xs mt-1"
+          >
+            {show ? t('lesson.hideAnswer') : t('lesson.showAnswer')}
+          </button>
+          {show && <p className="text-emerald-300 text-sm mt-1">{answer}</p>}
+        </>
+      )}
     </div>
   )
 }
@@ -1400,6 +1425,52 @@ function OutputForcingCard({ instruction, text, translation, language, t }) {
   )
 }
 
+// Recall practice shows at most 3 sentences — 5 was too many to memorise.
+// New lessons are generated with 2–3; this trims lessons generated earlier.
+const MAX_RECALL_SENTENCES = 3
+function splitSentences(s) {
+  return String(s || '')
+    .replace(/(^|[.!?]\s+)\d+\.\s+/g, '$1') // drop "1. " list numbering
+    .split(/(?<=[.!?])\s+/)
+    .map(x => x.trim())
+    .filter(Boolean)
+}
+function limitRecallSentences(of) {
+  if (!of?.text) return {}
+  const sentences = splitSentences(of.text)
+  if (sentences.length <= MAX_RECALL_SENTENCES) return of
+  const translated = splitSentences(of.translation)
+  return {
+    instruction: String(of.instruction || '').replace(/\b5\b(?=\s+(?:\S+\s+)?zda)/g, String(MAX_RECALL_SENTENCES)),
+    text: sentences.slice(0, MAX_RECALL_SENTENCES).join(' '),
+    // Trim the translation only when it lines up sentence-for-sentence;
+    // otherwise drop it rather than translate sentences that aren't shown.
+    translation: translated.length === sentences.length
+      ? translated.slice(0, MAX_RECALL_SENTENCES).join(' ')
+      : '',
+  }
+}
+
+// Closed exercises: exact match after normalising case, spacing and
+// punctuation. The old check accepted any substring in either direction
+// ("e" for "kaufe"), so nearly anything counted as correct. "a / b" or
+// "a | b" in the answer lists accepted alternatives.
+function normalizeAnswer(s) {
+  return String(s || '').toLowerCase().replace(/[.,!?;:„”“"'«»()]/g, '').replace(/\s+/g, ' ').trim()
+}
+function isAnswerCorrect(given, expected) {
+  const g = normalizeAnswer(given)
+  if (!g) return false
+  return String(expected || '').split(/\s*[/|]\s*/).some(alt => normalizeAnswer(alt) === g)
+}
+// A blank is any run of 3+ underscores — prompts use "___" and "________".
+// Splitting on exactly "___" cut 8-underscore blanks apart and dropped the
+// end of the sentence after a correct answer.
+function splitAtBlank(content) {
+  const m = /_{3,}/.exec(content || '')
+  return m ? [content.slice(0, m.index), content.slice(m.index + m[0].length)] : null
+}
+
 // The generator returns exercises as blocks: { type, instruction, skill_tag,
 // items: [{prompt, answer}], feedback }. ExerciseCard renders a single question
 // (content/answer), so each block's items must be flattened into individual
@@ -1477,6 +1548,7 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
   const [selectedOption, setSelectedOption] = useState('')
   const [checked, setChecked] = useState(false)
   const [isCorrect, setIsCorrect] = useState(null)
+  const [peeked, setPeeked] = useState(0) // most answer words ever revealed
   const inputRef = useRef(null)
 
   // Matching: click a left word, then the right word you think it pairs with.
@@ -1536,11 +1608,8 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
   }
 
   const handleCheck = () => {
-    if (!userAnswer.trim()) return
-    const correct = String(exercise.answer || '').trim().toLowerCase()
-    const given = userAnswer.trim().toLowerCase()
-    const correct_ = given === correct || correct.includes(given) || given.includes(correct)
-    setIsCorrect(correct_)
+    if (!userAnswer.trim() || answerLocked) return
+    setIsCorrect(isAnswerCorrect(userAnswer, exercise.answer))
     setChecked(true)
   }
 
@@ -1548,19 +1617,38 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
   const totalWords = answerWords.length
   const isAllRevealed = revealedCount >= totalWords && totalWords > 0
 
+  const blankParts = splitAtBlank(exercise.content)
+
+  // Peeking at the answer counts as a wrong answer once you've seen all of it,
+  // or more than one word (a one-word hint is fine in longer translations).
+  // The input then stays locked even after hiding the answer again, so a
+  // wrong attempt can't be "fixed" by copying the revealed solution.
+  const peekCounts = !['matching', 'multiple_choice', 'sentence_creation'].includes(exercise.type)
+  const isPenalizingPeek = n => peekCounts && totalWords > 0 && (n >= 2 || n >= totalWords)
+  const answerLocked = isPenalizingPeek(peeked)
+
   const handleRevealClick = () => {
     if (isAllRevealed) {
       setRevealedCount(0)
-    } else {
-      setRevealedCount(c => Math.min(c + 1, totalWords))
+      return
+    }
+    const next = Math.min(revealedCount + 1, totalWords)
+    setRevealedCount(next)
+    setPeeked(p => Math.max(p, next))
+    // An answer already checked as correct before peeking stays correct.
+    if (isPenalizingPeek(next) && !(checked && isCorrect)) {
+      setChecked(true)
+      setIsCorrect(false)
     }
   }
 
+  // No warning once answered correctly — peeking can't turn that into an error.
+  const peekWarning = !answerLocked && !(checked && isCorrect) && isPenalizingPeek(revealedCount + 1) ? ' (= błąd)' : ''
   const revealBtnLabel = revealedCount === 0
-    ? t('lesson.showExerciseAnswer')
+    ? t('lesson.showExerciseAnswer') + peekWarning
     : isAllRevealed
     ? t('lesson.hideExerciseAnswer')
-    : (t('lesson.nextWord') || 'Następne słowo')
+    : (t('lesson.nextWord') || 'Następne słowo') + peekWarning
 
   return (
     <div className="bg-gray-800 rounded-lg p-4">
@@ -1571,11 +1659,11 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
         <span className="badge-blue capitalize text-xs">{exercise.type?.replace('_', ' ')}</span>
       </div>
       <p className="text-gray-300 font-medium mb-3">{exercise.instruction}</p>
-      {isCorrect && exercise.content?.includes('___') ? (
+      {isCorrect && blankParts ? (
         <p className="text-gray-100 mb-3 text-lg">
-          {exercise.content.split('___')[0]}
+          {blankParts[0]}
           <span className="text-emerald-400 font-semibold bg-emerald-900/30 px-1 rounded">{userAnswer}</span>
-          {exercise.content.split('___')[1]}
+          {blankParts[1]}
         </p>
       ) : (
         <p className="text-gray-100 mb-3 text-lg">{exercise.content}</p>
@@ -1649,9 +1737,9 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
               className={`input-field text-sm flex-1 ${checked ? (isCorrect ? 'border-emerald-500' : 'border-red-500') : ''}`}
               placeholder={t('lesson.correctSentence') || 'Poprawna zdania...'}
               value={userAnswer}
-              onChange={e => { setUserAnswer(e.target.value); setChecked(false); setIsCorrect(null) }}
+              onChange={e => { if (answerLocked) return; setUserAnswer(e.target.value); setChecked(false); setIsCorrect(null) }}
               onKeyDown={e => e.key === 'Enter' && !checked && handleCheck()}
-              disabled={isAllRevealed}
+              disabled={answerLocked || isAllRevealed}
             />
           </div>
           {checked && (
@@ -1748,11 +1836,11 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
               className={`input-field text-sm flex-1 ${checked ? (isCorrect ? 'border-emerald-500' : 'border-red-500') : ''}`}
               placeholder={t('lesson.yourAnswer')}
               value={userAnswer}
-              onChange={e => { setUserAnswer(e.target.value); setChecked(false); setIsCorrect(null) }}
+              onChange={e => { if (answerLocked) return; setUserAnswer(e.target.value); setChecked(false); setIsCorrect(null) }}
               onKeyDown={e => e.key === 'Enter' && !checked && handleCheck()}
-              disabled={isAllRevealed}
+              disabled={answerLocked || isAllRevealed}
             />
-            {!isAllRevealed && !checked && (
+            {!answerLocked && !isAllRevealed && !checked && (
               <button
                 onClick={handleCheck}
                 disabled={!userAnswer.trim()}
@@ -1764,10 +1852,10 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
           </div>
           {checked && (
             <p className={`text-xs mt-1 font-medium ${isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
-              {isCorrect ? '✓ Dobrze!' : '✗ Nie do końca — sprawdź odpowiedź poniżej'}
+              {isCorrect ? '✓ Dobrze!' : answerLocked ? '✗ Podejrzano odpowiedź — liczone jako błąd' : '✗ Nie do końca — sprawdź odpowiedź poniżej'}
             </p>
           )}
-          {!isAllRevealed && (
+          {!answerLocked && !isAllRevealed && (
             <SpecialChars
               language={language}
               inputRef={inputRef}
