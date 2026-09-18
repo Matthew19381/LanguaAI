@@ -56,7 +56,10 @@ BEST_MODELS = {k for k, v in OPENROUTER_MODELS.items() if _tier_of(v) == "best"}
 
 # Tasks actually wired via @with_model in the codebase (A6: code/reasoning/
 # multimodal removed — nothing called them; re-add here when a caller exists).
-USED_TASKS = ("placement", "lesson", "conversation", "test", "news")
+# "assistant" added 2026-09-18 (t_5fa240f2, spec docs/ASYSTENT_AI_SPEC.md D-3):
+# in-app AI assistant answering questions about the app itself (FSRS/XP/UI),
+# not about the target language — see backend/services/assistant_service.py.
+USED_TASKS = ("placement", "lesson", "conversation", "test", "news", "assistant")
 
 # ── A7: per-task tier CAP ────────────────────────────────────────────────────
 # The global tier (settings.AI_MODEL_TIER) is the default for every task. A task
@@ -73,6 +76,11 @@ USED_TASKS = ("placement", "lesson", "conversation", "test", "news")
 #     it is the one real cost driver. Capping it is the main cost lever.
 TASK_TIER_CAP = {
     "news": "cheap",
+    # D-3 (docs/ASYSTENT_AI_SPEC.md, zatwierdzone 2026-09-18): pilotaż asystenta
+    # AI zaczyna WYŁĄCZNIE na tierze free. Eskalacja do "cheap" wymaga jawnej
+    # decyzji właściciela PO zmierzeniu, że jakość darmowego modelu faktycznie
+    # nie wystarcza na realnych pytaniach pilotażu — nie zakładać z góry.
+    "assistant": "free",
 }
 
 # ── per-task tier FLOOR (2026-09-12, user decision) ──────────────────────────
@@ -160,6 +168,7 @@ def _get_openrouter_model(task: str, fallback: str = None, tier: str = "cheap") 
             "code":          "openai/gpt-oss-20b:free",
             "reasoning":     "nvidia/nemotron-3-super-120b-a12b:free",
             "multimodal":    "google/gemma-4-26b-a4b-it:free",
+            "assistant":     "openai/gpt-oss-20b:free",
         },
         "cheap": {
             "placement":     "google/gemini-2.5-flash-lite",
@@ -171,6 +180,7 @@ def _get_openrouter_model(task: str, fallback: str = None, tier: str = "cheap") 
             "code":          "deepseek/deepseek-v3.2",
             "reasoning":     "deepseek/deepseek-v3.2",
             "multimodal":    "google/gemini-2.5-flash",
+            "assistant":     "google/gemini-2.5-flash-lite",
         },
         "best": {
             "placement":     "openai/gpt-5-mini",
@@ -182,6 +192,7 @@ def _get_openrouter_model(task: str, fallback: str = None, tier: str = "cheap") 
             "code":          "openai/gpt-5",
             "reasoning":     "deepseek/deepseek-r1",
             "multimodal":    "google/gemini-2.5-pro",
+            "assistant":     "openai/gpt-5-mini",
         },
     }
 
@@ -207,6 +218,7 @@ def _get_gemini_model(task: str, fallback: str = None, tier: str = "cheap") -> s
             "code":          "gemini-2.0-flash",
             "reasoning":     "gemini-2.0-flash",
             "multimodal":    "gemini-2.0-flash-lite",
+            "assistant":     "gemini-2.0-flash-lite",
         },
         "cheap": {
             "placement":     "gemini-2.0-flash-lite",
@@ -218,6 +230,7 @@ def _get_gemini_model(task: str, fallback: str = None, tier: str = "cheap") -> s
             "code":          "gemini-2.0-pro",
             "reasoning":     "gemini-2.0-pro",
             "multimodal":    "gemini-2.0-flash",
+            "assistant":     "gemini-2.0-flash-lite",
         },
         "best": {
             "placement":     "gemini-2.5-flash",
@@ -229,6 +242,7 @@ def _get_gemini_model(task: str, fallback: str = None, tier: str = "cheap") -> s
             "code":          "gemini-2.5-pro",
             "reasoning":     "gemini-2.5-pro",
             "multimodal":    "gemini-2.5-pro",
+            "assistant":     "gemini-2.5-flash",
         },
     }
 

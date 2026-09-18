@@ -112,13 +112,15 @@ Cały kontakt z modelami przechodzi przez **`services/gemini_service.py`**:
   `free` / `cheap` / `best`; mapa `zadanie → model` per tier.
 - Aktywny tier: `AI_MODEL_TIER` (env). **Cap per-zadanie** (`TASK_TIER_CAP`):
   zadanie może być *ograniczone* do tańszego tieru niż globalny, nigdy podbite.
-  Jedyny cap: `news → cheap` (upraszczanie artykułu ≈ tak samo na flash co pro,
-  a leci najczęściej).
+  Capy: `news → cheap` (upraszczanie artykułu ≈ tak samo na flash co pro,
+  a leci najczęściej); `assistant → free` (pilotaż, D-3 docs/ASYSTENT_AI_SPEC.md
+  — eskalacja do `cheap` tylko po jawnej decyzji właściciela, gdy jakość free
+  faktycznie nie wystarcza na realnych pytaniach).
 - Rozstrzyganie: jawny `tier=` > cap > globalny (`_effective_tier`).
 - Walidacja katalogu przy starcie (`main.py` lifespan) — literówka w id jest
   głośna, nie cicho degraduje.
 
-Używane zadania: `placement · lesson · conversation · test · news`.
+Używane zadania: `placement · lesson · conversation · test · news · assistant`.
 
 ---
 
@@ -150,6 +152,7 @@ Wszystkie ścieżki `/api/...`; dodatkowo **każdy endpoint jest osiągalny pod
 | `youtube.py` | `/api/youtube/` | Wyszukiwanie filmów (YouTube API) |
 | `integration.py` | `/api/v1/summary` | INT-1: read-only podsumowanie dla Systemu Głównego |
 | `admin.py` | `/api/admin/` | Backup (ADMIN_API_KEY) |
+| `assistant.py` | `/api/assistant/` | Asystent AI wbudowany w aplikację (D-1..D-4, docs/ASYSTENT_AI_SPEC.md) — pytania o działanie samego LinguaAI (nie o język docelowy), pilotaż na Lekcji dnia i Fiszkach |
 
 **Dodanie routera:** zaimportuj w `main.py` i `app.include_router(...)`.
 

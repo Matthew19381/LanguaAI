@@ -269,6 +269,11 @@ export const askQuestion = (question, userId) =>
 export const translateWord = (text, fromLang, toLang, userId) =>
   api.post('/conversation/translate', { text, from_lang: fromLang, to_lang: toLang, user_id: userId })
 
+// ===== Assistant (docs/ASYSTENT_AI_SPEC.md, pilot: Lekcja dnia + Fiszki) =====
+
+export const askAssistant = (payload) =>
+  api.post('/assistant/ask', payload)
+
 // ===== Stats =====
 
 export const getStats = (userId) =>

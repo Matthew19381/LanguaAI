@@ -9,9 +9,15 @@ import { useLanguage } from '../hooks/useLanguage'
 import { useDarkMode } from '../hooks/useDarkMode'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Timer, Languages, X, ArrowRight, Sun, Moon } from 'lucide-react'
+import AssistantWidget from './AssistantWidget'
 
 // Only these paths are auto-marked on visit (lesson + test require explicit completion)
 const AUTO_VISIT_PATHS = ['/flashcards', '/conversation', '/quickmode', '/news', '/pronunciation']
+
+// Pilot scope (docs/ASYSTENT_AI_SPEC.md, approved 2026-09-18, t_5fa240f2):
+// the assistant widget is shown ONLY on Lekcja dnia and Fiszki while the UX
+// is being validated — not an automatic rollout to every screen.
+const ASSISTANT_WIDGET_PATHS = ['/lesson', '/flashcards']
 
 function getTodayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -162,6 +168,11 @@ export default function Layout() {
 
       {/* Translation Widget */}
       <TranslatorWidget userId={userId} targetLanguage={targetLanguage} />
+
+      {/* Assistant Widget — pilot: only Lekcja dnia + Fiszki (docs/ASYSTENT_AI_SPEC.md) */}
+      {ASSISTANT_WIDGET_PATHS.some(p => location.pathname.startsWith(p)) && (
+        <AssistantWidget userId={userId} />
+      )}
 
       {/* Achievement toasts */}
       <div className="fixed bottom-safe-4 right-4 z-50 flex flex-col gap-2 max-w-xs">
