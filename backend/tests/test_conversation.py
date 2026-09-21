@@ -141,7 +141,14 @@ def test_send_message_stream(client, sample_user):
         r1 = client.post(f"/api/conversation/start/{uid}", json={})
         session_id = r1.json()["session_id"]
 
-    with patch("backend.routers.conversation.generate_text_stream", new=_fake_stream):
+    # The endpoint's post-stream write uses a fresh backend.database.SessionLocal()
+    # (see the docstring in conversation.py) instead of the Depends(get_db)
+    # session — point that at the test DB too, or this write silently hits
+    # the real lingua_ai.db and (when it has no tables yet) raises
+    # "no such table: conversation_sessions" mid-stream.
+    from backend.tests.conftest import TestingSessionLocal
+    with patch("backend.routers.conversation.generate_text_stream", new=_fake_stream), \
+         patch("backend.database.SessionLocal", TestingSessionLocal):
         r2 = client.post("/api/conversation/message/stream", json={
             "session_id": session_id,
             "user_message": "Ich lerne Deutsch.",
