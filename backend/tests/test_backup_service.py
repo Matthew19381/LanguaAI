@@ -230,16 +230,34 @@ class TestRestoreBackup:
 class TestBackupAPIEndpoints:
     """Test the backup API endpoints via TestClient."""
 
-    def test_trigger_backup(self, client):
-        """POST /api/admin/backup creates a backup."""
+    def test_trigger_backup(self, client, temp_dirs, monkeypatch):
+        """POST /api/admin/backup creates a backup.
+
+        admin_create_backup() calls create_backup() with no args, which falls
+        back to the module-level backup_service.DB_PATH — resolved once at
+        import time from whichever DB_CANDIDATES happened to exist on disk
+        then. That makes the test's outcome depend on ambient filesystem
+        state (does *this* worktree have a lingua_ai.db at its root?)
+        instead of the fixture's isolated temp DB. Patch DB_PATH so the
+        endpoint operates on the same temp_dirs the test controls.
+        """
+        import backend.services.backup_service as backup_service
+
+        monkeypatch.setattr(backup_service, "DB_PATH", temp_dirs["db_path"])
+        monkeypatch.setattr(backup_service, "BACKUP_DIR", temp_dirs["backup_dir"])
+
         r = client.post("/api/admin/backup", headers={"X-Admin-Key": "test-key"})
         assert r.status_code == 200
         data = r.json()
         assert data["success"] is True
         assert "backup" in data
 
-    def test_list_backups(self, client):
+    def test_list_backups(self, client, temp_dirs, monkeypatch):
         """GET /api/admin/backups returns list of backups."""
+        import backend.services.backup_service as backup_service
+
+        monkeypatch.setattr(backup_service, "BACKUP_DIR", temp_dirs["backup_dir"])
+
         r = client.get("/api/admin/backups", headers={"X-Admin-Key": "test-key"})
         assert r.status_code == 200
         data = r.json()
