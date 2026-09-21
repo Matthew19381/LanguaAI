@@ -230,6 +230,22 @@ class TestRestoreBackup:
 class TestBackupAPIEndpoints:
     """Test the backup API endpoints via TestClient."""
 
+    @pytest.fixture(autouse=True)
+    def fake_prod_db(self, tmp_path, monkeypatch):
+        """Point backup_service at an isolated fake DB instead of the real
+        production lingua_ai.db, whose presence/absence depends on where the
+        test suite happens to run (repo root vs. a worktree with no DB file).
+        """
+        import backend.services.backup_service as backup_service
+
+        fake_db = tmp_path / "lingua_ai.db"
+        fake_db.write_bytes(b"fake db content for API tests")
+        fake_backup_dir = tmp_path / "backups"
+
+        monkeypatch.setattr(backup_service, "DB_PATH", fake_db)
+        monkeypatch.setattr(backup_service, "BACKUP_DIR", fake_backup_dir)
+        yield
+
     def test_trigger_backup(self, client):
         """POST /api/admin/backup creates a backup."""
         r = client.post("/api/admin/backup", headers={"X-Admin-Key": "test-key"})
