@@ -19,7 +19,8 @@ def test_batch_add_creates_flashcards(client, sample_user, db):
     payload = {
         "user_id": uid,
         "flashcards": [
-            {"word": "der Hund", "translation": "pies", "example": "Der Hund läuft."},
+            {"word": "der Hund", "translation": "pies", "example": "Der Hund läuft.",
+             "example_translation": "Pies biegnie."},
             {"word": "die Katze", "translation": "kot"},
         ],
     }
@@ -32,6 +33,8 @@ def test_batch_add_creates_flashcards(client, sample_user, db):
     cards = db.query(Flashcard).filter(Flashcard.user_id == uid).all()
     assert {c.word for c in cards} == {"der Hund", "die Katze"}
     assert all(c.language == "German" for c in cards)
+    hund = next(c for c in cards if c.word == "der Hund")
+    assert hund.example_translation == "Pies biegnie."
 
 
 def test_batch_add_skips_duplicates(client, sample_user):

@@ -53,6 +53,31 @@ def test_add_flashcard_appears_in_list(client, sample_user):
     assert cards[0]["translation"] == "dog"
 
 
+def test_add_flashcard_ai_keeps_example_translation(client, sample_user, monkeypatch):
+    """The prompt asks for example_translation; it used to be thrown away."""
+    from unittest.mock import AsyncMock
+
+    import backend.routers.flashcards as flashcards_router
+
+    uid = sample_user["user_id"]
+    monkeypatch.setattr(flashcards_router, "_ai_validate_spelling",
+                        AsyncMock(return_value={"valid": True}))
+    monkeypatch.setattr(
+        flashcards_router, "_ai_generate_flashcard",
+        AsyncMock(return_value={"translation": "chleb",
+                                "example": "Ich kaufe Brot.",
+                                "example_translation": "Kupuję chleb."}),
+    )
+    r = client.post(f"/api/flashcards/{uid}/add-ai", json={"word": "Brot"})
+    assert r.json()["example_translation"] == "Kupuję chleb."
+
+    card = client.get(f"/api/flashcards/{uid}").json()["flashcards"][0]
+    assert card["example_sentence"] == "Ich kaufe Brot."
+    assert card["example_translation"] == "Kupuję chleb."
+    due = client.get(f"/api/flashcards/{uid}/due").json()["due_cards"][0]
+    assert due["example_translation"] == "Kupuję chleb."
+
+
 def test_add_flashcard_duplicate_prevented(client, sample_user):
     uid = sample_user["user_id"]
     add_card(client, uid, "Hund", "dog")

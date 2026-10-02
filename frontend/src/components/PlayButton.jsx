@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Volume2, Loader2, Square } from 'lucide-react'
+import { fetchTtsUrl } from '../utils/tts'
 
 export default function PlayButton({ text, language, className = '' }) {
   const [loading, setLoading] = useState(false)
@@ -27,15 +28,7 @@ export default function PlayButton({ text, language, className = '' }) {
     setLoading(true)
     setError(false)
     try {
-      const res = await fetch('/api/audio/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, language: language || 'German' }),
-      })
-      if (!res.ok) throw new Error('TTS failed')
-      const data = await res.json()
-      if (!data?.url) throw new Error('No audio URL in response')
-      const audio = new Audio(data.url)
+      const audio = new Audio(await fetchTtsUrl(text, language))
       audioRef.current = audio
       audio.onended = () => setIsPlaying(false)
       audio.onerror = () => setIsPlaying(false)

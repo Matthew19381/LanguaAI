@@ -11,6 +11,8 @@ import { useLanguage } from '../hooks/useLanguage'
 import { useOfflineSync } from '../hooks/useOfflineSync'
 import { saveCardPack, loadCardPack, enqueueFlashcardReview } from '../utils/offlineQueue'
 import PlayButton from '../components/PlayButton'
+import { playSequence } from '../utils/tts'
+import { loadFlashcardAudio, autoPlayTexts } from '../utils/flashcardAudio'
 
 // German gender colors
 const GENDER_COLORS = {
@@ -256,6 +258,7 @@ export default function Flashcards() {
   const clozeText = (clozeMode && !reversed && currentCard)
     ? buildCloze(currentCard.example_sentence, currentCard.word)
     : null
+  const isCloze = !!clozeText
   const isStruggling = currentCard?.fsrs_state === 'Relearning'
   const mnemonicImagePath = currentCard ? (mnemonicImages[currentCard.id] || currentCard.mnemonic_image_path) : null
 
@@ -279,6 +282,17 @@ export default function Flashcards() {
     setMnemonicImageLoading(false)
     setMnemonicImageError('')
   }, [currentCard?.id])
+
+  // Auto-play (Settings → audio fiszek): whenever a side becomes visible —
+  // flip or card change — play what the settings ask for, cutting off
+  // whatever was still playing. Keyed on the card id, not the object, so
+  // unrelated card updates don't replay it.
+  useEffect(() => {
+    const texts = autoPlayTexts(currentCard, { flipped: isFlipped, reversed, cloze: isCloze }, loadFlashcardAudio())
+    if (!texts.length) return
+    return playSequence(texts, currentCard.language || targetLanguage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCard?.id, isFlipped, reversed, isCloze, targetLanguage])
 
   const handleFlip = useCallback(() => {
     const { isFlipped: flipped } = stateRef.current
@@ -780,11 +794,14 @@ export default function Flashcards() {
                           </>
                         )}
                         {currentCard.example_sentence && (
-                                                                          <p
-                                                                            className="text-gray-400 text-sm mt-3 italic max-w-xs"
-                                                                            dangerouslySetInnerHTML={{ __html: highlightWordInSentence(currentCard.example_sentence, currentCard.word, currentCard.gender, currentCard.isImportant) }}
-                                                                          ></p>
-                                                                        )}
+                          <p
+                            className="text-gray-400 text-sm mt-3 italic max-w-xs"
+                            dangerouslySetInnerHTML={{ __html: highlightWordInSentence(currentCard.example_sentence, currentCard.word, currentCard.gender, currentCard.isImportant) }}
+                          ></p>
+                        )}
+                        {currentCard.example_sentence && currentCard.example_translation && (
+                          <p className="text-gray-500 text-xs mt-1 max-w-xs mx-auto">{currentCard.example_translation}</p>
+                        )}
                         {currentCard.mnemonic && (
                           <p className="text-amber-300/80 text-xs mt-2 max-w-xs mx-auto">
                             💡 {currentCard.mnemonic}

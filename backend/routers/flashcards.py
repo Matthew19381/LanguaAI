@@ -91,6 +91,7 @@ async def get_flashcards(
                 "word": f.word,
                 "translation": f.translation,
                 "example_sentence": f.example_sentence,
+                "example_translation": f.example_translation,
                 "audio_path": f.audio_path,
                 "language": f.language,
                 "cefr_level": f.cefr_level,
@@ -156,6 +157,7 @@ async def get_due_flashcards(user_id: int, topic_id: int | None = None, db: Sess
                 "word": f.word,
                 "translation": f.translation,
                 "example_sentence": f.example_sentence,
+                "example_translation": f.example_translation,
                 "audio_path": f.audio_path,
                 "difficulty": f.difficulty,
                 "stability": f.stability,
@@ -208,6 +210,7 @@ async def get_flashcards_offline_pack(user_id: int, size: int = 100, db: Session
                 "word": f.word,
                 "translation": f.translation,
                 "example_sentence": f.example_sentence,
+                "example_translation": f.example_translation,
                 "audio_path": f.audio_path,
                 "gender": f.gender,
                 "isImportant": f.isImportant,
@@ -545,6 +548,7 @@ async def add_flashcard(
         word=request.word,
         translation=request.translation,
         example_sentence=request.example_sentence,
+        example_translation=request.example_translation,
         language=user.target_language,
         cefr_level=user.cefr_level,
         isImportant=request.isImportant
@@ -618,6 +622,7 @@ Return ONLY valid JSON:
 """
     translation = ""
     example = ""
+    example_translation = ""
     try:
         ai_result = await _ai_generate_flashcard(prompt)
         # Handle both direct dict and nested formats
@@ -639,16 +644,19 @@ Return ONLY valid JSON:
                 example = example.get("sentence", "") or str(example)
             translation = str(translation).strip()
             example = str(example).strip()
+            example_translation = str(ai_result.get("example_translation") or "").strip()
     except Exception as e:
         logger.warning(f"AI flashcard generation failed: {e}")
         translation = ""
         example = ""
+        example_translation = ""
 
     flashcard = Flashcard(
         user_id=user_id,
         word=request.word,
         translation=translation,
         example_sentence=example,
+        example_translation=example_translation or None,
         language=user.target_language,
         cefr_level=user.cefr_level
     )
@@ -662,6 +670,7 @@ Return ONLY valid JSON:
         "word": flashcard.word,
         "translation": translation,
         "example": example,
+        "example_translation": example_translation,
         "message": "Flashcard added with AI"
     }
 
@@ -879,6 +888,7 @@ async def batch_add_flashcards(
                 word=word,
                 translation=fc.translation.strip(),
                 example_sentence=(fc.example or None),
+                example_translation=(fc.example_translation or None),
                 language=user.target_language,
                 cefr_level=user.cefr_level,
                 isImportant=bool(fc.isImportant),

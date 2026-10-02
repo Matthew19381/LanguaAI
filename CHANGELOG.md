@@ -4,6 +4,27 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-10-02 — Fiszki: autoodtwarzanie audio + tłumaczenie zdania przykładowego
+
+Dokończona, porzucona w połowie (niezacommitowana) praca z 2026-09-18.
+
+- **Autoodtwarzanie** (Ustawienia → „Audio fiszek”): słowo / zdanie, osobno dla przodu i tyłu karty.
+  Domyślnie tylko słowo po odkryciu karty. Przód nigdy nie gra w trybie PL → cel ani „kontekst”
+  (zdradziłby odpowiedź). Zapis per urządzenie (`localStorage`), bez backendu —
+  `frontend/src/utils/flashcardAudio.js`, wspólne TTS w `utils/tts.js` (też dla `PlayButton`).
+  Wcześniej strona Ustawień się wysypywała (`Volume2` bez importu), a sekcja wołała nieistniejący
+  endpoint `/api/settings/flashcard-audio`.
+- **`Flashcard.example_translation`** — polskie tłumaczenie zdania przykładowego, pokazywane na tyle karty
+  pod przykładem. AI generowało je już w `add-ai`, `generate-from-topic`, `generate-from-errors`,
+  ale backend je wyrzucał; teraz zapisywane także z lekcji (dodane do promptu słownictwa).
+  Kolumna dodana jako `polish_sentence` (rewizja `435f7893aa06`), przemianowana w `bca470c068e6`.
+  Stare fiszki mają `NULL`. Rewizja `6a3fafbb9b13` jest pusta — zostaje, bo baza ma ją w historii.
+- Usunięte debugowe logowanie tras w `main.py` i 28 skryptów `check_*/test_*.py` z roota;
+  `.gitignore` blokuje `.env`.
+- Testy: 531/531 pytest, 133/133 vitest.
+
+---
+
 ## 2026-09-15 — Fix: przegląd całej aplikacji na telefonie (konto 11, kopia bazy, realne AI)
 
 **Sprawdzone funkcjonalnie na 375 px:** Fiszki (odkryj/ocena/licznik), Ćwiczenia (odpowiedź/następne),

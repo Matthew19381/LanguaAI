@@ -19,6 +19,7 @@ class AddFlashcardRequest(BaseModel):
     word: str
     translation: str
     example_sentence: Optional[str] = None
+    example_translation: Optional[str] = None
     isImportant: Optional[bool] = False
 
 

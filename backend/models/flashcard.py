@@ -14,6 +14,9 @@ class Flashcard(Base):
     word = Column(String, nullable=False)
     translation = Column(String, nullable=False)
     example_sentence = Column(Text, nullable=True)
+    # Native-language (Polish) translation of example_sentence, shown on the card back.
+    # Null for cards created before 2026-10-02 (the AI produced it, but it was discarded).
+    example_translation = Column(Text, nullable=True)
     audio_path = Column(String, nullable=True)
     language = Column(String, nullable=False)
     cefr_level = Column(String, nullable=False)

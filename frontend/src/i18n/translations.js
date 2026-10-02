@@ -107,7 +107,7 @@ const translations = {
 
     // Stats
     'stats.title': 'Statystyki',
-    'stats.loading': 'Ładowanie statystyk...',
+    'stats.loading': 'Ładowanie statystyk...',
     'stats.level': 'Poziom',
     'stats.streak': 'Seria',
     'stats.days': 'dni',
@@ -208,7 +208,7 @@ const translations = {
 
     // Flashcards
     'flash.title': 'Fiszki',
-    'flash.loading': 'Ładowanie fiszek...',
+    'flash.loading': 'Ładowanie fiszek...',
     'flash.total': 'łącznie',
     'flash.dueToday': 'na dziś',
     'flash.exportAnki': 'Eksportuj do Anki',
@@ -258,11 +258,18 @@ const translations = {
     'flash.mnemonicImageButton': 'Pokaż obraz',
     'flash.mnemonicImageLoading': 'Generowanie obrazu...',
     'flash.mnemonicImageError': 'Nie udało się wygenerować obrazu.',
+    'flash.audioSettings': 'Audio fiszek',
+    'flash.audioGranulationDesc': 'Co odtwarzać automatycznie, gdy pokazuje się dana strona karty. Najlepiej działa dźwięk po odkryciu karty — powtórz wtedy słowo na głos.',
+    'flash.audioFrontNote': 'Przód nie gra nic w trybie PL → cel ani w trybie „kontekst” — zdradziłby odpowiedź. Ustawienie zapisuje się na tym urządzeniu.',
+    'flash.frontSide': 'Przód karty',
+    'flash.backSide': 'Tył karty (po odkryciu)',
+    'flash.word': 'Słowo',
+    'flash.sentence': 'Zdanie',
     'flash.mnemonicImageAlt': 'Obraz mnemoniczny',
     'flash.again': 'Jeszcze raz',
     'flash.hard': 'Trudna',
     'flash.good': 'Dobra',
-    'flash.easy': 'Łatwa',
+    'flash.easy': 'Łatwa',
     'flash.previous': 'Poprzednia',
     'flash.next': 'Następna',
     'flash.reveal': 'Odkryj',
@@ -270,7 +277,7 @@ const translations = {
 
     // QuickMode
     'quick.title': 'Tryb 15-minutowy',
-    'quick.loading': 'Ładowanie trybu szybkiego...',
+    'quick.loading': 'Ładowanie trybu szybkiego...',
     'quick.activities': 'aktywności',
     'quick.estimated': 'szacowanych min',
     'quick.start': 'Start',
@@ -299,7 +306,7 @@ const translations = {
     // Pronunciation
     'pronun.title': 'Trener wymowy',
     'pronun.subtitle': 'Nagraj siebie i uzyskaj natychmiastową informację zwrotną',
-    'pronun.loading': 'Ładowanie trenera wymowy...',
+    'pronun.loading': 'Ładowanie trenera wymowy...',
     'pronun.fromLessons': 'Z lekcji',
     'pronun.customPhrase': 'Własna fraza',
     'pronun.enterPhrase': 'Wpisz frazę do ćwiczenia...',
@@ -353,7 +360,7 @@ const translations = {
     'place.tellUs': 'Powiedz nam o sobie',
 
     // Home
-    'home.loadingDashboard': 'Ładowanie pulpitu...',
+    'home.loadingDashboard': 'Ładowanie pulpitu...',
     'home.welcomeBack': 'Witaj z powrotem,',
     'home.learner': 'Uczniu',
     'home.learning': 'Uczysz się',
@@ -385,7 +392,7 @@ const translations = {
     'home.startTest': 'Zacznij test plasujący',
 
     // DailyTest
-    'test.loading': 'Ładowanie dziennego testu...',
+    'test.loading': 'Ładowanie dziennego testu...',
     'test.couldNotLoad': 'Nie można załadować testu',
     'test.tryAgain': 'Spróbuj ponownie',
     'test.goToLesson': 'Przejdź do dzisiejszej lekcji',
@@ -477,7 +484,7 @@ const translations = {
     'history.day': 'Dzień',
     'history.score': 'Wynik',
     'history.noHistory': 'Brak historii lekcji',
-    'history.loading': 'Ładowanie historii...',
+    'history.loading': 'Ładowanie historii...',
 
     // Achievements (Polish translations)
     'ach.first_lesson.title': 'Pierwszy krok',
@@ -506,7 +513,7 @@ const translations = {
     'ach.tests_10.desc': 'Ukończono 10 testów',
     'ach.xp_100.title': 'Kolekcjoner XP',
     'ach.xp_100.desc': 'Zdobyto 100 XP',
-    'ach.xp_500.title': 'Łowca XP',
+    'ach.xp_500.title': 'Łowca XP',
     'ach.xp_500.desc': 'Zdobyto 500 XP',
     'ach.xp_1000.title': 'Legenda XP',
     'ach.xp_1000.desc': 'Zdobyto 1000 XP',
@@ -777,6 +784,13 @@ const translations = {
     'flash.mnemonicImageButton': 'Show image',
     'flash.mnemonicImageLoading': 'Generating image...',
     'flash.mnemonicImageError': 'Could not generate an image.',
+    'flash.audioSettings': 'Flashcard audio',
+    'flash.audioGranulationDesc': 'What to play automatically when each side of a card appears. Audio after revealing works best — say the word out loud then.',
+    'flash.audioFrontNote': 'The front stays silent in PL → target and "context" modes — it would give the answer away. Saved on this device.',
+    'flash.frontSide': 'Front',
+    'flash.backSide': 'Back (after reveal)',
+    'flash.word': 'Word',
+    'flash.sentence': 'Sentence',
     'flash.mnemonicImageAlt': 'Mnemonic image',
     'flash.again': 'Again',
     'flash.hard': 'Hard',

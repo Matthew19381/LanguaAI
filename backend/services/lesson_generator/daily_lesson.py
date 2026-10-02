@@ -131,6 +131,7 @@ async def generate_daily_lesson(
             "word": "target language word",
             "translation": "native language translation",
             "example_sentence": "sentence in target language",
+            "example_translation": "translation of example_sentence in native language",
             "audio_cue": "description of when to play audio",
             "category": "short semantic group label, e.g. colours / food / motion verbs",
             "mnemonic": "keyword-method hint for ABSTRACT words only, empty string otherwise"

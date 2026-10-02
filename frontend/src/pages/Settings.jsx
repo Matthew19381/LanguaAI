@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Globe, Settings as SettingsIcon } from 'lucide-react'
+import { Globe, Settings as SettingsIcon, Volume2 } from 'lucide-react'
 import { getUserId, getStats, getLanguageProfiles, updateUserLanguage } from '../api/client'
 import { NotificationSettings } from '../components/NotificationManager'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
+import { loadFlashcardAudio, saveFlashcardAudio } from '../utils/flashcardAudio'
 
 const LANGUAGES = ['German', 'English', 'Spanish', 'Russian', 'Chinese']
 
@@ -33,6 +34,7 @@ export default function Settings() {
   const navigate = useNavigate()
   const userId = getUserId()
   const { lang, setLang, t, targetLanguage } = useLanguage()
+  const [audioSettings, setAudioSettings] = useState(loadFlashcardAudio)
 
   useEffect(() => {
     if (!userId) { navigate('/placement'); return }
@@ -44,6 +46,12 @@ export default function Settings() {
       .then(setLanguageProfiles)
       .catch(() => {})
   }, [userId])
+
+  const toggleAudio = (key) => {
+    const next = { ...audioSettings, [key]: !audioSettings[key] }
+    setAudioSettings(next)
+    saveFlashcardAudio(next)
+  }
 
   const handleChangeLanguage = async (newLanguage) => {
     if (!userId || newLanguage === stats?.user?.target_language) return
@@ -170,6 +178,38 @@ export default function Settings() {
           </div>
           {changingLanguage && <p className="text-xs text-indigo-400 mt-2">Zmienianie języka...</p>}
           {languageMsg && <p className="text-sm text-indigo-300 mt-2">{languageMsg}</p>}
+        </div>
+
+        {/* Flashcard Audio Settings */}
+        <div className="card mb-6">
+          <h2 className="section-title flex items-center gap-2">
+            <Volume2 className="w-5 h-5 text-indigo-400" />
+            {t('flash.audioSettings')}
+          </h2>
+          <p className="text-gray-400 text-sm mb-4">{t('flash.audioGranulationDesc')}</p>
+          <div className="space-y-3">
+            {[
+              ['flash.frontSide', 'frontWord', 'frontSentence'],
+              ['flash.backSide', 'backWord', 'backSentence'],
+            ].map(([sideKey, wordKey, sentenceKey]) => (
+              <div key={sideKey}>
+                <span className="text-gray-300 text-sm">{t(sideKey)}</span>
+                <div className="flex items-center gap-6 mt-1">
+                  {[[wordKey, 'flash.word'], [sentenceKey, 'flash.sentence']].map(([key, labelKey]) => (
+                    <label key={key} className="flex items-center gap-2 cursor-pointer text-sm text-gray-200">
+                      <input
+                        type="checkbox"
+                        checked={audioSettings[key]}
+                        onChange={() => toggleAudio(key)}
+                        className="rounded border-gray-600 w-4 h-4 focus-visible:ring-indigo-500" />
+                      {t(labelKey)}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-gray-500 text-xs mt-3">{t('flash.audioFrontNote')}</p>
         </div>
 
         <button

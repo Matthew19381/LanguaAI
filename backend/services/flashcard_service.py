@@ -110,6 +110,7 @@ def create_flashcards_from_vocab(
             word=item.get("word", ""),
             translation=item.get("translation", ""),
             example_sentence=item.get("example", "") or item.get("example_sentence", ""),
+            example_translation=item.get("example_translation") or None,
             language=target_language,
             cefr_level=cefr_level,
             lesson_id=lesson_id,
