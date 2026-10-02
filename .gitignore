@@ -88,3 +88,12 @@ day_start
 
 # Lokalne worktree agentow (git worktree add .worktrees/...)
 .worktrees/
+
+# Sekrety — dopisane 2026-09-20 podczas audytu Hermesa.
+# Powod: zywy klucz OPENROUTER_API_KEY znaleziony w plikach .env projektow
+# (wpisany tam przez bota). Repo ma remote na GitHubie, wiec jedno `git add -A`
+# opublikowaloby klucz. Bez tej reguly nic tego nie zatrzymywalo.
+.env
+.env.*
+!.env.example
+!.env.template
