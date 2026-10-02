@@ -32,29 +32,25 @@ export default function Home() {
     const cachedData = localStorage.getItem('tips_data')
     const hasCachedTips = cachedDate === today && cachedData
 
-    const promises = [getStats(userId)]
-    if (!hasCachedTips) {
-      promises.push(getDailyTips(userId))
-    }
+    // The dashboard waits only for stats. Tips are an AI call (often tens of
+    // seconds on the first visit of the day per device), so they fill in later.
+    getStats(userId)
+      .then(setStats)
+      .catch(() => {})
+      .finally(() => setLoading(false))
 
-    Promise.all(promises)
-      .then(([statsData, tipsData]) => {
-        setStats(statsData)
-        if (tipsData) {
-          const tipsArr = tipsData.tips || []
+    if (hasCachedTips) {
+      try { setTips(JSON.parse(cachedData)) } catch {}
+    } else {
+      getDailyTips(userId)
+        .then(tipsData => {
+          const tipsArr = tipsData?.tips || []
           setTips(tipsArr)
           localStorage.setItem('tips_date', today)
           localStorage.setItem('tips_data', JSON.stringify(tipsArr))
-        } else if (hasCachedTips) {
-          try { setTips(JSON.parse(cachedData)) } catch {}
-        }
-      })
-      .catch(() => {
-        if (hasCachedTips) {
-          try { setTips(JSON.parse(cachedData)) } catch {}
-        }
-      })
-      .finally(() => setLoading(false))
+        })
+        .catch(() => {})
+    }
   }, [userId])
 
   if (loading) return <PageLoader text={t('home.loadingDashboard')} />

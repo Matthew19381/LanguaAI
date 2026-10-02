@@ -7,8 +7,9 @@ import Home from "../Home"
 // Mock API client
 vi.mock("../../api/client", () => ({
   getUserId: vi.fn(() => null),
-  getStats: vi.fn(),
-  getDailyTips: vi.fn(),
+  // Pending by default — a test that needs data resolves them itself.
+  getStats: vi.fn(() => new Promise(() => {})),
+  getDailyTips: vi.fn(() => new Promise(() => {})),
 }))
 
 // Mock useLanguage hook
@@ -114,6 +115,23 @@ describe("Home", () => {
     })
     expect(screen.getByText("home.dailyTest")).toBeInTheDocument()
     expect(screen.getByText("home.practiceSpeaking")).toBeInTheDocument()
+  })
+
+  it("shows the dashboard without waiting for the AI tips", async () => {
+    const { getUserId, getStats, getDailyTips } = await import("../../api/client")
+    getUserId.mockReturnValue(42)
+    getStats.mockResolvedValue({
+      user: { name: "Test", cefr_level: "A2" },
+      level_info: { level: 3, xp: 100, next_level_xp: 300, progress_percent: 33 },
+    })
+    getDailyTips.mockReturnValue(new Promise(() => {}))  // AI still generating
+
+    renderHome()
+
+    await waitFor(() => {
+      expect(screen.getByText("home.todayLesson")).toBeInTheDocument()
+    })
+    expect(screen.queryByText("home.loadingDashboard")).not.toBeInTheDocument()
   })
 
   it("displays tips when available", async () => {
