@@ -4,6 +4,15 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-10-08 — B1+B5: skrypt scalania kont (NIE wykonany, czeka na zgodę właściciela)
+
+- `scripts/merge_users.py --db … --target … --sources … [--apply]` przenosi wszystkie wiersze z `user_id`
+  kont źródłowych na konto docelowe w jednej transakcji; bez `--apply` = dry-run (ROLLBACK). Konflikty:
+  osiągnięcia — najwcześniejsze; lekcje — przenumerowanie (ukończone, potem nieukończona konta głównego,
+  potem porzucone); jeden aktywny plan; duplikaty fiszek — zostaje ta z dłuższą historią FSRS, reszta
+  `is_active=0`. Inne konta i osierocone wiersze tylko raportowane (`--delete-users`, `--delete-orphans`).
+  Test: `backend/tests/test_merge_users.py`. Dry-run wykonany tylko na kopii bazy w `%TEMP%`.
+
 ## 2026-10-08 — B7: frontend na :5177 (kolizja z hubem na :5173)
 
 - Frontend dev LinguaAI i System-Główny oba słuchały na `:5173`; drugi startujący przeskakiwał na inny port,

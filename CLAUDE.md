@@ -50,7 +50,7 @@ Każda zmiana modelu w `backend/models/*.py` **musi** iść w jednym commicie z 
 py -3.11 -m alembic -c backend/alembic.ini revision --autogenerate -m "opis zmiany"
 ```
 
-Zawsze uruchamiaj z **roota projektu**, nigdy z `cd backend` — `DATABASE_URL` jest ścieżką względną rozwiązywaną względem cwd procesu; z `backend/` trafiłbyś w zły plik. Zawsze przejrzyj wygenerowaną rewizję ręcznie przed commitem (SQLite autogenerate bywa niedokładny — patrz `backend/alembic/README` po przykłady). `backend/main.py`'s lifespan uruchamia `alembic upgrade head` przy każdym starcie (pomijane gdy `TESTING=1`).
+Uruchamiaj z **roota projektu** (importy `backend.*`). Względny `DATABASE_URL` (`sqlite:///./lingua_ai.db`) od 2026-10-08 liczy się od katalogu repo, nie od cwd (`config.py`, `_anchor_relative_sqlite`). Zawsze przejrzyj wygenerowaną rewizję ręcznie przed commitem (SQLite autogenerate bywa niedokładny — patrz `backend/alembic/README` po przykłady). `backend/main.py`'s lifespan uruchamia `alembic upgrade head` przy każdym starcie (pomijane gdy `TESTING=1`).
 
 ## Architecture
 
