@@ -4,6 +4,15 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-10-08 — B4: ścieżka bazy niezależna od katalogu startu
+
+- `DATABASE_URL=sqlite:///./lingua_ai.db` liczył się od bieżącego katalogu: `start.bat` (z roota repo) używał
+  `lingua_ai.db`, start z `backend/` otwierał drugą, pustą `backend/lingua_ai.db`. Teraz względna ścieżka SQLite
+  liczy się od katalogu repo (`config.py`, walidator `_anchor_relative_sqlite`, jak w memory-forge) — ten sam plik
+  co dotąd. Pusty duplikat przeniesiony do `C:\Projects\_kopie-baz6-10-08\duplikaty\`.
+  Test: `backend/tests/test_config_paths.py`.
+- Uwaga: `setup_autostart.ps1` nadal wskazuje `C:\GoogleDriveSync\Projekty\LinguaAI` (sprzed migracji 23.09).
+
 ## 2026-10-02 — Fiszki: autoodtwarzanie audio + tłumaczenie zdania przykładowego
 
 Dokończona, porzucona w połowie (niezacommitowana) praca z 2026-09-18.

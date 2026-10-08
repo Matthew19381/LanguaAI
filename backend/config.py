@@ -1,4 +1,10 @@
+from pathlib import Path
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+_SQLITE = "sqlite:///"
 
 
 class Settings(BaseSettings):
@@ -9,6 +15,7 @@ class Settings(BaseSettings):
     AI_MODEL_TIER: str = "cheap"     # "free", "cheap", "best" — model quality/cost tier
     GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta"
     DATABASE_URL: str = "sqlite:///./lingua_ai.db"
+
     SECRET_KEY: str = ""  # Must be set in .env file
     ADMIN_API_KEY: str = ""  # API key for admin endpoints (backup, etc.)
     # Shared secret guarding the whole API. Empty (default) = no gate, which is
@@ -38,5 +45,16 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def _anchor_relative_sqlite(cls, value: str) -> str:
+        """A relative SQLite path means the repo root (where start.bat runs uvicorn),
+        not the current directory - otherwise each launcher used a different database (B4, 2026-10-08)."""
+        if not value.startswith(_SQLITE):
+            return value
+        path = value[len(_SQLITE):]
+        if not path or path == ":memory:" or Path(path).is_absolute():
+            return value
+        return _SQLITE + (REPO_ROOT / path).resolve().as_posix()
 
 settings = Settings()
