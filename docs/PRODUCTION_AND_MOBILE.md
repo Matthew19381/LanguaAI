@@ -258,7 +258,7 @@ Pusty `APP_ACCESS_TOKEN` = bramka wyłączona, czyli praca na localhoście bez z
 
 ### Tunel HTTPS — test na telefonie bez wdrożenia
 
-Service worker i instalacja PWA wymagają HTTPS, więc `http://<ip>:5173` nie
+Service worker i instalacja PWA wymagają HTTPS, więc `http://<ip>:5177` nie
 wystarczy. Najszybsza droga to tunel:
 
 ```bash
@@ -294,12 +294,12 @@ Telefon i komputer w tej samej sieci Wi-Fi:
    cd frontend && npm run dev        # albo: npm run build && npm run preview
    ```
 3. **Adres IP komputera**: `ipconfig` → „IPv4 Address" (np. `192.168.0.12`).
-4. Na telefonie otwórz `http://192.168.0.12:5173` (dev) lub `:4173` (preview).
+4. Na telefonie otwórz `http://192.168.0.12:5177` (dev) lub `:4173` (preview).
 5. **Zainstaluj**: Android/Chrome → menu → „Dodaj do ekranu głównego";
    iOS/Safari → Udostępnij → „Dodaj do ekranu głównego".
 
 > **Uwaga o service workerze:** przeglądarki rejestrują SW tylko na HTTPS albo
-> `localhost`. Pod adresem IP po HTTP (`http://192.168.0.12:5173`) aplikacja
+> `localhost`. Pod adresem IP po HTTP (`http://192.168.0.12:5177`) aplikacja
 > zadziała normalnie, ale **bez trybu offline i bez instalacji jako PWA**.
 > Pełne PWA wymaga HTTPS — czyli wdrożenia w chmurze (sekcja 2) albo tunelu
 > (np. `cloudflared tunnel`, ngrok), który daje adres HTTPS.

@@ -13,7 +13,7 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - AI_PROVIDER=${AI_PROVIDER:-openrouter}
       - BACKEND_URL=http://localhost:8001
-      - FRONTEND_URL=http://localhost:5173
+      - FRONTEND_URL=http://localhost:5177
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
       - ADMIN_API_KEY=${ADMIN_API_KEY:-}
     volumes:
@@ -29,7 +29,7 @@ services:
     args:
       VITE_API_URL: http://localhost:8001
     ports:
-      - "5173:5173"
+      - "5177:5177"
     depends_on:
       - backend
     restart: unless-stopped

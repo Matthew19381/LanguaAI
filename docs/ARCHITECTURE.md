@@ -376,7 +376,7 @@ Z **katalogu głównego** (żeby importy `backend.*` się rozwiązały):
 # Backend
 uvicorn backend.main:app --reload --port 8001
 # Frontend (osobny terminal)
-cd frontend && npm install && npm run dev      # :5173, proxy /api i /audio -> :8001
+cd frontend && npm install && npm run dev      # :5177, proxy /api i /audio -> :8001
 ```
 
 Skróty: `start.bat` (CMD) / `start.ps1` (PowerShell). API docs: `http://localhost:8001/docs`.
@@ -420,7 +420,7 @@ adaptacja lekcji i auto-warianty mają testy przechwytujące prompt/parametry.
 
 ## 18. Wdrożenie i mobilka
 
-- **Lokalnie na telefonie (Wi-Fi):** `--host 0.0.0.0`, otwórz `http://<IP>:5173`
+- **Lokalnie na telefonie (Wi-Fi):** `--host 0.0.0.0`, otwórz `http://<IP>:5177`
   (bez instalacji PWA/offline — te wymagają HTTPS).
 - **Pełne PWA (HTTPS):** tunel Cloudflare albo chmura — instrukcja krok-po-kroku
   w [PRODUCTION_AND_MOBILE.md](PRODUCTION_AND_MOBILE.md).

@@ -16,7 +16,7 @@ test.describe('Navigation & Layout', () => {
   });
 
   test('home page loads with user', async ({ page }) => {
-    await page.goto(`http://localhost:5173/?userId=${userId}`);
+    await page.goto(`http://localhost:5177/?userId=${userId}`);
     await page.waitForLoadState('domcontentloaded');
 
     await expect(page).toHaveTitle(/LinguaAI/i);
@@ -25,7 +25,7 @@ test.describe('Navigation & Layout', () => {
   });
 
   test('navigation bar is visible with logged-in user', async ({ page }) => {
-    await page.goto(`http://localhost:5173/?userId=${userId}`);
+    await page.goto(`http://localhost:5177/?userId=${userId}`);
     await page.waitForLoadState('domcontentloaded');
 
     // Wait for nav to appear
@@ -39,37 +39,37 @@ test.describe('Navigation & Layout', () => {
   });
 
   test('can navigate to stats page via direct URL', async ({ page }) => {
-    await page.goto(`http://localhost:5173/stats?userId=${userId}`);
+    await page.goto(`http://localhost:5177/stats?userId=${userId}`);
     await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('stats');
   });
 
   test('can navigate to flashcards page via direct URL', async ({ page }) => {
-    await page.goto(`http://localhost:5173/flashcards?userId=${userId}`);
+    await page.goto(`http://localhost:5177/flashcards?userId=${userId}`);
     await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('flashcards');
   });
 
   test('can navigate to lesson page via direct URL', async ({ page }) => {
-    await page.goto(`http://localhost:5173/lesson?userId=${userId}`);
+    await page.goto(`http://localhost:5177/lesson?userId=${userId}`);
     await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('lesson');
   });
 
   test('can navigate to conversation page via direct URL', async ({ page }) => {
-    await page.goto(`http://localhost:5173/conversation?userId=${userId}`);
+    await page.goto(`http://localhost:5177/conversation?userId=${userId}`);
     await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('conversation');
   });
 
   test('can navigate to news page via direct URL', async ({ page }) => {
-    await page.goto(`http://localhost:5173/news?userId=${userId}`);
+    await page.goto(`http://localhost:5177/news?userId=${userId}`);
     await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('news');
   });
 
   test('unauthenticated user sees home page', async ({ page }) => {
-    await page.goto('http://localhost:5173/');
+    await page.goto('http://localhost:5177/');
     await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveTitle(/LinguaAI/i);
   });

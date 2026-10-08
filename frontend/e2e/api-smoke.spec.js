@@ -62,7 +62,7 @@ test.describe('API Smoke Tests', () => {
 
   test('CORS headers present', async ({ request }) => {
     const res = await request.get(`${API}/api/health`, {
-      headers: { Origin: 'http://localhost:5173' },
+      headers: { Origin: 'http://localhost:5177' },
     });
     expect(res.ok()).toBeTruthy();
   });

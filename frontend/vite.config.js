@@ -98,9 +98,9 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5173,
+    port: 5177,
     // Listen on all interfaces so the app can be opened from a phone on the
-    // same Wi-Fi (http://<computer-ip>:5173).
+    // same Wi-Fi (http://<computer-ip>:5177).
     host: true,
     proxy: {
       '/api': {

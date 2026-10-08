@@ -4,6 +4,14 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-10-08 — B7: frontend na :5177 (kolizja z hubem na :5173)
+
+- Frontend dev LinguaAI i System-Główny oba słuchały na `:5173`; drugi startujący przeskakiwał na inny port,
+  a `start.bat` otwierał w przeglądarce nie tę aplikację. LinguaAI dostał `:5177` (rejestr portów:
+  `System-Glowny/CLAUDE.md`): `vite.config.js`, `start.bat`/`start.ps1`, `FRONTEND_URL`, domyślne `ALLOWED_ORIGINS`,
+  Docker, Playwright, `.claude/launch.json`, dokumentacja. Test: `backend/tests/test_frontend_port.py`.
+- Uwaga: jeśli `ALLOWED_ORIGINS`/`FRONTEND_URL` są ustawione w `.env`, trzeba je zmienić ręcznie (dziś nie są).
+
 ## 2026-10-08 — B4: ścieżka bazy niezależna od katalogu startu
 
 - `DATABASE_URL=sqlite:///./lingua_ai.db` liczył się od bieżącego katalogu: `start.bat` (z roota repo) używał

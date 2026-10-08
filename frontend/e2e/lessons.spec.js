@@ -18,7 +18,7 @@ test.describe('Lessons', () => {
   });
 
   test('lesson page loads for authenticated user', async ({ page }) => {
-    await page.goto(`http://localhost:5173/lesson?userId=${userId}`);
+    await page.goto(`http://localhost:5177/lesson?userId=${userId}`);
     await page.waitForLoadState('networkidle');
 
     const bodyText = await page.textContent('body');
@@ -27,7 +27,7 @@ test.describe('Lessons', () => {
   });
 
   test('can request new lesson generation', async ({ page }) => {
-    await page.goto(`http://localhost:5173/lesson?userId=${userId}`);
+    await page.goto(`http://localhost:5177/lesson?userId=${userId}`);
     await page.waitForLoadState('networkidle');
 
     const genBtn = page.locator(

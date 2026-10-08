@@ -31,7 +31,7 @@ start "LinguaAI-Frontend" cmd /k "cd /d %~dp0frontend && (if not exist node_modu
 echo.
 echo ============================================
 echo   Backend:  http://localhost:8001
-echo   Frontend: http://localhost:5173
+echo   Frontend: http://localhost:5177
 echo ============================================
 echo.
 echo Czekam na uruchomienie serwerow...
@@ -39,7 +39,7 @@ timeout /t 5 /nobreak >nul
 echo Sprawdzam czy frontend jest gotowy...
 set /a tries=0
 :check_frontend
-curl -s -f http://localhost:5173 >nul 2>&1
+curl -s -f http://localhost:5177 >nul 2>&1
 if not errorlevel 1 goto frontend_ready
 set /a tries+=1
 if %tries% geq 40 (
@@ -56,4 +56,4 @@ goto check_frontend
 
 :frontend_ready
 echo Frontend gotowy! Otwieram przegladarke...
-start http://localhost:5173
+start http://localhost:5177

@@ -29,7 +29,7 @@ ENV PYTHONUNBUFFERED=1
 ENV DATABASE_URL=sqlite:///./lingua_ai.db
 ENV AI_PROVIDER=openrouter
 ENV BACKEND_URL=http://localhost:8001
-ENV FRONTEND_URL=http://localhost:5173
+ENV FRONTEND_URL=http://localhost:5177
 
 # Run backend on port 8001
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8001"]

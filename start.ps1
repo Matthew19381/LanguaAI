@@ -28,14 +28,14 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd
 Start-Sleep -Seconds 3
 
 Write-Host "Starting LinguaAI Frontend..." -ForegroundColor Green
-$frontendCmd = "Set-Location '$rootDir\frontend'; Write-Host 'Starting frontend on http://localhost:5173' -ForegroundColor Green; npm install; npm run dev"
+$frontendCmd = "Set-Location '$rootDir\frontend'; Write-Host 'Starting frontend on http://localhost:5177' -ForegroundColor Green; npm install; npm run dev"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $frontendCmd
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  Services starting up..." -ForegroundColor Green
 Write-Host "  Backend:  http://localhost:8001" -ForegroundColor White
-Write-Host "  Frontend: http://localhost:5173" -ForegroundColor White
+Write-Host "  Frontend: http://localhost:5177" -ForegroundColor White
 Write-Host "  API Docs: http://localhost:8001/docs" -ForegroundColor White
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
@@ -46,10 +46,10 @@ $maxRetries = 30
 $retryCount = 0
 while ($retryCount -lt $maxRetries) {
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:5173" -Method Get -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        $response = Invoke-WebRequest -Uri "http://localhost:5177" -Method Get -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
         if ($response.StatusCode -eq 200) {
             Write-Host "Frontend ready! Opening browser..." -ForegroundColor Green
-            Start-Process "http://localhost:5173"
+            Start-Process "http://localhost:5177"
             break
         }
     } catch {
@@ -61,7 +61,7 @@ while ($retryCount -lt $maxRetries) {
 }
 
 if ($retryCount -ge $maxRetries) {
-    Write-Host "Timeout waiting for frontend. Please open http://localhost:5173 manually." -ForegroundColor Red
+    Write-Host "Timeout waiting for frontend. Please open http://localhost:5177 manually." -ForegroundColor Red
 }
 
 Write-Host ""

@@ -15,7 +15,7 @@ test.describe('Full User Flow', () => {
     const { user_id } = await userRes.json();
 
     // Load home page with user
-    await page.goto(`http://localhost:5173/?userId=${user_id}`);
+    await page.goto(`http://localhost:5177/?userId=${user_id}`);
     await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveTitle(/LinguaAI/i);
 
@@ -26,7 +26,7 @@ test.describe('Full User Flow', () => {
     // Navigate to different pages via direct URL
     const pages = ['/lesson', '/flashcards', '/stats', '/conversation', '/news'];
     for (const path of pages) {
-      await page.goto(`http://localhost:5173${path}?userId=${user_id}`);
+      await page.goto(`http://localhost:5177${path}?userId=${user_id}`);
       await page.waitForLoadState('domcontentloaded');
       const bodyText = await page.textContent('body');
       expect(bodyText.length).toBeGreaterThan(20);
@@ -43,12 +43,12 @@ test.describe('Full User Flow', () => {
     });
     const { user_id } = await userRes.json();
 
-    await page.goto(`http://localhost:5173/?userId=${user_id}`);
+    await page.goto(`http://localhost:5177/?userId=${user_id}`);
     await page.waitForLoadState('domcontentloaded');
 
     const paths = ['/stats', '/flashcards', '/lesson'];
     for (const path of paths) {
-      await page.goto(`http://localhost:5173${path}?userId=${user_id}`);
+      await page.goto(`http://localhost:5177${path}?userId=${user_id}`);
       await page.waitForLoadState('domcontentloaded');
     }
 

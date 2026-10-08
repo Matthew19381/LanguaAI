@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Placement Test Flow', () => {
   test('placement page loads with setup form', async ({ page }) => {
-    await page.goto('http://localhost:5173/placement');
+    await page.goto('http://localhost:5177/placement');
     await page.waitForLoadState('networkidle');
 
     // Should show the setup form with name input
@@ -16,7 +16,7 @@ test.describe('Placement Test Flow', () => {
   });
 
   test('can fill placement form and start test', async ({ page }) => {
-    await page.goto('http://localhost:5173/placement');
+    await page.goto('http://localhost:5177/placement');
     await page.waitForLoadState('networkidle');
 
     // Try to fill name

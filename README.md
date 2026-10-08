@@ -9,7 +9,7 @@ Aplikacja do nauki języków obcych wspierana przez AI. Interfejs w języku pols
 3. Uruchom:
    - Backend: `uvicorn backend.main:app --reload --port 8001` (z katalogu głównego)
    - Frontend: `cd frontend && npm install && npm run dev`
-4. Otwórz http://localhost:5173
+4. Otwórz http://localhost:5177
 
 ## Dokumentacja
 
@@ -54,7 +54,7 @@ docker-compose up --build
 ```
 
 Backend: http://localhost:8001  
-Frontend: http://localhost:5173  
+Frontend: http://localhost:5177  
 API Docs: http://localhost:8001/docs
 
 ## Testy
