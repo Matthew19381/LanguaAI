@@ -90,3 +90,20 @@ def test_refuses_target_with_own_data(db):
     with pytest.raises(SystemExit):
         merge_users.main(["--db", str(path), "--target", "4", "--sources", "2,3", "--apply"])
     assert con.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 4
+
+
+def test_deleted_accounts_take_their_topic_items_along(db):
+    """topic_items have no user_id; left behind they were 30 FK violations on the real database."""
+    path, con = db
+    cols = {r[1]: r for r in con.execute("PRAGMA table_info(topics)")}
+    required = [n for n, r in cols.items() if r[3] and r[4] is None and not r[5] and n != "user_id"]
+    values = {n: "x" for n in required}
+    con.execute(
+        f"INSERT INTO topics (id, user_id, {', '.join(values)}) VALUES (7, 4, {', '.join('?' * len(values))})",
+        list(values.values()),
+    )
+    con.execute("INSERT INTO topic_items (topic_id, item_type, item_id, title) VALUES (7, 'lesson', 1, 't')")
+    con.commit()
+    assert _run(path, "--apply", "--delete-users", "4") == 0
+    assert con.execute("SELECT COUNT(*) FROM topic_items").fetchone()[0] == 0
+    assert con.execute("PRAGMA foreign_key_check").fetchall() == []

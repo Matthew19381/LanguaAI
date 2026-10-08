@@ -180,6 +180,7 @@ def merge(con, target, sources, primary, delete_users, delete_orphans, delete_du
         f"login_token z id {primary}; usunięte konta {sources}"
     )
 
+    topics_before = {r[0] for r in con.execute("SELECT id FROM topics")}
     for uid in delete_users:
         for t in tables:
             n = con.execute(f'DELETE FROM "{t}" WHERE user_id = ?', (uid,)).rowcount
@@ -195,7 +196,13 @@ def merge(con, target, sources, primary, delete_users, delete_orphans, delete_du
                     con.execute(f'DELETE FROM "{t}" WHERE user_id = ?', (uid,))
                 report.append(f"osierocone: {t} user_id={uid}: {n} {'(usunięte)' if delete_orphans else '(zostają)'}")
 
-    # topic_items follow their topic; drop nothing else implicitly
+    # topic_items have no user_id: they go with the topics deleted above (otherwise each one
+    # stayed as a foreign-key violation, found in the dry-run on the real database 2026-10-08)
+    gone = sorted(topics_before - {r[0] for r in con.execute("SELECT id FROM topics")})
+    if gone:
+        n = con.execute(f"DELETE FROM topic_items WHERE topic_id IN ({','.join('?' * len(gone))})", gone).rowcount
+        report.append(f"usunięto topic_items usuniętych tematów {gone}: {n}")
+    # pre-existing orphans are only reported
     orphan_items = con.execute("SELECT COUNT(*) FROM topic_items WHERE topic_id NOT IN (SELECT id FROM topics)").fetchone()[0]
     if orphan_items:
         report.append(f"topic_items bez tematu: {orphan_items}")
