@@ -97,3 +97,5 @@ day_start
 .env.*
 !.env.example
 !.env.template
+# venv projektu (etap A, 2026-10-09)
+/.venv/
