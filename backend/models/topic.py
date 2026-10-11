@@ -58,6 +58,7 @@ class Topic(Base):
     repetitions = Column(Integer, default=0)            # total review count
     lapses = Column(Integer, default=0)                 # times forgotten
     fsrs_state = Column(String, default="Learning")     # Learning/Review/Relearning
+    fsrs_step = Column(Integer, nullable=True)          # learning step; null in Review or if saved before 2026-10-11
     next_review_date = Column(DateTime, nullable=True)  # when to review next
     last_review_date = Column(DateTime, nullable=True)  # last time reviewed
     memory_strength = Column(Float, default=0.0)        # 0.0-1.0 visual indicator
@@ -159,6 +160,8 @@ class Topic(Base):
             lapses=self.lapses or 0,
             current_state=self.fsrs_state or "Learning",
             last_review_date=self.last_review_date,
+            step=self.fsrs_step,
+            next_review_date=self.next_review_date,
         )
 
         self.difficulty = result.difficulty
@@ -167,6 +170,7 @@ class Topic(Base):
         self.interval = result.interval
         self.repetitions = result.repetitions
         self.fsrs_state = result.state
+        self.fsrs_step = result.step
         self.next_review_date = result.next_review_date
         self.last_review_date = datetime.now(timezone.utc)
         self.memory_strength = self.calculate_memory_strength()

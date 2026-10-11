@@ -300,6 +300,8 @@ def review_exercise(
         lapses=exercise.lapses or 0,
         current_state=exercise.fsrs_state or "Learning",
         last_review_date=exercise.last_review_date,
+        step=exercise.fsrs_step,
+        next_review_date=exercise.next_review_date,
     )
 
     exercise.difficulty = result.difficulty
@@ -309,6 +311,7 @@ def review_exercise(
     exercise.repetitions = result.repetitions
     exercise.lapses = result.lapses
     exercise.fsrs_state = result.state
+    exercise.fsrs_step = result.step
     exercise.next_review_date = result.next_review_date
     exercise.last_review_date = now
     exercise.times_seen = (exercise.times_seen or 0) + 1

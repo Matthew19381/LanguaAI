@@ -50,6 +50,7 @@ class FSRSResult:
     next_review_date: datetime
     state: str             # "Learning", "Review", "Relearning"
     lapses: int            # updated lapse count
+    step: Optional[int] = None  # learning/relearning step; None in Review
 
 
 def _card_to_json(card: Card) -> str:
@@ -66,17 +67,46 @@ def _card_to_json(card: Card) -> str:
     return json.dumps(data)
 
 
+def infer_step(
+    state: str,
+    last_review: Optional[datetime],
+    next_review: Optional[datetime],
+) -> int:
+    """Best guess of the learning step for a card saved before ``fsrs_step`` existed.
+
+    The scheduler sets ``due = review time + steps[step]``, so the gap between the
+    last review and the due date names the step the card was left on. Without
+    both dates (or with a gap that matches no step) the card starts at step 0.
+    """
+    steps = _scheduler.relearning_steps if state == "Relearning" else _scheduler.learning_steps
+    if not steps or last_review is None or next_review is None:
+        return 0
+    # SQLite returns naive datetimes; the scheduler works in UTC
+    if last_review.tzinfo is None:
+        last_review = last_review.replace(tzinfo=timezone.utc)
+    if next_review.tzinfo is None:
+        next_review = next_review.replace(tzinfo=timezone.utc)
+    gap = next_review - last_review
+    if gap <= timedelta(0) or gap >= timedelta(days=1):
+        return 0
+    return min(range(len(steps)), key=lambda i: abs(steps[i] - gap))
+
+
 def _card_from_state(
     difficulty: float,
     stability: float,
     state: str,
     last_review: datetime,
     reps: int,
+    step: Optional[int] = 0,
 ) -> Card:
     """
     Reconstruct a Card from saved FSRS state.
 
     Uses Card.from_json to properly restore the card's internal state.
+    ``step`` must be the saved learning step: rebuilding every Learning card at
+    step 0 meant a "Good" answer never graduated it (2026-10-11 fix). Review
+    cards carry no step.
     """
     now = datetime.now(timezone.utc)
     state_enum = _NAME_TO_STATE.get(state, State.Learning)
@@ -88,7 +118,7 @@ def _card_from_state(
     data = {
         "card_id": 0,
         "state": state_enum.value,
-        "step": 0,
+        "step": None if state_enum == State.Review else (step or 0),
         "difficulty": difficulty if difficulty is not None else 5.0,
         "stability": stability if stability and stability > 0 else 0.1,
         "due": now.isoformat(),
@@ -110,6 +140,8 @@ def apply_fsrs(
     lapses: int = 0,
     current_state: str = "Learning",
     last_review_date: Optional[datetime] = None,
+    step: Optional[int] = None,
+    next_review_date: Optional[datetime] = None,
 ) -> FSRSResult:
     """
     Apply the FSRS algorithm to compute the next review schedule.
@@ -128,6 +160,9 @@ def apply_fsrs(
         lapses: Total number of times the card was forgotten
         current_state: Current state — "Learning", "Review", "Relearning"
         last_review_date: When the card was last reviewed
+        step: Saved learning/relearning step; None for cards saved before the
+          step was stored, then inferred from last_review_date/next_review_date
+        next_review_date: Saved due date, used only to infer a missing step
 
     Returns:
         FSRSResult with updated scheduling parameters
@@ -149,12 +184,15 @@ def apply_fsrs(
         card = Card()
     else:
         # Reconstruct card from saved state
+        if step is None:
+            step = infer_step(current_state, last_review_date, next_review_date)
         card = _card_from_state(
             difficulty=difficulty,
             stability=stability,
             state=current_state,
             last_review=last_review_date or now - timedelta(days=elapsed_days),
             reps=reps,
+            step=step,
         )
 
     # Run FSRS
@@ -184,6 +222,7 @@ def apply_fsrs(
         next_review_date=updated_card.due,
         state=new_state,
         lapses=new_lapses,
+        step=updated_card.step,
     )
 
 

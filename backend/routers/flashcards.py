@@ -309,6 +309,8 @@ async def review_flashcard(
         lapses=flashcard.lapses or 0,
         current_state=flashcard.fsrs_state or "Learning",
         last_review_date=flashcard.last_review_date,
+        step=flashcard.fsrs_step,
+        next_review_date=flashcard.next_review_date,
     )
 
     # Update flashcard with FSRS v6 results
@@ -318,6 +320,7 @@ async def review_flashcard(
     flashcard.repetitions = result.repetitions
     flashcard.lapses = result.lapses
     flashcard.fsrs_state = result.state
+    flashcard.fsrs_step = result.step
     flashcard.last_review_date = now
 
     # ── SCI-1: successive relearning ──

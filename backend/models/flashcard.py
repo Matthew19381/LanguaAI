@@ -40,6 +40,7 @@ class Flashcard(Base):
     repetitions = Column(Integer, default=0)         # total review count
     lapses = Column(Integer, default=0)              # times forgotten
     fsrs_state = Column(String, default="Learning")  # Learning/Review/Relearning
+    fsrs_step = Column(Integer, nullable=True)       # learning step; null in Review or if saved before 2026-10-11
     next_review_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     last_review_date = Column(DateTime, nullable=True)  # last FSRS review (needed for interval calc)
     # ── SCI-1: Successive relearning (Rawson & Dunlosky 2011) ──

@@ -381,3 +381,23 @@ def test_review_flashcard_wrong_user(client, sample_user, db):
     r = client.post(f"/api/flashcards/{card.id}/review",
                     json={"rating": 3}, params={"user_id": uid + 1})
     assert r.status_code == 403
+
+
+def test_review_good_twice_graduates_to_review(client, sample_user, db):
+    """Learning step is saved between reviews: Good, Good -> Review (fix 2026-10-11)."""
+    from backend.models.flashcard import Flashcard
+
+    uid = sample_user["user_id"]
+    card_id = add_card(client, uid, "Lampe", "lamp").json()["id"]
+
+    r1 = client.post(f"/api/flashcards/{card_id}/review", json={"rating": 3}, params={"user_id": uid})
+    assert r1.json()["state"] == "Learning"
+    db.expire_all()
+    assert db.get(Flashcard, card_id).fsrs_step == 1
+
+    r2 = client.post(f"/api/flashcards/{card_id}/review", json={"rating": 3}, params={"user_id": uid})
+    assert r2.json()["state"] == "Review"
+    db.expire_all()
+    card = db.get(Flashcard, card_id)
+    assert card.fsrs_state == "Review"
+    assert card.fsrs_step is None

@@ -56,6 +56,7 @@ class Exercise(Base):
     repetitions = Column(Integer, default=0)
     lapses = Column(Integer, default=0)
     fsrs_state = Column(String, default="Learning")
+    fsrs_step = Column(Integer, nullable=True)  # learning step; null in Review or if saved before 2026-10-11
     next_review_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     last_review_date = Column(DateTime, nullable=True)
 
