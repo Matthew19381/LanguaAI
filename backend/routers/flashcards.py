@@ -20,6 +20,7 @@ from backend.schemas.flashcard import (
     BatchAddRequest,
     GenerateFromErrorsRequest,
     GenerateFromTopicRequest,
+    HubReviewRequest,
     ReviewFlashcardRequest,
 )
 from backend.services.achievement_service import check_and_award_achievements
@@ -103,6 +104,9 @@ async def get_flashcards(
                 "lapses": f.lapses,
                 "fsrs_state": f.fsrs_state,
                 "next_review_date": f.next_review_date.isoformat() if f.next_review_date else None,
+                # The hub's review deck (System-Glowny stage C) imports the schedule from these
+                "last_review_date": f.last_review_date.isoformat() if f.last_review_date else None,
+                "fsrs_step": f.fsrs_step,
                 "created_at": f.created_at.isoformat(),
                 "lesson_id": f.lesson_id,
                 "lesson_day": f.lesson_day,
@@ -378,6 +382,92 @@ async def review_flashcard(
         "interference_penalty": interference_penalty,
         "new_achievements": new_achievements,
     }
+
+
+_FSRS_STATES = ("Learning", "Review", "Relearning")
+
+
+@router.post("/api/flashcards/{flashcard_id}/hub-review")
+async def hub_review_flashcard(
+    flashcard_id: int,
+    request: HubReviewRequest,
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    """A review done in the hub's Powtórki (System-Glowny stage C, decision D1: the hub
+    schedules every flashcard with one FSRS). The hub sends the card's new schedule;
+    LinguaAI stores it as-is instead of running its own FSRS, so both show the same due
+    date. The SCI-1 relearning counters still advance, but the mastery interval cap is
+    not applied: the hub's schedule wins. Idempotent per client_event_id. 409 when the
+    card was reviewed here after the hub's review. Behind the app access gate like
+    every /api route (main.py access_gate_middleware), so the hub sends X-App-Token."""
+    flashcard = db.query(Flashcard).filter(Flashcard.id == flashcard_id).first()
+    if not flashcard:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+    if flashcard.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to review this flashcard")
+    user = get_user_or_404(db, user_id)
+    if already_applied(db, request.client_event_id):
+        return {"success": True, "duplicate": True, "flashcard_id": flashcard_id}
+
+    st = request.state
+    if st.fsrs_state not in _FSRS_STATES:
+        raise HTTPException(status_code=422, detail="fsrs_state must be Learning, Review or Relearning")
+    reviewed_at = parse_occurred_at(request.reviewed_at)
+    last = flashcard.last_review_date
+    if last is not None and (last if last.tzinfo else last.replace(tzinfo=timezone.utc)) > reviewed_at:
+        # Reviewed here after the hub's review (e.g. the hub's copy waited offline):
+        # the newer review wins; the hub adopts this card's state at its next sync.
+        raise HTTPException(status_code=409, detail="Flashcard has a newer review in LinguaAI")
+    next_review = parse_occurred_at(None) if st.next_review_date is None else _parse_any(st.next_review_date)
+
+    flashcard.fsrs_state = st.fsrs_state
+    flashcard.fsrs_step = None if st.fsrs_state == "Review" else (st.fsrs_step or 0)
+    flashcard.stability = st.stability
+    flashcard.difficulty = st.difficulty
+    flashcard.repetitions = st.repetitions
+    flashcard.lapses = st.lapses
+    flashcard.interval_days = max(1, st.interval_days)
+    flashcard.next_review_date = next_review
+    flashcard.last_review_date = reviewed_at
+    flashcard.retrievability = 1.0  # just reviewed
+
+    sessions, mastered, last_recall = advance_relearning_criterion(
+        rating=request.rating,
+        correct_recall_sessions=flashcard.correct_recall_sessions or 0,
+        last_recall_date=flashcard.last_recall_date,
+        now=reviewed_at,
+    )
+    flashcard.correct_recall_sessions = sessions
+    flashcard.is_mastered = mastered
+    flashcard.last_recall_date = last_recall
+
+    record_event(db, request.client_event_id, user_id, "flashcard_hub_review", flashcard.id, reviewed_at)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return {"success": True, "duplicate": True, "flashcard_id": flashcard_id}
+    new_achievements = check_and_award_achievements(user, db)
+    return {
+        "success": True,
+        "duplicate": False,
+        "flashcard_id": flashcard_id,
+        "state": flashcard.fsrs_state,
+        "next_review": flashcard.next_review_date.isoformat(),
+        "correct_recall_sessions": flashcard.correct_recall_sessions,
+        "is_mastered": flashcard.is_mastered,
+        "new_achievements": new_achievements,
+    }
+
+
+def _parse_any(raw: str) -> datetime:
+    """Due date from the hub (ISO 8601); unlike parse_occurred_at it may lie in the future."""
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=422, detail="next_review_date must be ISO 8601")
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 @with_model("lesson")

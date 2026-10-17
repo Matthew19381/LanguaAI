@@ -15,6 +15,25 @@ class ReviewFlashcardRequest(BaseModel):
     reviewed_at: Optional[str] = None
 
 
+class HubReviewState(BaseModel):
+    """The card's schedule after a review in the hub (System-Glowny stage C)."""
+    fsrs_state: str
+    fsrs_step: Optional[int] = None
+    stability: float = Field(gt=0)
+    difficulty: float = Field(ge=1, le=10)
+    next_review_date: Optional[str] = None
+    repetitions: int = Field(ge=1)
+    lapses: int = Field(ge=0, default=0)
+    interval_days: int = Field(ge=0, default=1)
+
+
+class HubReviewRequest(BaseModel):
+    rating: int = Field(ge=1, le=4, description="1=Again, 2=Hard, 3=Good, 4=Easy")
+    client_event_id: Optional[str] = None
+    reviewed_at: Optional[str] = None
+    state: HubReviewState
+
+
 class AddFlashcardRequest(BaseModel):
     word: str
     translation: str
