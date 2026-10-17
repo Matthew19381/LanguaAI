@@ -67,6 +67,11 @@ def _card_to_json(card: Card) -> str:
     return json.dumps(data)
 
 
+def _as_utc(value: datetime) -> datetime:
+    """SQLite returns naive datetimes; the scheduler works in UTC."""
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
 def infer_step(
     state: str,
     last_review: Optional[datetime],
@@ -81,12 +86,7 @@ def infer_step(
     steps = _scheduler.relearning_steps if state == "Relearning" else _scheduler.learning_steps
     if not steps or last_review is None or next_review is None:
         return 0
-    # SQLite returns naive datetimes; the scheduler works in UTC
-    if last_review.tzinfo is None:
-        last_review = last_review.replace(tzinfo=timezone.utc)
-    if next_review.tzinfo is None:
-        next_review = next_review.replace(tzinfo=timezone.utc)
-    gap = next_review - last_review
+    gap = _as_utc(next_review) - _as_utc(last_review)
     if gap <= timedelta(0) or gap >= timedelta(days=1):
         return 0
     return min(range(len(steps)), key=lambda i: abs(steps[i] - gap))
@@ -142,6 +142,7 @@ def apply_fsrs(
     last_review_date: Optional[datetime] = None,
     step: Optional[int] = None,
     next_review_date: Optional[datetime] = None,
+    reviewed_at: Optional[datetime] = None,
 ) -> FSRSResult:
     """
     Apply the FSRS algorithm to compute the next review schedule.
@@ -163,11 +164,19 @@ def apply_fsrs(
         step: Saved learning/relearning step; None for cards saved before the
           step was stored, then inferred from last_review_date/next_review_date
         next_review_date: Saved due date, used only to infer a missing step
+        reviewed_at: When the learner answered (an offline answer replayed later).
+          FSRS measures recall against the time elapsed since the last review, so
+          the schedule is computed from this moment, not from when the server got
+          it. Default: now. Never earlier than last_review_date.
 
     Returns:
         FSRSResult with updated scheduling parameters
     """
-    now = datetime.now(timezone.utc)
+    now = _as_utc(reviewed_at) if reviewed_at is not None else datetime.now(timezone.utc)
+    last = _as_utc(last_review_date) if last_review_date is not None else None
+    if last is not None and now < last:
+        # Out-of-order replay: elapsed time cannot be negative
+        now = last
 
     # Map 1-4 rating to fsrs.Rating enum
     rating_map = {

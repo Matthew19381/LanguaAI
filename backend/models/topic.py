@@ -169,6 +169,7 @@ class Topic(Base):
         self.retrievability = result.retrievability
         self.interval = result.interval
         self.repetitions = result.repetitions
+        self.lapses = result.lapses
         self.fsrs_state = result.state
         self.fsrs_step = result.step
         self.next_review_date = result.next_review_date

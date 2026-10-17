@@ -264,6 +264,11 @@ async def review_flashcard(
 
     # Reviews replayed from a device are scheduled from when they happened
     now = parse_occurred_at(request.reviewed_at)
+    last = flashcard.last_review_date
+    if last is not None and (last if last.tzinfo else last.replace(tzinfo=timezone.utc)) > now:
+        # A queued offline review older than the card's last review (e.g. one from the hub):
+        # FSRS has no review log to replay it into, so the newer review wins.
+        raise HTTPException(status_code=409, detail="Flashcard has a newer review")
     current_hour = now.hour
     if 6 <= current_hour <= 10:
         session_type = "morning"
@@ -315,6 +320,7 @@ async def review_flashcard(
         last_review_date=flashcard.last_review_date,
         step=flashcard.fsrs_step,
         next_review_date=flashcard.next_review_date,
+        reviewed_at=now,
     )
 
     # Update flashcard with FSRS v6 results

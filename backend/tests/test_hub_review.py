@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 
 from backend.models.flashcard import Flashcard
+from backend.services.fsrs_service import apply_fsrs
 
 
 def _card(client, uid, word="Hund"):
@@ -109,3 +110,43 @@ def test_hub_review_needs_app_token_when_gate_is_on(client, sample_user):
         assert ok.status_code == 200, ok.text
     finally:
         settings.APP_ACCESS_TOKEN = original
+
+
+# ── LinguaAI's own /review after a hub review (fix 2026-10-18) ──
+
+def test_offline_review_older_than_hub_review_is_rejected(client, sample_user, db):
+    uid = sample_user["user_id"]
+    cid = _card(client, uid)
+    hub_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    assert client.post(f"/api/flashcards/{cid}/hub-review", params={"user_id": uid}, json={
+        "rating": 3, "reviewed_at": hub_at.isoformat(), "state": _state()}).status_code == 200
+    # The phone answered before the hub but synced only now
+    r = client.post(f"/api/flashcards/{cid}/review", params={"user_id": uid}, json={
+        "rating": 1, "client_event_id": "phone-1",
+        "reviewed_at": (hub_at - timedelta(hours=2)).isoformat()})
+    assert r.status_code == 409
+    f = db.get(Flashcard, cid)
+    db.refresh(f)
+    assert (f.fsrs_state, f.stability, f.lapses, f.repetitions) == ("Review", 3.2, 0, 2)
+    assert abs(f.last_review_date.replace(tzinfo=timezone.utc) - hub_at) < timedelta(seconds=1)
+
+
+def test_review_after_hub_review_is_scheduled_from_reviewed_at(client, sample_user, db):
+    uid = sample_user["user_id"]
+    cid = _card(client, uid)
+    hub_at = datetime.now(timezone.utc) - timedelta(days=5)
+    assert client.post(f"/api/flashcards/{cid}/hub-review", params={"user_id": uid}, json={
+        "rating": 3, "reviewed_at": hub_at.isoformat(), "state": _state()}).status_code == 200
+    answered = hub_at + timedelta(days=3)
+    r = client.post(f"/api/flashcards/{cid}/review", params={"user_id": uid}, json={
+        "rating": 3, "client_event_id": "phone-2", "reviewed_at": answered.isoformat()})
+    assert r.status_code == 200, r.text
+    f = db.get(Flashcard, cid)
+    db.refresh(f)
+    assert abs(f.last_review_date.replace(tzinfo=timezone.utc) - answered) < timedelta(seconds=1)
+    # Stability follows the 3 days between the reviews, not the 5 days until the sync
+    expected = apply_fsrs(rating=3, difficulty=5.1, stability=3.2, reps=2, lapses=0,
+                          current_state="Review", last_review_date=hub_at, reviewed_at=answered)
+    as_if_now = apply_fsrs(rating=3, difficulty=5.1, stability=3.2, reps=2, lapses=0,
+                           current_state="Review", last_review_date=hub_at)
+    assert f.stability == expected.stability != as_if_now.stability

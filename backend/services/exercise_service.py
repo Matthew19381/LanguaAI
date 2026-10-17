@@ -302,6 +302,7 @@ def review_exercise(
         last_review_date=exercise.last_review_date,
         step=exercise.fsrs_step,
         next_review_date=exercise.next_review_date,
+        reviewed_at=now,
     )
 
     exercise.difficulty = result.difficulty
@@ -313,7 +314,11 @@ def review_exercise(
     exercise.fsrs_state = result.state
     exercise.fsrs_step = result.step
     exercise.next_review_date = result.next_review_date
-    exercise.last_review_date = now
+    prev = exercise.last_review_date
+    if prev is not None and prev.tzinfo is None:
+        prev = prev.replace(tzinfo=timezone.utc)
+    # An answer replayed out of order must not move the last review back in time
+    exercise.last_review_date = now if prev is None or now >= prev else prev
     exercise.times_seen = (exercise.times_seen or 0) + 1
     if rating >= 3:
         exercise.times_correct = (exercise.times_correct or 0) + 1

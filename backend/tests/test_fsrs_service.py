@@ -117,3 +117,87 @@ def test_topic_review_saves_step_and_graduates():
     assert (topic.fsrs_state, topic.fsrs_step) == ("Learning", 1)
     topic.apply_fsrs(GOOD)
     assert (topic.fsrs_state, topic.fsrs_step) == ("Review", None)
+
+
+# ── Offline answers are scheduled from when they were given (fix 2026-10-18) ──
+# FSRS predicts recall from the time elapsed since the last review, so a review
+# replayed from a phone that was offline must use the moment of the answer.
+
+def _review_card(last, reviewed_at, rating=GOOD):
+    return apply_fsrs(
+        rating=rating, difficulty=5.0, stability=4.0, reps=3, lapses=0,
+        current_state="Review", last_review_date=last, step=None,
+        next_review_date=last + timedelta(days=4), reviewed_at=reviewed_at,
+    )
+
+
+def test_offline_review_is_scheduled_from_reviewed_at():
+    answered = datetime.now(timezone.utc) - timedelta(days=6)
+    offline = _review_card(answered - timedelta(days=4), answered)
+    # The same answer given today after the same 4-day gap
+    online = _review_card(datetime.now(timezone.utc) - timedelta(days=4), None)
+    assert offline.stability == online.stability
+    # The due date counts from the answer (interval fuzzing makes the exact day random)
+    gap = offline.next_review_date - answered
+    assert timedelta(days=offline.interval) <= gap < timedelta(days=offline.interval + 1)
+
+
+def test_offline_review_elapsed_time_changes_stability():
+    """Before the fix the 6 days spent offline were counted as extra elapsed time."""
+    answered = datetime.now(timezone.utc) - timedelta(days=6)
+    last = answered - timedelta(days=1)
+    on_time = _review_card(last, answered)
+    as_if_received_now = _review_card(last, None)
+    assert on_time.stability != as_if_received_now.stability
+
+
+def test_reviewed_at_before_last_review_is_clamped():
+    last = datetime.now(timezone.utc) - timedelta(days=1)
+    result = _review_card(last, last - timedelta(days=3))
+    assert result.next_review_date > last
+
+
+def test_naive_reviewed_at_is_treated_as_utc():
+    answered = datetime.now(timezone.utc) - timedelta(days=2)
+    aware = _review_card(answered - timedelta(days=4), answered)
+    naive = _review_card((answered - timedelta(days=4)).replace(tzinfo=None), answered.replace(tzinfo=None))
+    assert aware.stability == naive.stability
+    gap = naive.next_review_date - answered
+    assert timedelta(days=naive.interval) <= gap < timedelta(days=naive.interval + 1)
+
+
+def test_exercise_offline_answer_uses_answer_time():
+    answered = datetime.now(timezone.utc) - timedelta(days=5)
+    ex = Exercise(user_id=1, language="German", prompt="p", answer="a",
+                  difficulty=5.0, stability=4.0, retrievability=0.9,
+                  repetitions=3, lapses=0, fsrs_state="Review",
+                  last_review_date=answered - timedelta(days=4),
+                  next_review_date=answered)
+    review_exercise(None, ex, GOOD, now=answered)
+    assert ex.last_review_date == answered
+    gap = ex.next_review_date - answered
+    assert timedelta(days=ex.interval_days) <= gap < timedelta(days=ex.interval_days + 1)
+
+
+def test_exercise_out_of_order_answer_keeps_last_review():
+    last = datetime.now(timezone.utc) - timedelta(hours=1)
+    ex = Exercise(user_id=1, language="German", prompt="p", answer="a",
+                  difficulty=5.0, stability=4.0, retrievability=0.9,
+                  repetitions=3, lapses=0, fsrs_state="Review",
+                  last_review_date=last, next_review_date=last + timedelta(days=4))
+    review_exercise(None, ex, GOOD, now=last - timedelta(days=2))
+    assert ex.last_review_date == last
+
+
+def test_topic_again_counts_lapse():
+    topic = Topic(user_id=1, name="Dativ", language="German",
+                  difficulty=5.0, stability=0.0, retrievability=0.0,
+                  repetitions=0, lapses=0, fsrs_state="Learning",
+                  memory_strength=0.0, total_reviews=0)
+    topic.apply_fsrs(GOOD)
+    topic.apply_fsrs(GOOD)
+    assert topic.lapses == 0
+    topic.apply_fsrs(AGAIN)
+    assert topic.lapses == 1
+    topic.apply_fsrs(AGAIN)
+    assert topic.lapses == 2
