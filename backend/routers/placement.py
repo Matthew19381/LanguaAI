@@ -128,11 +128,18 @@ async def submit_placement(
                 db.add(test_result)
 
                 # Generate study plan
+                # A repeated placement continues the lesson numbering: the plan's first
+                # day is the next lesson number (lessons are unique per day_number).
+                from sqlalchemy import func as _func
+                last_day = db.query(_func.max(Lesson.day_number)).filter(
+                    Lesson.user_id == user.id, Lesson.language == language,
+                ).scalar() or 0
                 user_data = {
                     "name": user.name,
                     "cefr_level": cefr_level,
                     "native_language": native_language,
-                    "target_language": language
+                    "target_language": language,
+                    "start_day": last_day + 1,
                 }
                 study_plan_data = await generate_study_plan(user_data, language, native_language)
 

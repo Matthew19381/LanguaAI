@@ -63,6 +63,49 @@ def lesson_topic(lesson: dict, plan_day: dict | None) -> str:
     return topic[:200] or "General"
 
 
+_SKILL_ID_RE = re.compile(r"\b([GS]-[A-Z0-9]+(?:-[A-Z0-9]+)*)\b")
+
+
+def curriculum_context(plan_day: dict) -> str:
+    """Extra prompt lines for a plan day built from the curriculum (module, kind of
+    day, skill ids to tag exercises with). Empty for a plan made by the model."""
+    if not plan_day.get("module_id"):
+        return ""
+    from backend.services.curriculum import DAY_TYPE_PROMPT, SKILLS
+
+    ids = [i for i in plan_day.get("skill_ids") or [] if i in SKILLS]
+    lines = [
+        f"\n  module {plan_day['module_id']} ({plan_day.get('phase') or '-'}), "
+        f"day {plan_day.get('day_in_module')} of 14",
+        f"\n  module speaking task (the goal of these two weeks): {plan_day.get('module_task') or '-'}",
+    ]
+    if plan_day.get("day_type") in DAY_TYPE_PROMPT:
+        lines.append(f"\n  kind of day: {DAY_TYPE_PROMPT[plan_day['day_type']]}")
+    if ids:
+        lines.append(
+            "\n  skill ids: set every exercise block's \"skill_tag\" to exactly one of: "
+            + ", ".join(f"{i} ({SKILLS[i][1]})" for i in ids)
+        )
+    return "".join(lines)
+
+
+def tag_exercise_skills(exercises: list | None, skill_ids: list[str]) -> list:
+    """Keep a curriculum skill id as the block's ``skill_tag`` when the model wrote
+    one (alone or inside longer text). Other tags stay as written: guessing an id
+    for them would put wrong data into per-skill mastery."""
+    from backend.services.curriculum import SKILLS
+
+    out = []
+    for block in exercises or []:
+        if isinstance(block, dict):
+            tag = str(block.get("skill_tag") or "")
+            found = [m for m in _SKILL_ID_RE.findall(tag) if m in SKILLS]
+            if found:
+                block = {**block, "skill_tag": found[0]}
+        out.append(block)
+    return out
+
+
 @with_model("lesson")
 async def generate_daily_lesson(
     user_id: int,
@@ -99,6 +142,7 @@ async def generate_daily_lesson(
             f"\n  vocabulary theme: {plan_day.get('vocabulary_theme') or '-'}"
             f"\n  speaking/conversation situation: {plan_day.get('conversation_topic') or '-'}"
         )
+        rag_context += curriculum_context(plan_day)
     elif study_plan_data:
         plan_str = study_plan_data.get("focus") or study_plan_data.get("summary") or ""
         if plan_str:
@@ -118,7 +162,7 @@ async def generate_daily_lesson(
        a short guessing instruction in {native_language}, four plausible {native_language} options
        (exactly one correct), and the correct answer. The words MUST be a subset of the Vocabulary words.
     1. Warm-up (2-3 min): Quick review of previous day's material
-    2. Vocabulary introduction (10-15 min): 10-15 new words with translations, example sentences, audio cues,
+    2. Vocabulary introduction (10-15 min): 8-12 new words or short phrases, chosen from what today's speaking task needs, with translations, example sentences, audio cues,
        and a short semantic "category" label per word (e.g. "colours", "food", "motion verbs") so related
        words can be spaced apart during review to reduce interference (Tinkham 1993).
        For words that are ABSTRACT or hard to visualize (feelings, concepts, function words — NOT concrete
@@ -280,6 +324,11 @@ async def generate_daily_lesson(
         # cards of one group a day) and feeds interleaved review, so it must name
         # what was taught, never the old "General" placeholder.
         lesson["topic"] = lesson_topic(lesson, plan_day)
+        if plan_day and plan_day.get("module_id"):
+            lesson["module_id"] = plan_day["module_id"]
+            lesson["day_type"] = plan_day.get("day_type")
+            lesson["skill_ids"] = list(plan_day.get("skill_ids") or [])
+            lesson["exercises"] = tag_exercise_skills(lesson.get("exercises"), lesson["skill_ids"])
         if plan_day and plan_day.get("vocabulary_theme"):
             lesson["title"] = f"Dzień {day_number}: {plan_day['vocabulary_theme']}"[:200]
         # P1-4: still no usable grammar explanation after retrying — a clearly

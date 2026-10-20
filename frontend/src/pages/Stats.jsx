@@ -892,9 +892,10 @@ function LessonPlanCard({ plan, currentLesson }) {
   const dailyTopics = plan?.daily_topics || []
   const weeklyGoals = plan?.weekly_goals || []
 
-  // Group daily_topics into weeks of 7
+  // Group daily_topics into weeks of 7 by position: a plan built from the
+  // curriculum starts at the learner's next lesson number, not at day 1
   const groupedWeeks = weeks.length > 0 ? weeks : weeklyGoals.map((goal, wi) => {
-    const weekDays = dailyTopics.filter(d => (wi * 7) < d.day && d.day <= (wi + 1) * 7)
+    const weekDays = dailyTopics.slice(wi * 7, (wi + 1) * 7)
     return { week: goal.week || wi + 1, goal: goal.goal, key_grammar: goal.key_grammar, days: weekDays }
   })
 

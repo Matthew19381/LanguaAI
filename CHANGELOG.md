@@ -4,6 +4,25 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-10-21 — program nauki A2→B1 „Mówienie” zapisany w kodzie (23 moduły po 14 dni)
+
+- `backend/services/curriculum.py`: stały program `de-a2-b1-mowienie-v1`: 23 moduły po 14 dni
+  (Diagnoza → „Opowiadam i planuję” → „Uzasadniam i porównuję” → „Rozmawiam swobodnie” → „Próbne egzaminy”),
+  każdy z zadaniem mówionym w formacie Goethe B1 Sprechen (Teil 1/2/3), dwoma tematami słownictwa
+  i dwoma punktami gramatyki. Stały katalog umiejętności (`G-…` gramatyka, `S-…` mówienie) zamiast
+  dowolnych tagów. Kolejność: szyk V2 przed zdaniami z czasownikiem na końcu, Akkusativ przed Dativem
+  i przyimkami zmiennymi. Rytm tygodnia: 2 dni nowego materiału, 3 dni zadania mówionego, dzień płynności,
+  dzień testu z błędów; próbny egzamin w 14. dniu co trzeciego modułu i w module M22.
+- Plan nauki dla niemieckiego A2/B1 powstaje z programu, bez wywołania modelu, od dnia następnego po
+  ostatniej istniejącej lekcji (lekcje są unikalne po numerze dnia). Inne języki i poziomy bez zmian.
+- Lekcja dnia dostaje w prompcie moduł, zadanie, rodzaj dnia i identyfikatory umiejętności; ćwiczenia
+  z rozpoznanym identyfikatorem w tagu dostają sam identyfikator. Lekcja zapisuje `module_id`,
+  `day_type`, `skill_ids`. Nowe słowa: 8–12 słów lub zwrotów potrzebnych do zadania (zamiast 10–15).
+- `scripts/plan_z_programu.py`: wymiana aktywnego planu na plan z programu (domyślnie tryb próbny,
+  `--apply` zapisuje; stare plany zostają z `is_active = 0`, lekcje nietknięte).
+- Statystyki: tygodnie planu liczone od pierwszego dnia planu, nie od dnia 1.
+- Testy: `backend/tests/test_curriculum.py`.
+
 ## 2026-10-21 — plan nauki trafia do lekcji, temat lekcji zamiast „General”
 
 - Lekcja dnia dostaje w prompcie wpis planu na ten dzień (`daily_topics[].day`: gramatyka,

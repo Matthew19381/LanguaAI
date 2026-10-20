@@ -1,6 +1,7 @@
 """Study plan generation."""
 import logging
 
+from backend.services.curriculum import build_curriculum_plan, uses_curriculum
 from backend.services.gemini_service import generate_json, with_model
 
 logger = logging.getLogger(__name__)
@@ -10,6 +11,11 @@ logger = logging.getLogger(__name__)
 async def generate_study_plan(user_data: dict, language: str, native_language: str) -> dict:
     cefr_level = user_data.get("cefr_level", "A1")
     name = user_data.get("name", "Student")
+
+    # German A2–B1: the fixed curriculum (backend/services/curriculum.py) instead of
+    # a 30-day plan invented by the model. Other languages/levels keep the model.
+    if uses_curriculum(language, cefr_level):
+        return build_curriculum_plan(start_day=int(user_data.get("start_day") or 1), cefr_level=cefr_level)
 
     prompt = f"""Create a comprehensive 30-day language study plan for {name}, a {native_language} speaker learning {language} at CEFR level {cefr_level}.
 
