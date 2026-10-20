@@ -65,6 +65,16 @@ async def _fill_missing_audio(db: Session, cards: list) -> None:
         db.commit()
 
 
+def public_lesson_topic(topic: str | None) -> str | None:
+    """Lesson topic as the API shows it. "General" was the placeholder topic of every
+    lesson before the study plan reached the lesson prompt; it is sent as None, so the
+    hub groups those cards by lesson instead of putting all of them in one group
+    (the hub introduces at most N new cards of one group a day)."""
+    if topic is None or topic.strip() in ("", "General"):
+        return None
+    return topic
+
+
 @router.get("/api/flashcards/{user_id}")
 async def get_flashcards(
     user_id: int,
@@ -110,7 +120,7 @@ async def get_flashcards(
                 "created_at": f.created_at.isoformat(),
                 "lesson_id": f.lesson_id,
                 "lesson_day": f.lesson_day,
-                "lesson_topic": f.lesson_topic,
+                "lesson_topic": public_lesson_topic(f.lesson_topic),
                 "gender": f.gender,
                 "isImportant": f.isImportant,
                 "correct_recall_sessions": f.correct_recall_sessions,
@@ -172,7 +182,7 @@ async def get_due_flashcards(user_id: int, topic_id: int | None = None, db: Sess
                 "mnemonic": f.mnemonic,
                 "mnemonic_image_path": f.mnemonic_image_path,
                 "lesson_id": f.lesson_id,
-                "lesson_topic": f.lesson_topic,
+                "lesson_topic": public_lesson_topic(f.lesson_topic),
             }
             for f in due_cards
         ],
@@ -219,7 +229,7 @@ async def get_flashcards_offline_pack(user_id: int, size: int = 100, db: Session
                 "gender": f.gender,
                 "isImportant": f.isImportant,
                 "cefr_level": f.cefr_level,
-                "lesson_topic": f.lesson_topic,
+                "lesson_topic": public_lesson_topic(f.lesson_topic),
                 "is_mastered": f.is_mastered,
                 "correct_recall_sessions": f.correct_recall_sessions,
                 "next_review_date": f.next_review_date.isoformat() if f.next_review_date else None,

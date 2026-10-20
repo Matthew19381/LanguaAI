@@ -158,8 +158,11 @@ def gather_lesson_context(db: Session, user: User) -> dict:
         Topic.user_id == user.id,
         Topic.language == user.target_language,
     ).order_by(Topic.memory_strength.asc()).all()
-    weak_topics = [t.name for t in all_topics if t.memory_strength < 0.5][:5] if all_topics else None
-    strong_topics = [t.name for t in reversed(all_topics) if t.memory_strength >= 0.7][:3] if all_topics else None
+    # Only reviewed topics have a memory strength; an unreviewed topic sits at 0.0
+    # and is unknown, not weak (none of the 30 topics on 17.10.2026 was reviewed).
+    reviewed = [t for t in all_topics if (t.total_reviews or 0) > 0]
+    weak_topics = [t.name for t in reviewed if t.memory_strength < 0.5][:5] or None
+    strong_topics = [t.name for t in reversed(reviewed) if t.memory_strength >= 0.7][:3] or None
 
     return {
         "user_errors": user_errors,

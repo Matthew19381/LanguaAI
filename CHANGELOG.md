@@ -4,6 +4,18 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-10-21 — plan nauki trafia do lekcji, temat lekcji zamiast „General”
+
+- Lekcja dnia dostaje w prompcie wpis planu na ten dzień (`daily_topics[].day`: gramatyka,
+  słownictwo, sytuacja do rozmowy). Wcześniej `daily_lesson.py` czytał z planu tylko `focus`/`summary`,
+  których generator planu nie zapisuje, więc żaden temat planu nie trafiał do lekcji.
+- Lekcja zapisuje temat (gramatyka z planu, inaczej ta, której model uczył) i tytuł „Dzień N: <słownictwo>”.
+  Wcześniej każda lekcja miała temat „General”, więc w hubie wszystkie fiszki LinguaAI były jedną grupą.
+- API fiszek wysyła `lesson_topic: null` zamiast „General”; hub grupuje wtedy takie karty po lekcji.
+- Kontekst lekcji: „słabe tematy” tylko spośród tematów, które były powtarzane (nie powtarzany temat
+  ma siłę 0,0 i nie jest słaby, tylko nieznany).
+- Testy: `backend/tests/test_lesson_plan_link.py`.
+
 ## 2026-10-08 — B1+B5: skrypt scalania kont (NIE wykonany, czeka na zgodę właściciela)
 
 - `scripts/merge_users.py --db … --target … --sources … [--apply]` przenosi wszystkie wiersze z `user_id`
