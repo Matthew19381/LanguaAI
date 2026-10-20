@@ -64,6 +64,16 @@ Return JSON:
         }
 
 
+def _skill_tagging(language: str) -> tuple[str, str]:
+    """Catalog list and the extra JSON field that make the analysis tag each error
+    with a curriculum grammar id (German only; services/mastery.py uses it)."""
+    from backend.services.curriculum import grammar_catalog_prompt
+
+    catalog = grammar_catalog_prompt(language)
+    field = ',\n            "skill_id": "a grammar id from the list, or null"' if catalog else ""
+    return catalog, field
+
+
 @with_model("conversation")
 async def analyze_conversation(
     conversation_history: list,
@@ -71,6 +81,7 @@ async def analyze_conversation(
     language: str,
     native_language: str,
 ) -> dict:
+    catalog, skill_field = _skill_tagging(language)
     prompt = f"""Analyze this {language} conversation practice session for a {native_language} speaker at CEFR {cefr_level}.
 
 Conversation:
@@ -87,7 +98,7 @@ Produce a DETAILED analysis with SPECIFIC error categories. Use these category t
 - "fluency" — overly simple/broken sentences for the level
 - "register" — too formal/informal for the context
 
-Severity rules:
+{catalog}Severity rules:
 - "critical" — errors that impede comprehension or break fundamental grammar rules (wrong verb form, wrong case, missing key word)
 - "minor" — stylistic issues, slight awkwardness, or non-essential improvement suggestions
 
@@ -100,7 +111,7 @@ Return JSON:
             "severity": "critical|minor",
             "question": "the problematic phrase the student wrote",
             "correct_answer": "the corrected form",
-            "explanation": "brief explanation in {native_language} why it's wrong and what rule applies"
+            "explanation": "brief explanation in {native_language} why it's wrong and what rule applies"{skill_field}
         }}
     ],
     "category_advice": {{
@@ -140,6 +151,7 @@ async def analyze_pasted_conversation(
     language: str,
     native_language: str,
 ) -> dict:
+    catalog, skill_field = _skill_tagging(language)
     prompt = f"""A {native_language} speaker learning {language} at CEFR {cefr_level} pasted this conversation/text for analysis.
 Analyze their {language} usage for errors and provide detailed feedback.
 
@@ -153,7 +165,7 @@ Instructions:
 
 Use these error category types:
 - "grammar", "vocabulary", "word_order", "articles", "verb_conjugation", "prepositions", "pronunciation_spelling", "fluency", "register"
-
+{catalog}
 Return JSON:
 {{
     "summary": "2-3 sentence overall assessment in {native_language}",
@@ -162,7 +174,7 @@ Return JSON:
             "type": "grammar|vocabulary|word_order|articles|verb_conjugation|prepositions|pronunciation_spelling|fluency|register",
             "question": "the problematic phrase",
             "correct_answer": "the corrected form",
-            "explanation": "brief explanation in {native_language}"
+            "explanation": "brief explanation in {native_language}"{skill_field}
         }}
     ],
     "category_advice": {{

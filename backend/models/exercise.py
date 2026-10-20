@@ -36,6 +36,8 @@ class Exercise(Base):
 
     # ── Classification ──
     skill_tag = Column(String, nullable=True, index=True)  # e.g. "Perfekt with haben"
+    # Curriculum skill id (services/curriculum.py) when the tag maps to one; mastery is summed on it
+    skill_id = Column(String, nullable=True, index=True)
     topic = Column(String, nullable=True, index=True)      # lesson topic
     source_lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=True)
     variant_of = Column(Integer, ForeignKey("exercises.id"), nullable=True)

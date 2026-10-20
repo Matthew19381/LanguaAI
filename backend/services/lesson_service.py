@@ -115,7 +115,8 @@ def get_recent_errors(user_id: int, db: Session, limit: int = 10) -> list:
     Fine-grained remediation of individual exercise mistakes is NOT done here —
     it lives in the exercise bank (a failed/over-familiar skill spawns fresh
     variants), so the lesson stays about introducing material, not drilling
-    specific past slips."""
+    specific past slips. Since 21.10.2026 review errors on curriculum skills
+    reach only the short warm-up, through mastery.review_context (``skill_review``)."""
     recent_tests = db.query(TestResult).filter(
         TestResult.user_id == user_id
     ).order_by(TestResult.created_at.desc()).limit(5).all()
@@ -164,12 +165,15 @@ def gather_lesson_context(db: Session, user: User) -> dict:
     weak_topics = [t.name for t in reviewed if t.memory_strength < 0.5][:5] or None
     strong_topics = [t.name for t in reversed(reviewed) if t.memory_strength >= 0.7][:3] or None
 
+    from backend.services.mastery import review_context
+
     return {
         "user_errors": user_errors,
         "recent_topics": recent_topics,
         "user_vocabulary": user_vocabulary,
         "weak_topics": weak_topics,
         "strong_topics": strong_topics,
+        "skill_review": review_context(db, user.id, user.target_language),
     }
 
 

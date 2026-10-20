@@ -4,6 +4,28 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-10-21 — opanowanie umiejętności i błędy: rozgrzewka, bramka modułu, błąd z rozmowy jako powtórka
+
+- Migracja `c6e1a2b3d406`: nowa tabela `skill_attempts` (dziennik prób dla umiejętności z katalogu)
+  i kolumna `exercises.skill_id`. Tylko dodaje, istniejących wierszy nie zmienia.
+- Każda odpowiedź na ćwiczenie z identyfikatorem umiejętności trafia do dziennika (druga odpowiedź na to
+  samo ćwiczenie tego samego dnia nie liczy się do opanowania). Ćwiczenia z lekcji i warianty dostają
+  `skill_id`, gdy tag zawiera identyfikator z katalogu.
+- `backend/services/mastery.py`: status umiejętności z ostatnich 10 pierwszych prób: „za mało danych”
+  (< 5), „słaba” (< 80% poprawnych), „w nauce”, „opanowana” (≥ 80% i poprawnie w 3 różne dni).
+  Progi to założenia do strojenia. `GET /api/skills/{user_id}/mastery`.
+- Lekcja dnia: rozgrzewka wraca do słabych umiejętności i własnych błędów z ostatnich 14 dni
+  (błędna forma → poprawna).
+- Bramka modułu: w pierwszym dniu nowego modułu, gdy punkt gramatyki poprzedniego modułu jest „słaby”,
+  plan dostaje dzień naprawczy (kolejne dni przesuwają się o 1), najwyżej 2 na granicę modułu.
+- Analiza rozmowy (i wklejonego tekstu) oznacza błędy identyfikatorem z katalogu (tylko niemiecki).
+  Każdy błąd z frazą i poprawną formą staje się ćwiczeniem „popraw zdanie” w banku (od razu do powtórki,
+  potem FSRS), a z identyfikatorem także nieudaną próbą tej umiejętności. Najwyżej 5 na rozmowę.
+- Katalog: dwie umiejętności bazowe A1 (`G-PRAES`, `G-ARTIKEL`), bo stare lekcje je ćwiczyły.
+- `scripts/mapuj_umiejetnosci.py`: nadaje starym ćwiczeniom `skill_id` z ich tagu, tylko gdy tag
+  nazywa jedną umiejętność (tryb próbny domyślnie, `--apply` zapisuje).
+- Testy: `backend/tests/test_mastery.py`.
+
 ## 2026-10-21 — program nauki A2→B1 „Mówienie” zapisany w kodzie (23 moduły po 14 dni)
 
 - `backend/services/curriculum.py`: stały program `de-a2-b1-mowienie-v1`: 23 moduły po 14 dni

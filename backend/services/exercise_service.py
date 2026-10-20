@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from backend.models.exercise import Exercise
+from backend.services.curriculum import find_skill_id
 from backend.services.fsrs_service import apply_fsrs
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,7 @@ def create_exercises_from_lesson(
             answer=item["answer"],
             feedback=item["feedback"],
             skill_tag=item["skill_tag"],
+            skill_id=find_skill_id(item["skill_tag"]),
             topic=topic,
             source_lesson_id=lesson_id,
         ))

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.exercise import Exercise
 from backend.schemas.exercise import AnswerExerciseRequest, GenerateVariantsRequest
+from backend.services.curriculum import find_skill_id
 from backend.services.exercise_service import (
     AUTO_VARIANT_FRESH_TARGET,
     VARIANT_AFTER_TIMES_SEEN,
@@ -21,6 +22,14 @@ from backend.services.exercise_service import (
     skill_needs_auto_variant,
 )
 from backend.services.lesson_generator import generate_exercise_variants
+from backend.services.mastery import (
+    MASTERY_ACCURACY,
+    MASTERY_DAYS,
+    MIN_ATTEMPTS,
+    WINDOW,
+    record_attempt,
+    skill_mastery,
+)
 from backend.services.sync_service import already_applied, parse_occurred_at, record_event
 from backend.utils import get_user_or_404
 
@@ -57,6 +66,7 @@ async def _generate_and_store_variants(db: Session, user, skills: list[str], per
             answer=v["answer"],
             feedback=v.get("feedback"),
             skill_tag=v.get("skill_tag"),
+            skill_id=find_skill_id(v.get("skill_tag")),
             topic=None,
         )
         db.add(ex)
@@ -196,6 +206,14 @@ async def answer_exercise(
     scheduling = review_exercise(db, exercise, rating, now=occurred_at)
     record_event(db, request.client_event_id, request.user_id,
                  "exercise_answer", exercise.id, occurred_at)
+    # Per-skill log for mastery; counts as correct like the counters do (rating >= 3)
+    record_attempt(
+        db, user_id=request.user_id, language=exercise.language,
+        skill_id=exercise.skill_id or find_skill_id(exercise.skill_tag), source="exercise",
+        correct=rating >= 3, occurred_at=occurred_at, exercise_id=exercise.id,
+        detail=None if rating >= 3 else {
+            "prompt": exercise.prompt, "wrong": request.answer, "correct": exercise.answer},
+    )
 
     try:
         db.commit()
@@ -277,4 +295,18 @@ async def generate_variants(
         "added": len(added),
         "skills": skills,
         "exercises": [serialize_exercise(e) for e in added],
+    }
+
+
+@router.get("/api/skills/{user_id}/mastery")
+async def get_skill_mastery(user_id: int, db: Session = Depends(get_db)):
+    """Status of every curriculum skill the learner has attempts for (services/mastery.py)."""
+    user = get_user_or_404(db, user_id)
+    mastery = skill_mastery(db, user_id, user.target_language)
+    return {
+        "user_id": user_id,
+        "language": user.target_language,
+        "thresholds": {"accuracy": MASTERY_ACCURACY, "window": WINDOW,
+                       "min_attempts": MIN_ATTEMPTS, "correct_days": MASTERY_DAYS},
+        "skills": sorted(mastery.values(), key=lambda m: m["skill_id"]),
     }

@@ -28,6 +28,7 @@ from backend.models import (  # noqa: E402,F401
     flashcard,
     lesson,
     push_subscription,
+    skill_attempt,
     study_plan,
     sync_event,
     test_result,

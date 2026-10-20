@@ -63,7 +63,6 @@ def lesson_topic(lesson: dict, plan_day: dict | None) -> str:
     return topic[:200] or "General"
 
 
-_SKILL_ID_RE = re.compile(r"\b([GS]-[A-Z0-9]+(?:-[A-Z0-9]+)*)\b")
 
 
 def curriculum_context(plan_day: dict) -> str:
@@ -74,9 +73,13 @@ def curriculum_context(plan_day: dict) -> str:
     from backend.services.curriculum import DAY_TYPE_PROMPT, SKILLS
 
     ids = [i for i in plan_day.get("skill_ids") or [] if i in SKILLS]
+    if plan_day.get("day_type") == "naprawa":
+        where = f"repair day after module {plan_day['module_id']} ({plan_day.get('phase') or '-'})"
+    else:
+        where = (f"module {plan_day['module_id']} ({plan_day.get('phase') or '-'}), "
+                 f"day {plan_day.get('day_in_module')} of 14")
     lines = [
-        f"\n  module {plan_day['module_id']} ({plan_day.get('phase') or '-'}), "
-        f"day {plan_day.get('day_in_module')} of 14",
+        f"\n  {where}",
         f"\n  module speaking task (the goal of these two weeks): {plan_day.get('module_task') or '-'}",
     ]
     if plan_day.get("day_type") in DAY_TYPE_PROMPT:
@@ -93,17 +96,38 @@ def tag_exercise_skills(exercises: list | None, skill_ids: list[str]) -> list:
     """Keep a curriculum skill id as the block's ``skill_tag`` when the model wrote
     one (alone or inside longer text). Other tags stay as written: guessing an id
     for them would put wrong data into per-skill mastery."""
-    from backend.services.curriculum import SKILLS
+    from backend.services.curriculum import find_skill_id
 
     out = []
     for block in exercises or []:
         if isinstance(block, dict):
-            tag = str(block.get("skill_tag") or "")
-            found = [m for m in _SKILL_ID_RE.findall(tag) if m in SKILLS]
+            found = find_skill_id(block.get("skill_tag"))
             if found:
-                block = {**block, "skill_tag": found[0]}
+                block = {**block, "skill_tag": found}
         out.append(block)
     return out
+
+
+def review_warmup(skill_review: dict | None) -> str:
+    """Prompt block that makes the warm-up go back to weak skills and the learner's
+    own recent errors (services/mastery.review_context). Empty without data."""
+    if not skill_review:
+        return ""
+    lines = ["\n- WARM-UP FROM REVIEWS (section 1 must use this instead of a generic review):"]
+    weak = skill_review.get("weak_skills") or []
+    if weak:
+        lines.append("\n  weak skills (first-try accuracy): " + ", ".join(
+            f"{w['skill_id']} {w['name']} ({round(w['accuracy'] * 100)}%)" for w in weak))
+    errors = skill_review.get("errors") or []
+    if errors:
+        lines.append("\n  the learner's own recent errors (wrong -> right): " + "; ".join(
+            f"\"{e.get('wrong') or '?'}\" -> \"{e.get('correct')}\"" for e in errors))
+    lines.append(
+        "\n  Start with 3-5 short retrieval items on these: the learner produces the form first, "
+        "then sees the right one; contrast the wrong and the right form once. Add at least one "
+        "practice exercise block on the weakest skill, tagged with its id."
+    )
+    return "".join(lines)
 
 
 @with_model("lesson")
@@ -120,6 +144,7 @@ async def generate_daily_lesson(
     user_vocabulary: list[str] = None,
     weak_topics: list[str] = None,
     strong_topics: list[str] = None,
+    skill_review: dict | None = None,
 ) -> dict:
     """Generate a full daily lesson with all sections."""
     # Import here to avoid circular dependencies
@@ -134,6 +159,7 @@ async def generate_daily_lesson(
         rag_context += f"\n- Strong topics (can interleave at higher difficulty): {', '.join(strong_topics)}"
     if user_errors:
         rag_context += f"\n- Recent mistakes to address gently: {json.dumps(user_errors[:5], ensure_ascii=False)}"
+    rag_context += review_warmup(skill_review)
     plan_day = plan_entry_for_day(study_plan_data, day_number)
     if plan_day:
         rag_context += (

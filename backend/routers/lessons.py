@@ -35,6 +35,7 @@ from backend.services.lesson_service import (
     gather_lesson_context,
     lesson_payload,
 )
+from backend.services.mastery import apply_module_gate
 from backend.services.obsidian_service import save_obsidian_md
 from backend.services.pdf_service import EXPORTS_DIR, generate_lesson_pdf
 from backend.services.streak_service import calculate_streak
@@ -99,7 +100,8 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
     if not study_plan:
         raise HTTPException(status_code=404, detail="No active study plan. Please complete placement test first.")
 
-    study_plan_data = json.loads(study_plan.plan_data)
+    # Mastery gate: a weak skill of the last module inserts a repair day here
+    study_plan_data = apply_module_gate(db, study_plan, day_number)
     context = gather_lesson_context(db, user)
 
     # Generate new lesson
@@ -573,8 +575,6 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
     if not study_plan:
         raise HTTPException(status_code=404, detail="No active study plan. Please complete placement test first.")
 
-    study_plan_data = json.loads(study_plan.plan_data)
-
     # Determine next day number (per-language)
     latest_lesson = db.query(Lesson).filter(
         Lesson.user_id == user_id,
@@ -582,6 +582,7 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
     ).order_by(Lesson.day_number.desc()).first()
     next_day = (latest_lesson.day_number + 1) if latest_lesson else 1
 
+    study_plan_data = apply_module_gate(db, study_plan, next_day)
     context = gather_lesson_context(db, user)
 
     # Generate lesson

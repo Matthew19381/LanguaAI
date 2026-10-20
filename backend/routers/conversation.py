@@ -30,6 +30,7 @@ from backend.services.lesson_generator import (
     answer_language_question,
     generate_conversation_scenario,
 )
+from backend.services.mastery import cards_from_conversation_errors
 from backend.services.model_router import get_model_for_task
 from backend.utils import get_user_or_404
 
@@ -320,6 +321,11 @@ async def analyze_session(
                     language=conv_session.language
                 )
                 db.add(test_result)
+                # Each error becomes a review item and, with a skill id, a failed attempt
+                analysis["review_cards_added"] = cards_from_conversation_errors(
+                    db, user_id=request.user_id, language=conv_session.language,
+                    cefr_level=conv_session.cefr_level, errors=errors,
+                )
 
                 # Award XP for conversation practice
                 xp = min(30, int(analysis.get("score", 0) * 0.3))
@@ -442,6 +448,10 @@ async def analyze_pasted_text(
             language=user.target_language
         )
         db.add(test_result)
+        analysis["review_cards_added"] = cards_from_conversation_errors(
+            db, user_id=request.user_id, language=user.target_language,
+            cefr_level=user.cefr_level, errors=errors,
+        )
 
         xp = min(20, int(analysis.get("score", 0) * 0.2))
         user.total_xp += xp

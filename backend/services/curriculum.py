@@ -19,6 +19,8 @@ summed per skill.
 """
 from __future__ import annotations
 
+import re
+
 CURRICULUM_ID = "de-a2-b1-mowienie-v1"
 DAYS_PER_MODULE = 14
 
@@ -43,6 +45,10 @@ SKILLS: dict[str, tuple[str, str]] = {
     "G-ADJ": ("grammar", "Odmiana przymiotnika po rodzajniku"),
     "G-TEMP": ("grammar", "Zdania czasowe: bevor, nachdem, während, seit"),
     "G-PASSIV": ("grammar", "Strona bierna w czasie teraźniejszym (wird gemacht)"),
+    # A1 foundations: not taught by a module, but old lessons practised them and
+    # errors in them still show up, so their mastery is tracked too.
+    "G-PRAES": ("grammar", "Czas teraźniejszy: odmiana czasowników, sein i haben"),
+    "G-ARTIKEL": ("grammar", "Rodzajniki i rodzaj rzeczownika w mianowniku (der/die/das, ein/eine)"),
     "S-OPIS": ("speaking", "Opowiadanie o doświadczeniu i zdarzeniu"),
     "S-T1": ("speaking", "Wspólne planowanie: propozycja, reakcja, decyzja (jak Teil 1)"),
     "S-T2": ("speaking", "Prezentacja tematu w 5 punktach z opinią (jak Teil 2)"),
@@ -159,12 +165,30 @@ DAY_TYPE_PROMPT = {
     "plynnosc": "Fluency day: no new grammar; the learner repeats the same module task 3 times with less time (e.g. 90/60/45 s) using known words only.",
     "test_bledy": "Mini-test day: short test of this week's skills and a review of the learner's own recent mistakes; little new vocabulary.",
     "probny_egzamin": "Mock speaking exam day: plan together (Teil 1), present a topic in 5 points (Teil 2), answer questions (Teil 3); 15 minutes of preparation first.",
+    "naprawa": "Repair day (mastery gate): the learner has not mastered the skills below yet. No new grammar; re-teach them another way (new examples, a contrast with the learner's own wrong forms), then retrieval practice and the module task again.",
 }
 DAY_TYPE_PL = {
     "nowy_material": "nowy materiał", "zadanie_mowione": "zadanie mówione",
     "plynnosc": "płynność", "test_bledy": "test i własne błędy",
-    "probny_egzamin": "próbny egzamin ustny",
+    "probny_egzamin": "próbny egzamin ustny", "naprawa": "powtórka naprawcza",
 }
+
+SKILL_ID_RE = re.compile(r"\b([GS]-[A-Z0-9]+(?:-[A-Z0-9]+)*)\b")
+
+
+def find_skill_id(text: str | None) -> str | None:
+    """The first catalog id written in ``text`` (alone or inside a longer tag), else None."""
+    for match in SKILL_ID_RE.findall(str(text or "")):
+        if match in SKILLS:
+            return match
+    return None
+
+
+def module_index(module_id: str | None) -> int | None:
+    for i, m in enumerate(MODULES):
+        if m["id"] == module_id:
+            return i
+    return None
 
 
 def skill_name(skill_id: str) -> str:
@@ -237,3 +261,13 @@ def build_curriculum_plan(start_day: int = 1, cefr_level: str = "A2") -> dict:
 def uses_curriculum(language: str, cefr_level: str) -> bool:
     """The curriculum covers German from A2 to B1 only; other cases keep the model's plan."""
     return (language or "").lower() in ("german", "niemiecki", "de") and cefr_level in ("A2", "B1")
+
+
+def grammar_catalog_prompt(language: str) -> str:
+    """Prompt line asking an error analysis to tag each error with a catalog
+    grammar id. Empty for languages the catalog does not cover."""
+    if (language or "").lower() not in ("german", "niemiecki", "de"):
+        return ""
+    ids = ", ".join(f"{k} ({v[1]})" for k, v in SKILLS.items() if v[0] == "grammar")
+    return ('\nFor every error also give "skill_id": the one grammar id from this list that the '
+            f'error breaks, or null if none fits: {ids}\n')
