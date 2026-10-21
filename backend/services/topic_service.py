@@ -131,7 +131,18 @@ def get_or_create_topic_with_parent(db: Session, user_id: int, language: str, na
     overwrite it — the AI's parent suggestion isn't perfectly consistent
     lesson to lesson, and flip-flopping a topic's place in the tree on every
     regeneration would be worse than leaving it where a human would expect.
+
+    For German, a name that clearly names a curriculum skill returns that skill's
+    Bank wiedzy entry instead of a new topic (17.10.2026: 9 topics for the present
+    tense came from this path).
     """
+    from backend.services.knowledge import old_topic_skill, sync_knowledge_base
+
+    skill_id = old_topic_skill(name, category)
+    if skill_id:
+        entry = sync_knowledge_base(db, user_id, language, commit=False).get(skill_id)
+        if entry is not None:
+            return entry
     parent_name = (parent_topic_name or "").strip()
     parent_id = None
     if parent_name and parent_name.lower() != name.strip().lower():
@@ -176,16 +187,27 @@ def get_hierarchy_tree(db: Session, user_id: int, language: str = None) -> list[
         else:
             roots.append(t)
 
+    from backend.services.knowledge import entry_strength, learning_order
+    from backend.services.mastery import skill_mastery
+
+    mastery = skill_mastery(db, user_id, language) if language else {}
+    order = {skill_id: i for i, skill_id in enumerate(learning_order())}
+
     def build(t: Topic) -> dict:
-        kids = sorted(children_of.get(t.id, []), key=lambda x: x.name.lower())
+        # Bank wiedzy entries in programme order, then everything else by name
+        kids = sorted(children_of.get(t.id, []),
+                      key=lambda x: (order.get(x.skill_id, len(order)), x.name.lower()))
         subtopics = [build(k) for k in kids]
+        strength = entry_strength(mastery.get(t.skill_id)) if t.skill_id else t.memory_strength
         node = {
             "id": t.id,
             "name": t.name,
             "category": t.category,
             "description": t.description,
             "cefr_level": t.cefr_level,
-            "mastery_percent": round(t.memory_strength * 100),
+            "skill_id": t.skill_id,
+            "mastery_status": (mastery.get(t.skill_id) or {}).get("status") if t.skill_id else None,
+            "mastery_percent": round(strength * 100),
             "is_due": t.is_due(),
             "days_until_review": t.days_until_review(),
             "items_count": t.total_items,
@@ -349,6 +371,8 @@ def get_due_topics(db: Session, user_id: int, language: str = None, limit: int =
         Topic.user_id == user_id,
         Topic.total_items > 0,
         (Topic.next_review_date <= datetime.now(timezone.utc)) | (Topic.next_review_date == None),
+        Topic.skill_id == None,  # Bank wiedzy rows are not reviewed as topics
+        ~Topic.name.startswith(Topic.KB_GROUP_PREFIX),
     )
     if language:
         query = query.filter(Topic.language == language)
@@ -363,7 +387,8 @@ def get_topic_stats(db: Session, user_id: int, language: str = None) -> dict:
     if language:
         query = query.filter(Topic.language == language)
 
-    topics = query.all()
+    # umbrella rows of the Bank wiedzy only group entries: not counted
+    topics = [t for t in query.all() if t.skill_id or not t.is_knowledge_row()]
     if not topics:
         return {
             "total_topics": 0,
@@ -374,7 +399,11 @@ def get_topic_stats(db: Session, user_id: int, language: str = None) -> dict:
             "new": 0,       # < 0.3
         }
 
-    strengths = [t.memory_strength for t in topics]
+    from backend.services.knowledge import entry_strength
+    from backend.services.mastery import skill_mastery
+
+    mastery = skill_mastery(db, user_id, language) if language else {}
+    strengths = [entry_strength(mastery.get(t.skill_id)) if t.skill_id else t.memory_strength for t in topics]
     due_count = sum(1 for t in topics if t.is_due())
 
     return {
@@ -449,6 +478,23 @@ async def process_lesson_topics_bg(user_id: int, language: str, cefr_level: str,
         proxy.id = lesson_id
         proxy.day_number = day_number
         proxy.title = lesson_title
+
+        # A curriculum lesson names its skills: link it to their Bank wiedzy entries
+        # instead of asking the model for topic names (which made duplicates).
+        skill_ids = [s for s in (content or {}).get("skill_ids") or [] if isinstance(s, str)]
+        if skill_ids:
+            from backend.services.knowledge import sync_knowledge_base
+
+            entries = sync_knowledge_base(db, user_id, language)
+            linked = 0
+            for skill_id in skill_ids:
+                if skill_id in entries:
+                    assign_item_to_topic(db=db, topic_id=entries[skill_id].id, item_type=ItemType.LESSON,
+                                         item_id=lesson_id, title=lesson_title, day_number=day_number)
+                    linked += 1
+            db.commit()
+            logger.info(f"Linked lesson {lesson_id} to {linked} Bank wiedzy entries")
+            return
 
         topics_data = await extract_topics_from_lesson(content, language, cefr_level)
 

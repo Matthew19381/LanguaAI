@@ -39,6 +39,8 @@ class ItemType(str, enum.Enum):
 class Topic(Base):
     __tablename__ = "topics"
 
+    KB_GROUP_PREFIX = "Bank wiedzy · "  # umbrella rows owned by services/knowledge.py
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     language = Column(String, nullable=False)          # e.g. "German"
@@ -49,6 +51,8 @@ class Topic(Base):
 
     # Hierarchy: null = main topic; set = subtopic under another topic.
     parent_id = Column(Integer, ForeignKey("topics.id"), nullable=True, index=True)
+    # Bank wiedzy entry for a curriculum skill (services/knowledge.py); null for model-made topics
+    skill_id = Column(String, nullable=True, index=True)
 
     # ── FSRS Spaced Repetition ──
     difficulty = Column(Float, default=5.0)             # FSRS difficulty (0-10, lower=easier)
@@ -118,8 +122,15 @@ class Topic(Base):
             lapses=self.lapses,
         )
 
+    def is_knowledge_row(self) -> bool:
+        """An entry or umbrella row of the Bank wiedzy (services/knowledge.py)."""
+        return bool(self.skill_id) or (self.name or "").startswith(self.KB_GROUP_PREFIX)
+
     def is_due(self) -> bool:
-        """Check if topic is due for review."""
+        """Check if topic is due for review. Bank wiedzy rows never are: the items of
+        a skill are reviewed in the hub's deck, not as one topic card."""
+        if self.is_knowledge_row():
+            return False
         if self.next_review_date is None:
             return True  # never reviewed = due
         review_date = self.next_review_date

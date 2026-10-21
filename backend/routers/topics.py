@@ -16,7 +16,10 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.topic import Topic, TopicItem
+from backend.models.user import User
 from backend.services import topic_service
+from backend.services.knowledge import entry_details, entry_strength, sync_knowledge_base
+from backend.services.mastery import skill_mastery
 
 router = APIRouter()
 
@@ -40,6 +43,13 @@ class ReviewResponse(BaseModel):
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
+def _sync(db: Session, user_id: int) -> None:
+    """Bank wiedzy entries exist and are current before any list is shown."""
+    user = db.get(User, user_id)
+    if user:
+        sync_knowledge_base(db, user_id, user.target_language)
+
+
 @router.get("/{user_id}")
 async def list_topics(
     user_id: int,
@@ -49,6 +59,7 @@ async def list_topics(
     db: Session = Depends(get_db),
 ):
     """List all topics for a user with optional filters."""
+    _sync(db, user_id)
     query = db.query(Topic).filter(Topic.user_id == user_id)
 
     if language:
@@ -57,13 +68,16 @@ async def list_topics(
         query = query.filter(Topic.category == category)
 
     topics = query.all()
+    mastery = skill_mastery(db, user_id, language) if language else {}
 
     # Update memory strength for all
     result = []
     for t in topics:
-        t.memory_strength = t.calculate_memory_strength()
+        t.memory_strength = (entry_strength(mastery.get(t.skill_id)) if t.skill_id
+                             else t.calculate_memory_strength())
         result.append({
             "id": t.id,
+            "skill_id": t.skill_id,
             "name": t.name,
             "category": t.category,
             "description": t.description,
@@ -103,6 +117,7 @@ async def topic_tree(
     db: Session = Depends(get_db),
 ):
     """Get topics organized by category (tree view)."""
+    _sync(db, user_id)
     tree = topic_service.get_category_tree(db, user_id, language)
     return {"tree": tree}
 
@@ -115,6 +130,7 @@ async def topic_hierarchy(
 ):
     """P2-4 (docs/BACKLOG_UX_2026-08.md): topic->subtopic tree via Topic.parent_id,
     distinct from /tree above (which groups by the fixed category enum)."""
+    _sync(db, user_id)
     nodes = topic_service.get_hierarchy_tree(db, user_id, language)
     return {"topics": nodes}
 
@@ -171,7 +187,9 @@ async def topic_detail(
     if topic.user_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this topic")
 
-    topic.memory_strength = topic.calculate_memory_strength()
+    knowledge = entry_details(db, topic)
+    topic.memory_strength = (entry_strength(knowledge["mastery"]) if knowledge
+                             else topic.calculate_memory_strength())
 
     items = db.query(TopicItem).filter(
         TopicItem.topic_id == topic_id
@@ -200,6 +218,7 @@ async def topic_detail(
             "total_reviews": topic.total_reviews,
             "avg_score": topic.avg_score,
         },
+        "knowledge": knowledge,
         "items": [{
             "id": item.id,
             "type": item.item_type,
@@ -236,6 +255,9 @@ async def review_topic(
         raise HTTPException(status_code=404, detail="Topic not found")
     if review.user_id and topic_check.user_id != review.user_id:
         raise HTTPException(status_code=403, detail="Not authorized to review this topic")
+    if topic_check.is_knowledge_row():
+        raise HTTPException(status_code=409, detail="Wpis Banku wiedzy nie ma własnych powtórek: "
+                                                    "jego ćwiczenia są w Powtórkach w hubie")
 
     try:
         topic = topic_service.review_topic(db, topic_id, review.rating)

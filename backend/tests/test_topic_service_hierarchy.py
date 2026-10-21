@@ -1,6 +1,9 @@
 """P2-4 (docs/BACKLOG_UX_2026-08.md): unit tests for the topic-hierarchy
 helpers in topic_service.py — resolving/creating a parent topic and not
 letting it flip-flop across lessons.
+
+The topics are filed under Spanish: for German, a name like "Perfekt" now goes to
+its Bank wiedzy entry (services/knowledge.py, tested in test_knowledge.py).
 """
 from backend.services.topic_service import get_or_create_topic, get_or_create_topic_with_parent
 
@@ -8,18 +11,18 @@ from backend.services.topic_service import get_or_create_topic, get_or_create_to
 def test_creates_parent_and_links_child(db, sample_user):
     uid = sample_user["user_id"]
     topic = get_or_create_topic_with_parent(
-        db, uid, "German", "Perfekt mit haben", category="grammar",
+        db, uid, "Spanish", "Perfekt mit haben", category="grammar",
         parent_topic_name="Czasy przeszłe",
     )
     db.commit()
     assert topic.parent_id is not None
-    parent = get_or_create_topic(db, uid, "German", "Czasy przeszłe")
+    parent = get_or_create_topic(db, uid, "Spanish", "Czasy przeszłe")
     assert topic.parent_id == parent.id
 
 
 def test_no_parent_topic_name_leaves_parent_id_null(db, sample_user):
     uid = sample_user["user_id"]
-    topic = get_or_create_topic_with_parent(db, uid, "German", "Begrüßungen", category="vocabulary")
+    topic = get_or_create_topic_with_parent(db, uid, "Spanish", "Begrüßungen", category="vocabulary")
     db.commit()
     assert topic.parent_id is None
 
@@ -27,7 +30,7 @@ def test_no_parent_topic_name_leaves_parent_id_null(db, sample_user):
 def test_self_referential_parent_name_ignored(db, sample_user):
     uid = sample_user["user_id"]
     topic = get_or_create_topic_with_parent(
-        db, uid, "German", "Perfekt", category="grammar",
+        db, uid, "Spanish", "Perfekt", category="grammar",
         parent_topic_name="perfekt",  # same name, different case
     )
     db.commit()
@@ -37,7 +40,7 @@ def test_self_referential_parent_name_ignored(db, sample_user):
 def test_existing_parent_id_not_overwritten_by_a_later_lesson(db, sample_user):
     uid = sample_user["user_id"]
     topic = get_or_create_topic_with_parent(
-        db, uid, "German", "Perfekt mit haben", category="grammar",
+        db, uid, "Spanish", "Perfekt mit haben", category="grammar",
         parent_topic_name="Czasy przeszłe",
     )
     db.commit()
@@ -45,7 +48,7 @@ def test_existing_parent_id_not_overwritten_by_a_later_lesson(db, sample_user):
 
     # A later lesson proposes a DIFFERENT parent for the same topic name.
     topic_again = get_or_create_topic_with_parent(
-        db, uid, "German", "Perfekt mit haben", category="grammar",
+        db, uid, "Spanish", "Perfekt mit haben", category="grammar",
         parent_topic_name="Zupełnie inny temat",
     )
     db.commit()

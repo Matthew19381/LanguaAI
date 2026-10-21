@@ -89,6 +89,9 @@ def curriculum_context(plan_day: dict) -> str:
             "\n  skill ids: set every exercise block's \"skill_tag\" to exactly one of: "
             + ", ".join(f"{i} ({SKILLS[i][1]})" for i in ids)
         )
+        from backend.services.knowledge import rules_for_prompt
+
+        lines.append(rules_for_prompt(ids))
     return "".join(lines)
 
 

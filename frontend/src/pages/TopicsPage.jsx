@@ -150,7 +150,7 @@ function HierarchyNode({ node, depth, expandedIds, onToggle, selectedTopic, onSe
           ) : (
             <span className="w-4 shrink-0" />
           )}
-          <span className={`truncate ${hasChildren ? 'font-semibold' : 'font-medium text-sm'}`}>{node.name}</span>
+          <span className={`truncate ${hasChildren ? 'font-semibold' : 'font-medium text-sm'}`}>{shortName(node.name)}</span>
           {node.is_due && (
             <span className="shrink-0 text-xs bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 px-1.5 py-0.5 rounded" title="Temat wystygł — czas na powtórkę podstaw">
               Do powtórki
@@ -196,7 +196,7 @@ function HierarchyNode({ node, depth, expandedIds, onToggle, selectedTopic, onSe
                 style={{ paddingLeft: `${0.5 + (depth + 1) * 1.5}rem` }}
                 onClick={() => onSelectTopic(selectedTopic === node.id ? null : node.id)}
               >
-                <span className="italic">↳ ogólne materiały „{node.name}"</span>
+                <span className="italic">↳ ogólne materiały „{shortName(node.name)}"</span>
                 <span className="tabular-nums">{node.mastery_percent}%</span>
               </div>
               {selectedTopic === node.id && (
@@ -283,6 +283,102 @@ function FlashcardPreview({ fc, index, onToggle, selected }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Group rows carry this prefix in the database (backend/models/topic.py) so the
+// backend can find them; on screen it only takes space.
+const KB_GROUP_PREFIX = 'Bank wiedzy · ';
+const shortName = (name) => (name || '').startsWith(KB_GROUP_PREFIX) ? name.slice(KB_GROUP_PREFIX.length) : name;
+
+// ── Bank wiedzy entry (one curriculum skill, backend/services/knowledge.py) ──
+const MASTERY_LABELS = {
+  za_malo_danych: 'Za mało danych (mniej niż 5 pierwszych prób)',
+  slaba: 'Słaba: wróci w rozgrzewce i przed nowym modułem',
+  w_nauce: 'W nauce: dobrze, ale jeszcze nie w 3 różne dni',
+  opanowana: 'Opanowana',
+};
+
+function KnowledgeSection({ knowledge }) {
+  const { plan, mastery, recent_errors: errors } = knowledge;
+  const shownDays = plan.days.filter(d => !d.done).slice(0, 5);
+  return (
+    <div className="space-y-3 mb-3" data-testid="knowledge-entry">
+      <div className="text-xs text-gray-500 dark:text-gray-400">{knowledge.group} · {knowledge.skill_id}</div>
+      <section>
+        <h4 className="text-sm font-semibold mb-1">Zasada</h4>
+        <p className="text-sm text-gray-700 dark:text-gray-200">{knowledge.rule}</p>
+      </section>
+      <section>
+        <h4 className="text-sm font-semibold mb-1">Przykłady</h4>
+        <ul className="space-y-1">
+          {knowledge.examples.map((ex, i) => (
+            <li key={i} className="text-sm">
+              <span className="font-medium">{ex.de}</span>
+              <span className="text-gray-500 dark:text-gray-400"> · {ex.pl}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section>
+        <h4 className="text-sm font-semibold mb-1">Twoje błędy</h4>
+        {errors.length > 0 ? (
+          <ul className="space-y-1">
+            {errors.map((e, i) => (
+              <li key={i} className="text-sm">
+                <span className="line-through text-red-600 dark:text-red-400">{e.wrong}</span>
+                {' → '}
+                <span className="font-medium text-green-700 dark:text-emerald-400">{e.correct}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Jeszcze bez błędów w tej umiejętności.</p>
+        )}
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          Z nich powstaje rozgrzewka lekcji, karty w Powtórkach i dzień naprawczy przed nowym modułem.
+        </p>
+      </section>
+      <section>
+        <h4 className="text-sm font-semibold mb-1">W planie</h4>
+        {plan.days.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {plan.foundation
+              ? 'Podstawa z A1: program nie ma dla niej osobnych dni. Wraca w rozgrzewce lekcji i w Powtórkach, gdy robisz w niej błędy.'
+              : 'Aktywny plan nie ćwiczy tej umiejętności.'}
+          </p>
+        ) : (
+          <div className="text-sm text-gray-700 dark:text-gray-200">
+            <div>Moduły: {plan.modules.join(', ')}. Dni ukończone: {plan.days.filter(d => d.done).length} z {plan.days.length}.</div>
+            {shownDays.length > 0 && (
+              <div>
+                Następne dni: {shownDays.map(d => `${d.day}${d.repair ? ' (powtórka naprawcza)' : ''}`).join(', ')}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+      <section>
+        <h4 className="text-sm font-semibold mb-1">Opanowanie</h4>
+        {mastery ? (
+          <div className="text-sm text-gray-700 dark:text-gray-200">
+            {MASTERY_LABELS[mastery.status] || mastery.status}. Trafność pierwszych prób: {Math.round(mastery.accuracy * 100)}%
+            ({mastery.attempts} prób, poprawnie w {mastery.correct_days} dni).
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Jeszcze bez prób.</p>
+        )}
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          Ćwiczenia tej umiejętności: {knowledge.exercises}. Te z pomyłką trafiają do Powtórek w hubie, reszta zostaje w Ćwiczeniach.
+        </p>
+      </section>
+      <details className="text-sm">
+        <summary className="cursor-pointer text-gray-500 dark:text-gray-400">Częste błędy Polaków (ogólne, nie twoje)</summary>
+        <ul className="list-disc list-inside mt-1 text-gray-700 dark:text-gray-200">
+          {knowledge.typical_errors.map((e, i) => <li key={i}>{e}</li>)}
+        </ul>
+      </details>
     </div>
   );
 }
@@ -389,15 +485,16 @@ function TopicDetail({ topicId, onClose }) {
   if (loading) return <div className="p-4 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
   if (!detail) return <div className="p-4 text-center text-gray-500 dark:text-gray-400">Nie znaleziono tematu</div>;
 
-  const { topic, items } = detail;
+  const { topic, items, knowledge } = detail;
 
   return (
     <div className="dark:bg-gray-900 bg-white rounded-xl shadow-lg border dark:border-gray-800 border-gray-200 p-4 mt-2">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-bold">{topic.name}</h3>
+        <h3 className="text-lg font-bold">{shortName(topic.name)}</h3>
         <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-xl">&times;</button>
       </div>
 
+      {knowledge ? <KnowledgeSection knowledge={knowledge} /> : (<>
       {topic.description && (
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{topic.description}</p>
       )}
@@ -446,6 +543,7 @@ function TopicDetail({ topicId, onClose }) {
           <Clock size={14} /> Następna powtórka: {new Date(topic.next_review).toLocaleDateString('pl-PL')}
         </div>
       )}
+      </>)}
 
       {/* ── Flashcard generation section ── */}
       <div className="border-t dark:border-gray-800 border-gray-200 pt-3 mb-3">
@@ -785,7 +883,7 @@ export default function TopicsPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold truncate">{topic.name}</h3>
+                        <h3 className="font-semibold truncate">{shortName(topic.name)}</h3>
                         <span className={`text-xs px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[topic.category] || CATEGORY_COLORS.other}`}>
                           {CATEGORY_LABELS[topic.category] || topic.category}
                         </span>
@@ -852,7 +950,7 @@ export default function TopicsPage() {
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <span className="font-medium text-sm">{topic.name}</span>
+                              <span className="font-medium text-sm">{shortName(topic.name)}</span>
                               {topic.is_due && (
                                 <span className="ml-2 text-xs bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 px-1.5 py-0.5 rounded">
                                   Do powtórki
@@ -893,8 +991,8 @@ export default function TopicsPage() {
           ) : (
             <>
               <p className="text-xs text-gray-400 dark:text-gray-500 px-2 pb-2">
-                Główny temat → podtematy, z % opanowania. Hierarchię buduje AI przy generowaniu
-                lekcji — nowe tematy dołączają tu automatycznie, starsze mogą zostać płaskie.
+                Grupa → wpisy programu (zasada, przykłady, błędy, dni w planie, opanowanie) → stare
+                tematy z lekcji. Pasek wpisu to trafność pierwszych prób w ćwiczeniach tej umiejętności.
               </p>
               {hierarchy.map(node => (
                 <HierarchyNode
@@ -930,7 +1028,7 @@ export default function TopicsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{topic.name}</h3>
+                        <h3 className="font-semibold">{shortName(topic.name)}</h3>
                         <span className={`text-xs px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[topic.category] || CATEGORY_COLORS.other}`}>
                           {CATEGORY_LABELS[topic.category] || topic.category}
                         </span>

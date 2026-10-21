@@ -4,6 +4,32 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-10-21 — Bank wiedzy: jeden wpis na umiejętność programu, połączony z planem, opanowaniem i błędami
+
+- Migracja `d7f2b3c4e508`: kolumna `topics.skill_id` (z indeksem). Tylko dodaje.
+- `backend/services/knowledge.py`: dla każdej z 27 umiejętności katalogu wpis z zasadą, przykładami
+  z tłumaczeniem i typowymi błędami Polaków, w 6 grupach (szyk, czasowniki, przypadki, przymiotniki,
+  mówienie, słownictwo ze starych lekcji; grupa „inne tematy gramatyczne” tylko gdy potrzebna).
+  Wpisy tworzą się same przy otwarciu Banku wiedzy (tylko niemiecki), tekst zawsze z kodu.
+- To, co się zmienia, jest liczone przy odczycie wpisu: dni aktywnego planu z tą umiejętnością
+  (z dniami naprawczymi i ukończonymi), status opanowania, własne ostatnie błędy, liczba ćwiczeń.
+  Podstawy A1 (`G-PRAES`, `G-ARTIKEL`) są oznaczone jako takie, bo program nie ma dla nich dni.
+- Stare tematy od modelu nie są kasowane: trafiają pod swój wpis albo do grupy. Lekcja z programu
+  linkuje się do wpisów swoich umiejętności bez pytania modelu; temat od modelu, którego nazwa
+  wskazuje umiejętność, trafia do jej wpisu zamiast tworzyć nowy temat.
+- Wpisy i grupy nie mają własnych powtórek tematu (409 na `/review`, nie ma ich w „do powtórki”):
+  ćwiczenia umiejętności powtarza się w Powtórkach huba. Pasek wpisu = trafność pierwszych prób.
+- Lekcja dnia dostaje w promptcie zasady z Banku wiedzy dla swoich punktów gramatyki.
+- `GET /api/skills/{user_id}/mastery` podaje `knowledge_topic_id` każdej umiejętności.
+- Strona Bank wiedzy: wpis pokazuje Zasadę, Przykłady, Twoje błędy (z dziennika prób), W planie,
+  Opanowanie, a na dole zwiniętą ogólną listę „Częste błędy Polaków (ogólne, nie twoje)” zamiast
+  statystyk FSRS tematu; wpisy w grupie w kolejności programu; nazwy grup bez
+  przedrostka „Bank wiedzy ·”, opis widoku Hierarchia zaktualizowany.
+- `scripts/scal_tematy.py`: scala powtarzające się tematy (tryb próbny domyślnie, `--apply` zapisuje);
+  powiązania z lekcjami przenosi na wpis, który zostaje, bez dublowania; tematów z własnymi
+  powtórkami nie rusza.
+- Testy: `backend/tests/test_knowledge.py`, test strony w `TopicsPage.test.jsx`.
+
 ## 2026-10-21 — błędy do jednej talii Powtórek w hubie
 
 - `GET /api/exercises/{user_id}/for-hub`: ćwiczenia do talii huba (decyzja D1, jedna talia): zdania

@@ -133,3 +133,60 @@ describe("TopicsPage — Hierarchia -> 'Przećwicz fiszki' link (Wariant D)", ()
     expect(link).toHaveAttribute("href", "/flashcards?topic_id=9&topic_name=Jedzenie")
   })
 })
+
+describe("TopicsPage — Bank wiedzy entry", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    localStorage.setItem("userId", "42")
+  })
+
+  it("shows the rule, plan, mastery and own errors instead of topic review stats", async () => {
+    const { getTopicHierarchy, getTopicDetail } = await import("../../api/client")
+    getTopicHierarchy.mockResolvedValue({
+      topics: [{
+        id: 1, name: "Bank wiedzy · Szyk zdania i zdania złożone", category: "grammar", mastery_percent: 0,
+        is_due: false, days_until_review: 0, items_count: 0, has_own_items: false, group_mastery_percent: 0,
+        subtopics: [
+          { id: 2, name: "Szyk V2 [G-V2]", skill_id: "G-V2", category: "grammar", mastery_percent: 0, is_due: false, days_until_review: 0, items_count: 1, has_own_items: true, subtopics: [] },
+        ],
+      }],
+    })
+    getTopicDetail.mockResolvedValue({
+      topic: { id: 2, name: "Szyk V2 [G-V2]", memory_strength: 0, repetitions: 0, interval: 0, difficulty: 5, stability: 0, is_due: false },
+      items: [],
+      knowledge: {
+        skill_id: "G-V2", skill_name: "Szyk V2", group: "Szyk zdania i zdania złożone",
+        rule: "Czasownik stoi na 2. miejscu.",
+        examples: [{ de: "Heute gehe ich ins Kino.", pl: "Dziś idę do kina." }],
+        typical_errors: ["„Heute ich gehe”"],
+        plan: { modules: ["M00"], days: [{ day: 1, module_id: "M00", done: true, repair: false },
+                                         { day: 15, module_id: "M00", done: false, repair: true }], next_day: 15 },
+        mastery: { status: "slaba", accuracy: 0.2, attempts: 5, correct_days: 1 },
+        recent_errors: [{ wrong: "Heute ich gehe", correct: "Heute gehe ich", source: "exercise" }],
+        exercises: 4,
+      },
+    })
+    renderPage()
+
+    await waitFor(() => expect(screen.getByText("Hierarchia")).toBeInTheDocument())
+    fireEvent.click(screen.getByText("Hierarchia"))
+    await waitFor(() => expect(screen.getByText("Szyk zdania i zdania złożone")).toBeInTheDocument())
+    expect(screen.queryByText(/^Bank wiedzy · /)).not.toBeInTheDocument()     // prefix hidden
+    fireEvent.click(screen.getByText("Szyk zdania i zdania złożone"))
+    await waitFor(() => expect(screen.getByText("Szyk V2 [G-V2]")).toBeInTheDocument())
+    fireEvent.click(screen.getByText("Szyk V2 [G-V2]"))
+
+    await waitFor(() => expect(screen.getByTestId("knowledge-entry")).toBeInTheDocument())
+    expect(screen.getByText("Czasownik stoi na 2. miejscu.")).toBeInTheDocument()
+    expect(screen.getByText("Heute gehe ich ins Kino.")).toBeInTheDocument()
+    expect(screen.getByText(/15 \(powtórka naprawcza\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Słaba: wróci w rozgrzewce/)).toBeInTheDocument()
+    expect(screen.getByText("Heute gehe ich")).toBeInTheDocument()
+    const headings = screen.getAllByRole("heading", { level: 4 }).map(h => h.textContent)
+    expect(headings.indexOf("Twoje błędy")).toBe(2)                      // own errors right after the rule
+    expect(screen.getByText("Częste błędy Polaków (ogólne, nie twoje)")).toBeInTheDocument()
+    expect(screen.queryByText("Siła zapamiętania")).not.toBeInTheDocument()
+    expect(screen.queryByText("Stabilność")).not.toBeInTheDocument()
+  })
+})

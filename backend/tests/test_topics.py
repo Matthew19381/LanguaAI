@@ -1,5 +1,21 @@
-"""Tests for /api/topics/* endpoints."""
+"""Tests for /api/topics/* endpoints.
+
+These cover the generic topic machinery, so they use a learner of Spanish: for a
+learner of German the Bank wiedzy also holds one entry per curriculum skill and
+moves old topics under them (services/knowledge.py, tests in test_knowledge.py).
+"""
+import pytest
+
 from backend.models.topic import Topic
+
+
+@pytest.fixture
+def sample_user(client):
+    r = client.post("/api/placement/create-user", json={
+        "name": "Test User", "native_language": "Polish", "target_language": "Spanish",
+    })
+    assert r.status_code == 200
+    return r.json()
 
 
 def _create_topic(db, user_id, name="Gramatyka", category="grammar",

@@ -305,6 +305,12 @@ async def get_skill_mastery(user_id: int, db: Session = Depends(get_db)):
     """Status of every curriculum skill the learner has attempts for (services/mastery.py)."""
     user = get_user_or_404(db, user_id)
     mastery = skill_mastery(db, user_id, user.target_language)
+    from backend.models.topic import Topic
+
+    entry_ids = dict(db.query(Topic.skill_id, Topic.id).filter(
+        Topic.user_id == user_id, Topic.skill_id.isnot(None)).all())
+    for m in mastery.values():
+        m["knowledge_topic_id"] = entry_ids.get(m["skill_id"])  # its Bank wiedzy entry
     return {
         "user_id": user_id,
         "language": user.target_language,
