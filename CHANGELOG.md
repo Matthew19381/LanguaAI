@@ -4,6 +4,16 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-10-21 — błędy do jednej talii Powtórek w hubie
+
+- `GET /api/exercises/{user_id}/for-hub`: ćwiczenia do talii huba (decyzja D1, jedna talia): zdania
+  z rozmów do poprawy i ćwiczenia, na których była pomyłka (`first_attempt_incorrect` albo `lapses > 0`),
+  z odpowiedzią, identyfikatorem i nazwą umiejętności oraz stanem FSRS. Tylko odczyt.
+- `POST /api/exercises/{exercise_id}/hub-review`: ocena z Powtórek huba, ta sama umowa co
+  `/api/flashcards/{id}/hub-review` (stan z huba zapisany bez zmian, 409 przy nowszej ocenie w LinguaAI,
+  jednorazowo dla `client_event_id`); ocena liczy się też jako próba umiejętności.
+- Testy: `backend/tests/test_exercises_hub.py`. Wymaga łatki huba z 21.10.2026.
+
 ## 2026-10-21 — opanowanie umiejętności i błędy: rozgrzewka, bramka modułu, błąd z rozmowy jako powtórka
 
 - Migracja `c6e1a2b3d406`: nowa tabela `skill_attempts` (dziennik prób dla umiejętności z katalogu)

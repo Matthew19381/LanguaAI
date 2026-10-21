@@ -3,13 +3,15 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.exercise import Exercise
 from backend.schemas.exercise import AnswerExerciseRequest, GenerateVariantsRequest
-from backend.services.curriculum import find_skill_id
+from backend.schemas.flashcard import HubReviewRequest
+from backend.services.curriculum import find_skill_id, skill_name
 from backend.services.exercise_service import (
     AUTO_VARIANT_FRESH_TARGET,
     VARIANT_AFTER_TIMES_SEEN,
@@ -309,4 +311,136 @@ async def get_skill_mastery(user_id: int, db: Session = Depends(get_db)):
         "thresholds": {"accuracy": MASTERY_ACCURACY, "window": WINDOW,
                        "min_attempts": MIN_ATTEMPTS, "correct_days": MASTERY_DAYS},
         "skills": sorted(mastery.values(), key=lambda m: m["skill_id"]),
+    }
+
+
+def _hub_exercises_query(db: Session, user_id: int, language: str):
+    """Exercises the hub's review deck schedules (decision D1, one deck): items made
+    from conversation errors and items the learner once got wrong. Membership only
+    grows (both conditions are sticky), so the hub never sees an item vanish."""
+    return db.query(Exercise).filter(
+        Exercise.user_id == user_id,
+        Exercise.language == language,
+        Exercise.is_active == True,  # noqa: E712
+        or_(
+            Exercise.exercise_type == "error_correction",
+            Exercise.first_attempt_incorrect == True,  # noqa: E712
+            Exercise.lapses > 0,
+        ),
+    )
+
+
+@router.get("/api/exercises/{user_id}/for-hub")
+async def list_exercises_for_hub(user_id: int, limit: int = 500, offset: int = 0,
+                                 db: Session = Depends(get_db)):
+    """Error items with their answers and FSRS state, for the hub's Powtórki.
+    Read-only; behind the app access gate like every /api route."""
+    user = get_user_or_404(db, user_id)
+    limit = max(1, min(limit, 1000))
+    query = _hub_exercises_query(db, user_id, user.target_language)
+    total = query.count()
+    rows = query.order_by(Exercise.created_at.asc(), Exercise.id.asc()).offset(max(0, offset)).limit(limit).all()
+
+    def iso(dt):
+        return dt.isoformat() if dt else None
+
+    def skill_of(ex):
+        return ex.skill_id or find_skill_id(ex.skill_tag)
+
+    return {
+        "user_id": user_id,
+        "total": total,
+        "exercises": [{
+            "id": ex.id,
+            "prompt": ex.prompt,
+            "answer": ex.answer,
+            "instruction": ex.instruction,
+            "feedback": ex.feedback,
+            "exercise_type": ex.exercise_type,
+            "skill_id": skill_of(ex),
+            "skill_name": skill_name(skill_of(ex)) if skill_of(ex) else None,
+            "language": ex.language,
+            "cefr_level": ex.cefr_level,
+            "is_active": ex.is_active,
+            "created_at": iso(ex.created_at),
+            "repetitions": ex.repetitions or 0,
+            "fsrs_state": ex.fsrs_state,
+            "fsrs_step": ex.fsrs_step,
+            "stability": ex.stability,
+            "difficulty": ex.difficulty,
+            "lapses": ex.lapses or 0,
+            "interval_days": ex.interval_days,
+            "next_review_date": iso(ex.next_review_date),
+            "last_review_date": iso(ex.last_review_date),
+        } for ex in rows],
+    }
+
+
+@router.post("/api/exercises/{exercise_id}/hub-review")
+async def hub_review_exercise(
+    exercise_id: int,
+    request: HubReviewRequest,
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    """A review of an error item done in the hub's Powtórki. Same contract as
+    /api/flashcards/{id}/hub-review: the hub's new schedule is stored as-is, 409 when
+    the item was answered here after the hub's review, idempotent per client_event_id.
+    The rating also counts as an attempt of the item's skill (mastery)."""
+    exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
+    if not exercise:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    if exercise.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to review this exercise")
+    if already_applied(db, request.client_event_id):
+        return {"success": True, "duplicate": True, "exercise_id": exercise_id}
+
+    st = request.state
+    if st.fsrs_state not in ("Learning", "Review", "Relearning"):
+        raise HTTPException(status_code=422, detail="fsrs_state must be Learning, Review or Relearning")
+    reviewed_at = parse_occurred_at(request.reviewed_at)
+    last = exercise.last_review_date
+    if last is not None and (last if last.tzinfo else last.replace(tzinfo=timezone.utc)) > reviewed_at:
+        raise HTTPException(status_code=409, detail="Exercise has a newer review in LinguaAI")
+    if st.next_review_date is None:
+        next_review = parse_occurred_at(None)
+    else:
+        try:
+            next_review = datetime.fromisoformat(st.next_review_date.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=422, detail="next_review_date must be ISO 8601")
+        if next_review.tzinfo is None:
+            next_review = next_review.replace(tzinfo=timezone.utc)
+
+    exercise.fsrs_state = st.fsrs_state
+    exercise.fsrs_step = None if st.fsrs_state == "Review" else (st.fsrs_step or 0)
+    exercise.stability = st.stability
+    exercise.difficulty = st.difficulty
+    exercise.repetitions = st.repetitions
+    exercise.lapses = st.lapses
+    exercise.interval_days = max(1, st.interval_days)
+    exercise.next_review_date = next_review
+    exercise.last_review_date = reviewed_at
+    exercise.retrievability = 1.0
+    exercise.times_seen = (exercise.times_seen or 0) + 1
+    if request.rating >= 3:
+        exercise.times_correct = (exercise.times_correct or 0) + 1
+
+    record_attempt(
+        db, user_id=user_id, language=exercise.language,
+        skill_id=exercise.skill_id or find_skill_id(exercise.skill_tag), source="hub",
+        correct=request.rating >= 3, occurred_at=reviewed_at, exercise_id=exercise.id,
+    )
+    record_event(db, request.client_event_id, user_id, "exercise_hub_review", exercise.id, reviewed_at)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return {"success": True, "duplicate": True, "exercise_id": exercise_id}
+    return {
+        "success": True,
+        "duplicate": False,
+        "exercise_id": exercise_id,
+        "state": exercise.fsrs_state,
+        "next_review": exercise.next_review_date.isoformat(),
     }
