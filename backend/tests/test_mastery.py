@@ -300,3 +300,26 @@ def test_mapping_script_dry_run_then_apply(tmp_path, capsys):
     assert con.execute("SELECT COUNT(*) FROM exercises WHERE skill_id IS NOT NULL").fetchone() == (0,)
     assert mod.main(["--db", str(db), "--user", "1", "--apply"]) == 0
     assert con.execute("SELECT id, skill_id FROM exercises ORDER BY id").fetchall() == [(1, "G-PRAES"), (2, None)]
+
+
+def test_mapping_script_survives_a_windows_console(tmp_path, monkeypatch):
+    """On the PC (21.10.2026) the console is cp1250 and a tag with "→" crashed the
+    script with UnicodeEncodeError; now that character prints as "?"."""
+    import io
+    import sys
+
+    mod = _load_script()
+    db = tmp_path / "copy.db"
+    con = sqlite3.connect(db)
+    con.executescript("""
+        CREATE TABLE exercises (id INTEGER PRIMARY KEY, user_id INT, skill_tag TEXT, skill_id TEXT);
+        INSERT INTO exercises VALUES (1, 1, 'zamiana zdania → szyk V2 (Präsens)', NULL);
+    """)
+    con.commit()
+    raw = io.BytesIO()
+    console = io.TextIOWrapper(raw, encoding="cp1250", errors="strict")
+    monkeypatch.setattr(sys, "stdout", console)
+    assert mod.main(["--db", str(db), "--user", "1"]) == 0
+    console.flush()
+    out = raw.getvalue().decode("cp1250")
+    assert "zamiana zdania ? szyk V2 (Präsens)" in out and "Tryb próbny" in out

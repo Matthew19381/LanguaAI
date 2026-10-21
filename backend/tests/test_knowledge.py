@@ -289,3 +289,32 @@ def test_script_needs_the_migration(tmp_path, capsys):
     con.close()
     assert _script().main(["--db", str(path), "--user", "1"]) == 3
     assert "migracja" in capsys.readouterr().out
+
+
+def test_scripts_survive_a_windows_console(tmp_path, monkeypatch):
+    """cp1250 console on the PC: a name with "→" must not crash the merge or plan script."""
+    import io
+    import sys
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.database import Base
+
+    path = tmp_path / "kopia.db"
+    engine = create_engine(f"sqlite:///{path}")
+    Base.metadata.create_all(engine)
+    s = sessionmaker(bind=engine)()
+    s.execute(Base.metadata.tables["users"].insert().values(id=1, name="M", native_language="Polish",
+                                                            target_language="German"))
+    s.add(Topic(id=1, user_id=1, language="German", name="Präsens → Konjugation", category="grammar"))
+    s.commit()
+    s.close()
+    engine.dispose()
+
+    raw = io.BytesIO()
+    console = io.TextIOWrapper(raw, encoding="cp1250", errors="strict")
+    monkeypatch.setattr(sys, "stdout", console)
+    assert _script().main(["--db", str(path), "--user", "1"]) == 0
+    console.flush()
+    assert "Präsens ? Konjugation" in raw.getvalue().decode("cp1250")

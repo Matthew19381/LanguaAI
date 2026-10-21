@@ -4,6 +4,13 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-10-21 — skrypty bazy nie padają na konsoli Windows
+
+- `scripts/plan_z_programu.py`, `mapuj_umiejetnosci.py`, `scal_tematy.py`: na konsoli cp1250 znak spoza
+  strony kodowej (np. „→” w tagu) kończył skrypt błędem UnicodeEncodeError (znalezione na PC 21.10.2026).
+  Teraz taki znak drukuje się jako „?”; dane i zapis bez zmian.
+- Testy: po jednym w `test_mastery.py` i `test_knowledge.py` (konsola cp1250 w trybie strict).
+
 ## 2026-10-21 — Bank wiedzy: jeden wpis na umiejętność programu, połączony z planem, opanowaniem i błędami
 
 - Migracja `d7f2b3c4e508`: kolumna `topics.skill_id` (z indeksem). Tylko dodaje.

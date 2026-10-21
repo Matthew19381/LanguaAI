@@ -29,7 +29,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
+def _console_safe() -> None:
+    """A Windows console (cp1250) cannot print every character of the data
+    ("→" in tags and topic names): print "?" for those instead of crashing."""
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure:
+        reconfigure(errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    _console_safe()
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--db", required=True)
     ap.add_argument("--user", type=int, required=True)
