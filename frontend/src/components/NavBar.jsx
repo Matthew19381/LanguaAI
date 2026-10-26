@@ -4,7 +4,7 @@ import {
   BookOpen, FlaskConical, MessageSquare, LayoutGrid,
   BarChart3, Flame, Star, Brain, Timer, Newspaper, Mic,
   BookmarkPlus, X, Loader2, Video, AlertTriangle, Layers,
-  Sun, Moon, Dumbbell, Headphones, UserCircle, Volume2, History, Settings
+  Sun, Moon, Dumbbell, Headphones, UserCircle, Volume2, History, Settings, GraduationCap
 } from 'lucide-react'
 import { getUserId, getStats, addFlashcardAI } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
@@ -78,6 +78,7 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
         { to: '/test', label: t('nav.test'), icon: FlaskConical },
         { to: '/conversation', label: t('nav.speak'), icon: MessageSquare },
         { to: '/pronunciation', label: t('nav.pronounce'), icon: Mic },
+        { to: '/exam', label: 'Egzamin B1', icon: GraduationCap },
         { to: '/news', label: t('nav.news'), icon: Newspaper },
         { to: '/topics', label: 'Bank wiedzy', icon: Layers },
       ],

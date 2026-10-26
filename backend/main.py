@@ -15,6 +15,7 @@ from backend.routers import (
     audio,
     auth,
     conversation,
+    exam,
     exercises,
     flashcards,
     integration,
@@ -242,6 +243,7 @@ app.include_router(lessons.router, tags=["Lessons"])
 app.include_router(tests.router, tags=["Tests"])
 app.include_router(flashcards.router, tags=["Flashcards"])
 app.include_router(conversation.router, tags=["Conversation"])
+app.include_router(exam.router, tags=["Exam"])  # A5: mock Goethe B1 Sprechen
 app.include_router(stats.router, tags=["Stats"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(quickmode.router, tags=["QuickMode"])

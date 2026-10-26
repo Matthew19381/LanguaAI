@@ -356,6 +356,7 @@ async def generate_daily_lesson(
         if plan_day and plan_day.get("module_id"):
             lesson["module_id"] = plan_day["module_id"]
             lesson["day_type"] = plan_day.get("day_type")
+            lesson["module_task"] = plan_day.get("module_task")  # shown on the day-type card (A3)
             lesson["skill_ids"] = list(plan_day.get("skill_ids") or [])
             lesson["exercises"] = tag_exercise_skills(lesson.get("exercises"), lesson["skill_ids"])
         if plan_day and plan_day.get("vocabulary_theme"):

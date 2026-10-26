@@ -200,6 +200,19 @@ export const startConversation = (userId, topic, moduleTask = false) =>
 export const getConversationModuleTask = (userId) =>
   api.get(`/conversation/module-task/${userId}`)
 
+// ===== Mock Goethe B1 Sprechen exam (A5) =====
+export const startExam = (userId) => api.post(`/exam/start/${userId}`)
+export const getExam = (examId, userId) => api.get(`/exam/${examId}`, { params: { user_id: userId } })
+export const getExamHistory = (userId) => api.get(`/exam/history/${userId}`)
+export const sendExamTeil1 = (examId, userId, message) =>
+  api.post(`/exam/${examId}/teil1`, { user_id: userId, message })
+export const finishExamTeil1 = (examId, userId) => api.post(`/exam/${examId}/teil1/finish`, { user_id: userId })
+export const submitExamTeil2 = (examId, userId, topicIndex, transcript) =>
+  api.post(`/exam/${examId}/teil2`, { user_id: userId, topic_index: topicIndex, transcript })
+export const submitExamTeil3 = (examId, userId, answer, feedback) =>
+  api.post(`/exam/${examId}/teil3`, { user_id: userId, answer, feedback })
+export const scoreExam = (examId, userId) => api.post(`/exam/${examId}/score`, { user_id: userId })
+
 // user_id is required by the backend (it verifies session ownership). Defaults
 // to the stored id so existing callers keep working without change.
 export const sendMessage = (sessionId, userMessage, userId = getUserId()) =>

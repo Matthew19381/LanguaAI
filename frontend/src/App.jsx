@@ -15,6 +15,7 @@ const DailyLesson = lazy(() => import('./pages/DailyLesson'))
 const DailyTest = lazy(() => import('./pages/DailyTest'))
 const Flashcards = lazy(() => import('./pages/Flashcards'))
 const Conversation = lazy(() => import('./pages/Conversation'))
+const Exam = lazy(() => import('./pages/Exam'))
 const Stats = lazy(() => import('./pages/Stats'))
 const QuickMode = lazy(() => import('./pages/QuickMode'))
 const News = lazy(() => import('./pages/News'))
@@ -43,6 +44,7 @@ function App() {
           <Route path="test" element={<ErrorBoundary><DailyTest /></ErrorBoundary>} />
           <Route path="flashcards" element={<ErrorBoundary><Flashcards /></ErrorBoundary>} />
           <Route path="conversation" element={<ErrorBoundary><Conversation /></ErrorBoundary>} />
+          <Route path="exam" element={<ErrorBoundary><Exam /></ErrorBoundary>} />
           <Route path="stats" element={<ErrorBoundary><Stats /></ErrorBoundary>} />
           <Route path="quickmode" element={<ErrorBoundary><QuickMode /></ErrorBoundary>} />
           <Route path="news" element={<ErrorBoundary><News /></ErrorBoundary>} />

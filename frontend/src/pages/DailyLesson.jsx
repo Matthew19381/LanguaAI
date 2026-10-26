@@ -11,6 +11,7 @@ import { enqueueLessonComplete } from '../utils/offlineQueue'
 import PlayButton from '../components/PlayButton'
 import { PageLoader } from '../components/LoadingSpinner'
 import SpecialChars from '../components/SpecialChars'
+import DayTypeCard from '../components/DayTypeCard'
 import { useLanguage } from '../hooks/useLanguage'
 
 function renderMarkdown(text) {
@@ -600,6 +601,8 @@ export default function DailyLesson() {
           <BookOpen className="w-8 h-8 text-indigo-400" />
         </div>
       </div>
+
+      <DayTypeCard dayType={content.day_type} moduleId={content.module_id} moduleTask={content.module_task} />
 
       {/* Explanation */}
       <Section

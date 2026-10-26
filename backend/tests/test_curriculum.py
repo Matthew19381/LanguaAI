@@ -129,6 +129,7 @@ async def test_lesson_from_curriculum_day_records_module_and_skills():
             recent_topics=[], day_number=17, db=None, study_plan_data=plan)
     assert lesson["module_id"] == "M01"
     assert lesson["day_type"] == "zadanie_mowione"
+    assert lesson["module_task"] == plan["daily_topics"][16]["module_task"]
     assert lesson["skill_ids"] == ["G-V2", "S-OPIS"]
     assert lesson["exercises"][0]["skill_tag"] == "G-V2"
     assert "8-12 new words" in captured["prompt"]
