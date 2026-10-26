@@ -4,11 +4,16 @@ System-Glowny polls GET /api/v1/summary?user_id=&date= and expects the unified
 format: {module, user_id, date, summary, events, wellbeing_contribution}.
 Read-only aggregation over existing tables — no writes, no AI calls.
 
+suggested_items (contract 1.1a) puts today's lesson into the hub's day plan;
+the hub ticks it itself when LinguaAI publishes lesson_completed
+(services/hub_events.py).
+
 wellbeing_contribution is intentionally null: an honest value needs the
 Affect Engine (MASTER_PLAN F2-4); activity counts alone are not wellbeing.
 """
+import json
 from datetime import date as date_type
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
@@ -17,13 +22,19 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.flashcard import Flashcard
 from backend.models.lesson import Lesson
+from backend.models.study_plan import StudyPlan
 from backend.models.test_result import TestResult
 from backend.models.user import User
+from backend.services.curriculum import DAY_TYPE_PL
+from backend.services.lesson_generator.daily_lesson import plan_entry_for_day
 from backend.services.streak_service import calculate_streak
 
 router = APIRouter(prefix="/api/v1", tags=["Integration"])
 
 MODULE_NAME = "lingua-ai"
+# Raw estimate for one daily lesson; the hub corrects it with the user's own
+# planned/actual ratio (F1-2), so this is a starting point, not a measurement.
+LESSON_MINUTES = 30
 
 
 def _parse_date(raw: str | None) -> date_type:
@@ -139,6 +150,8 @@ def get_ecosystem_summary(
             }
         )
 
+    suggested_items = _suggested_items(db, user, target, bool(lessons_completed))
+
     return {
         "module": MODULE_NAME,
         "user_id": str(user_id),
@@ -153,7 +166,63 @@ def get_ecosystem_summary(
             "total_xp": user.total_xp or 0,
             "target_language": user.target_language,
             "cefr_level": user.cefr_level,
+            "suggested_items": suggested_items,
         },
         "events": events,
         "wellbeing_contribution": None,
     }
+
+
+def _json(raw) -> dict:
+    try:
+        value = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _lesson_item(day_number: int, title: str, day_type: str | None) -> dict:
+    kind = DAY_TYPE_PL.get(day_type or "")
+    label = f"LinguaAI: lekcja dnia {day_number}" + (f" ({kind})" if kind else "")
+    theme = title.split(":", 1)[1].strip() if title.startswith("Dzień") and ":" in title else title
+    return {
+        "title": f"{label}: {theme}" if theme else label,
+        "estimated_minutes": LESSON_MINUTES,
+        "priority": 1,
+        "complete_on": ["lesson_completed"],
+        "includes_due_reviews": False,  # flashcards are scheduled in the hub's own deck
+    }
+
+
+def _suggested_items(db: Session, user: User, target: date_type, done_today: bool) -> list[dict]:
+    """Today's lesson for the hub's day plan: the lesson waiting in "Lekcja dnia"
+    (same choice as GET /api/lessons/today), else the next day of the active plan.
+    Nothing when a lesson was already finished that day or there is no plan."""
+    # The hub asks with its local date, which can be a day ahead of UTC just
+    # after midnight; older dates are history, nothing to plan there.
+    if done_today or target < datetime.utcnow().date() - timedelta(days=1):
+        return []
+    plan = db.query(StudyPlan).filter(
+        StudyPlan.user_id == user.id, StudyPlan.is_active == True,  # noqa: E712
+    ).first()
+    if not plan:
+        return []
+    language = user.target_language
+    waiting = db.query(Lesson).filter(
+        Lesson.user_id == user.id, Lesson.language == language,
+        func.date(Lesson.created_at) == target.isoformat(),
+    ).first() or db.query(Lesson).filter(
+        Lesson.user_id == user.id, Lesson.language == language,
+        Lesson.is_completed == False,  # noqa: E712
+    ).order_by(Lesson.created_at.desc()).first()
+    if waiting and not waiting.is_completed:
+        return [_lesson_item(waiting.day_number, waiting.title or "", _json(waiting.content).get("day_type"))]
+    if waiting:
+        return []
+    completed = db.query(func.count(Lesson.id)).filter(
+        Lesson.user_id == user.id, Lesson.language == language,
+        Lesson.is_completed == True,  # noqa: E712
+    ).scalar() or 0
+    day_number = completed + 1
+    entry = plan_entry_for_day(_json(plan.plan_data), day_number) or {}
+    return [_lesson_item(day_number, entry.get("vocabulary_theme") or "", entry.get("day_type"))]

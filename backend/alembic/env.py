@@ -28,6 +28,7 @@ from backend.models import (  # noqa: E402,F401
     conversation_session,
     exercise,
     flashcard,
+    hub_outbox,
     lesson,
     push_subscription,
     skill_attempt,

@@ -48,6 +48,7 @@ def create_tables():
     from backend.models.sync_event import SyncEvent  # noqa
     from backend.models.push_subscription import PushSubscription  # noqa
     from backend.models.skill_attempt import SkillAttempt  # noqa
+    from backend.models.hub_outbox import HubOutbox  # noqa
     from backend.database import Base
 
     Base.metadata.create_all(bind=test_engine)
@@ -65,6 +66,7 @@ def clean_tables(create_tables):
         from backend.models.conversation_session import ConversationSession
         from backend.models.exercise import Exercise
         from backend.models.flashcard import Flashcard
+        from backend.models.hub_outbox import HubOutbox
         from backend.models.lesson import Lesson
         from backend.models.push_subscription import PushSubscription
         from backend.models.skill_attempt import SkillAttempt
@@ -74,7 +76,7 @@ def clean_tables(create_tables):
         from backend.models.topic import Topic, TopicItem
         from backend.models.user import User
         # Delete in FK-safe order (children first)
-        for model in [TopicItem, Topic, ConversationSession, Achievement, SyncEvent, PushSubscription, SkillAttempt, Exercise, Flashcard, TestResult, Lesson, StudyPlan, User]:
+        for model in [HubOutbox, TopicItem, Topic, ConversationSession, Achievement, SyncEvent, PushSubscription, SkillAttempt, Exercise, Flashcard, TestResult, Lesson, StudyPlan, User]:
             db.query(model).delete()
         db.commit()
     finally:

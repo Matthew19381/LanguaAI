@@ -19,6 +19,7 @@ from backend.schemas.lesson import (
     CompleteLessonRequest,
     EvaluateProductionRequest,
 )
+from backend.services import hub_events
 from backend.services.audio_service import (
     generate_full_lesson_audio,
     generate_lesson_package_audio,
@@ -203,6 +204,7 @@ async def get_lesson(lesson_id: int, user_id: int, db: Session = Depends(get_db)
 async def complete_lesson(
     lesson_id: int,
     request: CompleteLessonRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
@@ -251,6 +253,8 @@ async def complete_lesson(
         record_event(db, request.client_event_id,
                      request.user_id or lesson.user_id,
                      "lesson_complete", lesson.id, occurred)
+        # Ticks "LinguaAI: lekcja dnia" in the hub's day plan (sent after the response)
+        hub_events.enqueue(db, hub_events.lesson_completed_event(lesson))
 
         try:
             db.commit()
@@ -267,6 +271,8 @@ async def complete_lesson(
                 "xp_awarded": 0,
                 "new_achievements": [],
             }
+
+        background_tasks.add_task(hub_events.flush_in_new_session)
 
         # Check achievements after commit
         if request.user_id:

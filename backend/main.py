@@ -106,6 +106,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Model catalog validation skipped: %s", e)
 
+    # Events that could not reach System-Glowny before the last shutdown
+    if os.environ.get("TESTING") != "1":
+        import asyncio
+
+        from backend.services.hub_events import flush_in_new_session
+        asyncio.get_running_loop().run_in_executor(None, flush_in_new_session)
+
     logger.info("LinguaAI API started successfully!")
     yield
     # Shutdown
