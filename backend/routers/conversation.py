@@ -23,6 +23,7 @@ from backend.schemas.conversation import (
     TranslateRequest,
 )
 from backend.services.achievement_service import check_and_award_achievements
+from backend.services.curriculum import SKILLS, skill_name
 from backend.services.gemini_service import generate_text, generate_text_stream, with_model
 from backend.services.lesson_generator import (
     analyze_conversation,
@@ -32,6 +33,7 @@ from backend.services.lesson_generator import (
 )
 from backend.services.mastery import cards_from_conversation_errors
 from backend.services.model_router import get_model_for_task
+from backend.services.plan_day import current_plan_day
 from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,30 @@ def _save_session(db: Session, session: ConversationSession) -> None:
     """Persist conversation session changes."""
     session.updated_at = datetime.now(timezone.utc)
     db.commit()
+
+
+def _module_task(db: Session, user: User) -> Optional[dict]:
+    """Today's spoken task from the study plan (curriculum days carry it), or None."""
+    day = current_plan_day(db, user)
+    entry = (day or {}).get("entry") or {}
+    if not entry.get("module_task"):
+        return None
+    grammar = [sid for sid in entry.get("skill_ids") or [] if sid.startswith("G-") and sid in SKILLS]
+    return {
+        "day_number": day["day_number"],
+        "module_id": entry.get("module_id"),
+        "day_type_pl": entry.get("day_type_pl"),
+        "task": entry["module_task"],
+        "topic": entry.get("conversation_topic") or entry["module_task"],
+        "target_structures": [skill_name(sid) for sid in grammar],
+    }
+
+
+@router.get("/api/conversation/module-task/{user_id}")
+def get_module_task(user_id: int, db: Session = Depends(get_db)):
+    """What "Ćwicz zadanie modułu" will practise today (null without a plan task)."""
+    user = get_user_or_404(db, user_id)
+    return {"module_task": _module_task(db, user)}
 
 
 @router.post("/api/conversation/start/{user_id}")
@@ -72,6 +98,15 @@ async def start_conversation(
                 pass
 
     topic = request.topic or "everyday conversation"
+    task = None
+    targets: list[str] = []
+    if request.module_task:
+        module_task = _module_task(db, user)
+        if module_task is None:
+            raise HTTPException(status_code=404, detail="No module task in the active study plan today")
+        topic = module_task["topic"]
+        task = module_task["task"]
+        targets = module_task["target_structures"]
 
     try:
         scenario = await generate_conversation_scenario(
@@ -79,7 +114,9 @@ async def start_conversation(
             cefr_level=user.cefr_level,
             user_errors=user_errors,
             language=user.target_language,
-            native_language=user.native_language
+            native_language=user.native_language,
+            task=task,
+            target_structures=targets,
         )
 
         # Create persistent session
@@ -109,7 +146,9 @@ async def start_conversation(
             "ai_role": scenario.get("ai_role", ""),
             "user_role": scenario.get("user_role", ""),
             "suggested_phrases": scenario.get("suggested_phrases", []),
-            "opening_line": opening_line
+            "opening_line": opening_line,
+            "task": scenario.get("task"),
+            "target_structures": scenario.get("target_structures") or [],
         }
     except httpx.RequestError as e:
         logger.error(f"AI service error starting conversation: {e}")
@@ -134,7 +173,12 @@ def _build_reply_prompt(conv_session: ConversationSession, history: list) -> str
     ])
 
     ai_role = scenario.get('ai_role', 'conversation partner')
-    return f"""{system_prompt}
+    targets = scenario.get("target_structures") or []
+    task = scenario.get("task")
+    focus = ("the target structures: " + "; ".join(targets)) if targets else \
+        "basic grammar the student should already know at this level, or a word choice that changes the meaning"
+    task_line = f"\nThe student's speaking task: {task}. Keep the conversation on it." if task else ""
+    return f"""{system_prompt}{task_line}
 
 Conversation so far:
 {history_text}
@@ -144,8 +188,13 @@ You are {ai_role}. Reply naturally in {language}, staying in character.
 - Be warm and engaging, and ALWAYS end your reply with a question or a small
   prompt that invites the student to keep talking, so the conversation keeps
   flowing instead of dying out.
-- If the student made a grammar or word-choice error, model the correct form
-  naturally inside your own reply — never lecture or break character.
+- Correction (prompts before recasts): if the student's last message has an
+  error in {focus}, do not give the correct form yet. Make them try again
+  with one short cue in {language}: repeat the wrong part as a question, or
+  name what to check (e.g. the auxiliary verb, the case, the verb position).
+  If you already cued that same error in your previous reply and it is still
+  wrong, give the correct form once, briefly, and carry on. At most one
+  correction per reply; let other small slips go so the student keeps talking.
 - 1–3 short sentences. Reply ONLY with what {ai_role} actually says, no
   narration, no translations, no meta-commentary."""
 

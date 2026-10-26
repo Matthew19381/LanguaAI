@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 class StartConversationRequest(BaseModel):
     topic: Optional[str] = None
+    # True = practise today's module task from the study plan (topic ignored)
+    module_task: bool = False
 
 
 class MessageRequest(BaseModel):

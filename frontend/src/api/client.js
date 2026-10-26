@@ -193,8 +193,12 @@ export const batchAddFlashcards = (userId, flashcards) =>
 
 // ===== Conversation =====
 
-export const startConversation = (userId, topic) =>
-  api.post(`/conversation/start/${userId}`, { topic })
+export const startConversation = (userId, topic, moduleTask = false) =>
+  api.post(`/conversation/start/${userId}`, { topic, module_task: moduleTask })
+
+// Today's spoken task from the study plan ({ module_task: null } without one)
+export const getConversationModuleTask = (userId) =>
+  api.get(`/conversation/module-task/${userId}`)
 
 // user_id is required by the backend (it verifies session ownership). Defaults
 // to the stored id so existing callers keep working without change.

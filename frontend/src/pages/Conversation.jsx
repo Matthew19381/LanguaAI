@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PlayButton from '../components/PlayButton'
-import { getUserId, startConversation, sendMessageStream, analyzeConversation, askQuestion, getVoiceChatPrompt, analyzePastedConversation, sendVoiceMessage, sendVoiceText } from '../api/client'
+import { getUserId, startConversation, getConversationModuleTask, sendMessageStream, analyzeConversation, askQuestion, getVoiceChatPrompt, analyzePastedConversation, generateTTS } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
 
 const TOPICS = [
@@ -70,6 +70,7 @@ export default function Conversation() {
   const [pasteResult, setPasteResult] = useState(null)
   const [isRecording, setIsRecording] = useState(false)
   const [recognitionError, setRecognitionError] = useState('')
+  const [moduleTask, setModuleTask] = useState(null)
   const messagesEndRef = useRef(null)
   const recognitionRef = useRef(null)
   const navigate = useNavigate()
@@ -89,10 +90,17 @@ export default function Conversation() {
     list?.scrollTo?.({ top: list.scrollHeight, behavior: 'smooth' })
   }, [messages])
 
-  const handleStart = async () => {
+  useEffect(() => {
+    if (!userId) return
+    getConversationModuleTask(userId)
+      .then(res => setModuleTask(res?.module_task || null))
+      .catch(() => setModuleTask(null))
+  }, [userId])
+
+  const handleStart = async (practiseModuleTask = false) => {
     setLoading(true)
     try {
-      const res = await startConversation(userId, topic)
+      const res = await startConversation(userId, topic, practiseModuleTask)
       setSessionId(res.session_id)
       setScenario(res)
       setMessages([{ role: 'assistant', content: res.opening_line, id: Date.now() }])
@@ -130,6 +138,7 @@ export default function Conversation() {
       // Reconcile with the server's own trimmed final text (belt-and-suspenders
       // against any chunk-boundary artifact) and drop the streaming cursor.
       setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: result.response, streaming: false } : m))
+      return result.response
     } catch (e) {
       if (bubbleStarted) {
         // Partial text already shown — leave it, just stop the cursor.
@@ -142,29 +151,17 @@ export default function Conversation() {
       setAiTyping(false)
     }
   }
+  // Voice mode goes through the same session as typing, so spoken turns keep
+  // the scenario and correction rules and reach the analysis; only the reply
+  // is additionally read aloud.
   const handleVoiceSend = async (textOverride) => {
-    const text = (textOverride || inputText).trim()
-    if (!text || !userId) return
-    const userMsg = { role: "user", content: text, id: Date.now() }
-    setMessages(prev => [...prev, userMsg])
-    if (!textOverride) setInputText("")
-    setAiTyping(true)
+    const reply = await handleSend(textOverride)
+    if (!reply) return
     try {
-      const res = await sendVoiceMessage(userId, text, targetLanguage)
-      setMessages(prev => [...prev, { role: "assistant", content: res.text, id: Date.now() }])
-      if (res.audio_base64) {
-        try {
-          const audioBlob = await fetch(`data:audio/mp3;base64,${res.audio_base64}`).then(r => r.blob())
-          const audio = new Audio(URL.createObjectURL(audioBlob))
-          audio.play()
-        } catch (e) {
-          console.error("Audio auto-play failed:", e)
-        }
-      }
+      const { url } = await generateTTS(reply, targetLanguage)
+      if (url) new Audio(url).play()
     } catch (e) {
-      setMessages(prev => [...prev, { role: "system", content: t("conv.errorResponse"), id: Date.now() }])
-    } finally {
-      setAiTyping(false)
+      console.error("Audio auto-play failed:", e)
     }
   }
 
@@ -297,6 +294,28 @@ export default function Conversation() {
           <h1 className="text-2xl font-bold">{t('conv.title')}</h1>
         </div>
 
+        {moduleTask && (
+          <div className="card mb-6 border border-emerald-700" data-testid="module-task">
+            <p className="text-xs text-emerald-400 mb-1">
+              {t('conv.moduleTaskLabel')} {moduleTask.day_number}{moduleTask.day_type_pl ? ` · ${moduleTask.day_type_pl}` : ''}
+            </p>
+            <h2 className="text-lg font-semibold mb-2">{moduleTask.task}</h2>
+            {moduleTask.target_structures?.length > 0 && (
+              <p className="text-sm text-gray-400 mb-4">
+                {t('conv.moduleTaskTargets')}: {moduleTask.target_structures.join(' · ')}
+              </p>
+            )}
+            <button
+              className="btn-success w-full py-3 flex items-center justify-center gap-2"
+              onClick={() => handleStart(true)}
+              disabled={loading}
+            >
+              {loading ? <LoadingSpinner size="sm" /> : <MessageSquare className="w-4 h-4" />}
+              {t('conv.moduleTaskStart')}
+            </button>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-2 gap-6">
           {/* Start conversation */}
           <div className="card">
@@ -325,7 +344,7 @@ export default function Conversation() {
             </div>
             <button
               className="btn-success w-full py-3 flex items-center justify-center gap-2"
-              onClick={handleStart}
+              onClick={() => handleStart(false)}
               disabled={loading}
             >
               {loading ? <LoadingSpinner size="sm" /> : <MessageSquare className="w-4 h-4" />}
@@ -484,6 +503,9 @@ export default function Conversation() {
               <p className="text-gray-400 text-sm">
                 {t('conv.you')}: {scenario?.user_role} | {t('conv.ai')}: {scenario?.ai_role}
               </p>
+              {scenario?.task && (
+                <p className="text-emerald-400 text-sm mt-1">{t('conv.moduleTaskYours')}: {scenario.task}</p>
+              )}
             </div>
             <button
               className="btn-danger text-sm flex items-center gap-1.5"

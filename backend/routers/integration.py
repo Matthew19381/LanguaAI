@@ -11,7 +11,6 @@ the hub ticks it itself when LinguaAI publishes lesson_completed
 wellbeing_contribution is intentionally null: an honest value needs the
 Affect Engine (MASTER_PLAN F2-4); activity counts alone are not wellbeing.
 """
-import json
 from datetime import date as date_type
 from datetime import datetime, timedelta
 
@@ -22,11 +21,10 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.flashcard import Flashcard
 from backend.models.lesson import Lesson
-from backend.models.study_plan import StudyPlan
 from backend.models.test_result import TestResult
 from backend.models.user import User
 from backend.services.curriculum import DAY_TYPE_PL
-from backend.services.lesson_generator.daily_lesson import plan_entry_for_day
+from backend.services.plan_day import as_dict, current_plan_day
 from backend.services.streak_service import calculate_streak
 
 router = APIRouter(prefix="/api/v1", tags=["Integration"])
@@ -173,13 +171,6 @@ def get_ecosystem_summary(
     }
 
 
-def _json(raw) -> dict:
-    try:
-        value = json.loads(raw) if isinstance(raw, str) else raw
-    except (TypeError, ValueError):
-        return {}
-    return value if isinstance(value, dict) else {}
-
 
 def _lesson_item(day_number: int, title: str, day_type: str | None) -> dict:
     kind = DAY_TYPE_PL.get(day_type or "")
@@ -195,34 +186,19 @@ def _lesson_item(day_number: int, title: str, day_type: str | None) -> dict:
 
 
 def _suggested_items(db: Session, user: User, target: date_type, done_today: bool) -> list[dict]:
-    """Today's lesson for the hub's day plan: the lesson waiting in "Lekcja dnia"
-    (same choice as GET /api/lessons/today), else the next day of the active plan.
-    Nothing when a lesson was already finished that day or there is no plan."""
+    """Today's lesson for the hub's day plan (services/plan_day.py). Nothing when a
+    lesson was already finished that day or there is no active plan."""
     # The hub asks with its local date, which can be a day ahead of UTC just
     # after midnight; older dates are history, nothing to plan there.
     if done_today or target < datetime.utcnow().date() - timedelta(days=1):
         return []
-    plan = db.query(StudyPlan).filter(
-        StudyPlan.user_id == user.id, StudyPlan.is_active == True,  # noqa: E712
-    ).first()
-    if not plan:
+    day = current_plan_day(db, user, target)
+    if day is None:
         return []
-    language = user.target_language
-    waiting = db.query(Lesson).filter(
-        Lesson.user_id == user.id, Lesson.language == language,
-        func.date(Lesson.created_at) == target.isoformat(),
-    ).first() or db.query(Lesson).filter(
-        Lesson.user_id == user.id, Lesson.language == language,
-        Lesson.is_completed == False,  # noqa: E712
-    ).order_by(Lesson.created_at.desc()).first()
-    if waiting and not waiting.is_completed:
-        return [_lesson_item(waiting.day_number, waiting.title or "", _json(waiting.content).get("day_type"))]
-    if waiting:
-        return []
-    completed = db.query(func.count(Lesson.id)).filter(
-        Lesson.user_id == user.id, Lesson.language == language,
-        Lesson.is_completed == True,  # noqa: E712
-    ).scalar() or 0
-    day_number = completed + 1
-    entry = plan_entry_for_day(_json(plan.plan_data), day_number) or {}
-    return [_lesson_item(day_number, entry.get("vocabulary_theme") or "", entry.get("day_type"))]
+    lesson = day["lesson"]
+    if lesson is not None:
+        if lesson.is_completed:
+            return []
+        return [_lesson_item(lesson.day_number, lesson.title or "", as_dict(lesson.content).get("day_type"))]
+    entry = day["entry"]
+    return [_lesson_item(day["day_number"], entry.get("vocabulary_theme") or "", entry.get("day_type"))]

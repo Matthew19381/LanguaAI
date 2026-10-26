@@ -13,10 +13,20 @@ async def generate_conversation_scenario(
     user_errors: list,
     language: str,
     native_language: str,
+    task: str | None = None,
+    target_structures: list[str] | None = None,
 ) -> dict:
     error_context = ""
     if user_errors:
         error_context = f"Help the student practice areas where they made errors: {user_errors[:3]}"
+    if task:
+        # Task-based conversation (module task of the study plan): AI dialogue
+        # with a concrete goal worked better than open chat (Bibauw et al. 2022).
+        error_context += (f"\nThe scenario must make the student carry out this speaking task: {task}."
+                          " Choose roles so the student, not you, has to do most of the talking.")
+    if target_structures:
+        error_context += ("\nSteer the situation so the student naturally needs these structures: "
+                          + "; ".join(target_structures) + ".")
 
     prompt = f"""Create a conversation practice scenario for a {language} learner.
 
@@ -40,15 +50,15 @@ Return JSON:
         "Useful phrase 4 in {language}",
         "Useful phrase 5 in {language}"
     ],
-    "system_prompt": "You are playing the role of [AI role] in a {language} conversation practice. The student is at CEFR {cefr_level} level. Always respond in {language}. If the student makes an error, gently incorporate the correct form naturally in your response. Keep sentences appropriate for {cefr_level} level. Be encouraging and patient. If asked for help, provide it in {native_language}.",
+    "system_prompt": "You are playing the role of [AI role] in a {language} conversation practice. The student is at CEFR {cefr_level} level. Always respond in {language}. Keep sentences appropriate for {cefr_level} level. Be encouraging and patient. If asked for help, provide it in {native_language}.",
     "opening_line": "The first line you'll say to start the conversation in {language}"
 }}"""
 
     try:
-        return await generate_json(prompt)
+        scenario = await generate_json(prompt)
     except Exception as e:
         logger.error(f"Error generating conversation scenario: {e}")
-        return {
+        scenario = {
             "scenario": f"You are at a {language}-speaking café ordering food and drinks.",
             "ai_role": "A friendly café waiter/waitress",
             "user_role": "A customer visiting for the first time",
@@ -62,6 +72,12 @@ Return JSON:
             "system_prompt": f"You are a friendly café waiter in a German café. The student is at CEFR {cefr_level} level. Respond only in German. Be patient and encouraging.",
             "opening_line": "Guten Tag! Was darf ich Ihnen bringen?",
         }
+    if not isinstance(scenario, dict):
+        scenario = {}
+    # Kept with the session: the reply prompt corrects these structures first
+    scenario["task"] = task
+    scenario["target_structures"] = list(target_structures or [])
+    return scenario
 
 
 def _skill_tagging(language: str) -> tuple[str, str]:
