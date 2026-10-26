@@ -12,6 +12,7 @@ import PlayButton from '../components/PlayButton'
 import { PageLoader } from '../components/LoadingSpinner'
 import SpecialChars from '../components/SpecialChars'
 import DayTypeCard from '../components/DayTypeCard'
+import LessonQualityNote from '../components/LessonQualityNote'
 import { useLanguage } from '../hooks/useLanguage'
 
 function renderMarkdown(text) {
@@ -603,6 +604,7 @@ export default function DailyLesson() {
       </div>
 
       <DayTypeCard dayType={content.day_type} moduleId={content.module_id} moduleTask={content.module_task} />
+      <LessonQualityNote quality={content.quality} />
 
       {/* Explanation */}
       <Section

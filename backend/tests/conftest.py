@@ -124,3 +124,14 @@ def sample_user(client):
     })
     assert r.status_code == 200
     return r.json()
+
+
+@pytest.fixture(autouse=True)
+def no_lesson_review(monkeypatch):
+    """The A7 lesson review is a second model call; tests of lesson generation
+    mock only the lesson call, so the review answers "no corrections" here.
+    test_lesson_check.py replaces this with its own fakes."""
+    from unittest.mock import AsyncMock
+
+    from backend.services import lesson_check
+    monkeypatch.setattr(lesson_check, "generate_json", AsyncMock(return_value={"corrections": []}))

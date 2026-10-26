@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     GDRIVE_FOLDER_ID: str = ""
     GDRIVE_CLIENT_SECRETS_FILE: str = "backend/gdrive_credentials.json"
     YOUTUBE_API_KEY: str = ""
+    # A7: optional LanguageTool server for the lesson check, e.g. a local
+    # server "http://localhost:8081/v2" or the public "https://api.languagetool.org/v2"
+    # (sends the lesson's German sentences there). Empty (default) = off.
+    LANGUAGETOOL_URL: str = ""
     FRONTEND_URL: str = "http://localhost:5177"
     BACKEND_URL: str = "http://localhost:8001"
 

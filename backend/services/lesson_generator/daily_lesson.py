@@ -5,7 +5,9 @@ import re
 
 from sqlalchemy.orm import Session
 
+from backend.config import settings
 from backend.services.gemini_service import generate_json, with_model
+from backend.services.lesson_check import check_lesson, is_german
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +196,9 @@ async def generate_daily_lesson(
     2. Vocabulary introduction (10-15 min): 8-12 new words or short phrases, chosen from what today's speaking task needs, with translations, example sentences, audio cues,
        and a short semantic "category" label per word (e.g. "colours", "food", "motion verbs") so related
        words can be spaced apart during review to reduce interference (Tinkham 1993).
+       German nouns ALWAYS with their definite article ("der Käse", not "Käse"). Never write
+       pronunciation in {native_language} letters (the lesson has audio). In conjugation tables give
+       each person its own correct {native_language} form.
        For words that are ABSTRACT or hard to visualize (feelings, concepts, function words — NOT concrete
        nouns like objects/animals/colours), add a "mnemonic" keyword-method hint: a {native_language} word
        that sounds similar to the {target_language} word, linked to its meaning through a short, vivid,
@@ -372,6 +377,9 @@ async def generate_daily_lesson(
                 "spróbuj wygenerować lekcję ponownie, albo zapytaj o to zagadnienie w Konwersacji."
             )
             lesson["grammar"] = grammar
+        if is_german(target_language):
+            # A7: automatic check of the German before the learner sees it
+            await check_lesson(lesson, native_language, settings.LANGUAGETOOL_URL)
         return lesson
     else:
         logger.error("Error generating daily lesson: all %d attempts raised", 1 + CONTENT_RETRIES)
@@ -422,7 +430,7 @@ async def generate_daily_lesson(
             "speaking_practice": [{
                 "prompt": "Say your name in German",
                 "focus": "pronunciation",
-                "sample_answer": "Ich heißen [Your Name]"
+                "sample_answer": "Ich heiße [Your Name]"
             }],
             "writing_exercise": {
                 "prompt": "Write a simple sentence introducing yourself",
