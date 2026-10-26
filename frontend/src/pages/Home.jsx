@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BookOpen, FlaskConical, MessageSquare,
-  Flame, Star, TrendingUp, ChevronRight, Sparkles,
+  CalendarCheck, Star, TrendingUp, ChevronRight, Sparkles,
   Target, Clock, CheckCircle, Brain, Mic, Newspaper, Youtube, Timer, AlertTriangle
 } from 'lucide-react'
 import { getUserId, getStats, getDailyTips } from '../api/client'
@@ -74,9 +74,9 @@ export default function Home() {
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard
-          icon={<Flame className="w-6 h-6 text-orange-400" />}
-          label={t('home.dayStreak')}
-          value={stats?.user?.streak_days || 0}
+          icon={<CalendarCheck className="w-6 h-6 text-orange-400" />}
+          label={t('home.weekDays')}
+          value={`${stats?.user?.week_days?.days ?? 0} / ${stats?.user?.week_days?.goal ?? 5}`}
           color="orange"
         />
         <StatCard

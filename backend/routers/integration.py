@@ -25,7 +25,7 @@ from backend.models.test_result import TestResult
 from backend.models.user import User
 from backend.services.curriculum import DAY_TYPE_PL
 from backend.services.plan_day import as_dict, current_plan_day
-from backend.services.streak_service import calculate_streak
+from backend.services.streak_service import calculate_streak, week_days
 
 router = APIRouter(prefix="/api/v1", tags=["Integration"])
 
@@ -113,6 +113,7 @@ def get_ecosystem_summary(
     )
 
     streak, _freezes_left = calculate_streak(db, user_id, user.streak_freezes or 0)
+    this_week = week_days(db, user_id)
 
     events = []
     for lesson in lessons_completed:
@@ -161,6 +162,7 @@ def get_ecosystem_summary(
             "due_reviews": due_reviews,
             "mastered_words": mastered_words,
             "streak": streak,
+            "days_this_week": this_week["days"],
             "total_xp": user.total_xp or 0,
             "target_language": user.target_language,
             "cefr_level": user.cefr_level,

@@ -538,7 +538,13 @@ function TopicDetail({ topicId, onClose }) {
         </div>
       )}
 
-      {!topic.is_due && topic.next_review && (
+      {topic.has_own_reviews === false && (
+        <div className="text-sm text-gray-500 dark:text-gray-400 mb-3" data-testid="topic-hub-reviews">
+          Ten temat nie ma osobnych powtórek: jego fiszki i ćwiczenia powtarzasz w Powtórkach w hubie.
+        </div>
+      )}
+
+      {!topic.is_due && topic.next_review && topic.has_own_reviews !== false && (
         <div className="text-sm text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-1">
           <Clock size={14} /> Następna powtórka: {new Date(topic.next_review).toLocaleDateString('pl-PL')}
         </div>

@@ -2,9 +2,9 @@ import { Link, useLocation } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import {
   BookOpen, FlaskConical, MessageSquare, LayoutGrid,
-  BarChart3, Flame, Star, Brain, Timer, Newspaper, Mic,
+  BarChart3, Star, Brain, Timer, Newspaper, Mic,
   BookmarkPlus, X, Loader2, Video, AlertTriangle, Layers,
-  Sun, Moon, Dumbbell, Headphones, UserCircle, Volume2, History, Settings, GraduationCap
+  Sun, Moon, Dumbbell, Headphones, UserCircle, Volume2, History, Settings, GraduationCap, CalendarCheck
 } from 'lucide-react'
 import { getUserId, getStats, addFlashcardAI } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
@@ -189,10 +189,11 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
             )}
             {userStats && (
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 dark:bg-gray-800 bg-gray-100 rounded-lg px-3 py-1.5">
-                  <Flame className="w-4 h-4 text-orange-400" />
+                <div className="flex items-center gap-1.5 dark:bg-gray-800 bg-gray-100 rounded-lg px-3 py-1.5"
+                  title="Dni z lekcją w tym tygodniu (cel 5 z 7)" data-testid="nav-week-days">
+                  <CalendarCheck className="w-4 h-4 text-orange-400" />
                   <span className="text-sm font-semibold text-orange-400">
-                    {userStats.user?.streak_days || 0}
+                    {userStats.user?.week_days?.days ?? 0}/{userStats.user?.week_days?.goal ?? 5}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 dark:bg-gray-800 bg-gray-100 rounded-lg px-3 py-1.5">

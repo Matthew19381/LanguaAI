@@ -36,6 +36,9 @@ class ItemType(str, enum.Enum):
     PRONUNCIATION = "pronunciation"
 
 
+GERMAN = ("german", "niemiecki", "de", "deutsch")
+
+
 class Topic(Base):
     __tablename__ = "topics"
 
@@ -126,10 +129,18 @@ class Topic(Base):
         """An entry or umbrella row of the Bank wiedzy (services/knowledge.py)."""
         return bool(self.skill_id) or (self.name or "").startswith(self.KB_GROUP_PREFIX)
 
-    def is_due(self) -> bool:
-        """Check if topic is due for review. Bank wiedzy rows never are: the items of
-        a skill are reviewed in the hub's deck, not as one topic card."""
+    def has_own_reviews(self) -> bool:
+        """Whether the topic is reviewed as one card here. Not for Bank wiedzy rows,
+        and not for any German topic (A8): German flashcards and exercises are
+        scheduled by the hub's single deck (decision D1), so a second schedule of
+        whole topics here would only compete with it."""
         if self.is_knowledge_row():
+            return False
+        return (self.language or "").lower() not in GERMAN
+
+    def is_due(self) -> bool:
+        """Check if topic is due for review (never for topics without own reviews)."""
+        if not self.has_own_reviews():
             return False
         if self.next_review_date is None:
             return True  # never reviewed = due

@@ -236,7 +236,8 @@ def test_topic_detail_wrong_user(client, sample_user, db):
 
 def test_review_topic(client, sample_user, db):
     uid = sample_user["user_id"]
-    topic = _create_topic(db, uid, "Perfekt", "grammar")
+    # German topics have no own reviews (A8, hub deck), so the generic case uses Spanish
+    topic = _create_topic(db, uid, "Pretérito perfecto", "grammar", language="Spanish")
 
     r = client.post(f"/api/topics/{topic.id}/review", json={"rating": 3, "user_id": uid})
     assert r.status_code == 200
@@ -275,7 +276,7 @@ def test_review_topic_wrong_user(client, sample_user, db):
 def test_review_topic_rating_again_resets(client, sample_user, db):
     """Rating 1 (Again) should reset interval to 1 day."""
     uid = sample_user["user_id"]
-    topic = _create_topic(db, uid, "Perfekt", "grammar")
+    topic = _create_topic(db, uid, "Pretérito perfecto", "grammar", language="Spanish")
 
     # First review: Good
     r1 = client.post(f"/api/topics/{topic.id}/review", json={"rating": 3, "user_id": uid})
@@ -285,3 +286,17 @@ def test_review_topic_rating_again_resets(client, sample_user, db):
     r2 = client.post(f"/api/topics/{topic.id}/review", json={"rating": 1, "user_id": uid})
     assert r2.status_code == 200
     assert r2.json()["interval"] == 1  # Again resets to 1
+
+
+def test_german_topic_has_no_own_reviews(client, sample_user, db):
+    """A8: one review schedule (the hub's deck); old German topics are not due here."""
+    uid = sample_user["user_id"]
+    topic = _create_topic(db, uid, "Lebensmittel und Einkaufen", "vocabulary", language="German")
+    topic.total_items = 3
+    db.commit()
+    assert topic.is_due() is False and topic.has_own_reviews() is False
+    r = client.post(f"/api/topics/{topic.id}/review", json={"rating": 3, "user_id": uid})
+    assert r.status_code == 409
+    assert client.get(f"/api/topics/{uid}/due", params={"language": "German"}).json()["count"] == 0
+    detail = client.get(f"/api/topics/detail/{topic.id}", params={"user_id": uid})
+    assert detail.status_code == 200 and detail.json()["topic"]["has_own_reviews"] is False

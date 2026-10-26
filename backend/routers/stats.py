@@ -53,8 +53,9 @@ async def get_stats(user_id: int, db: Session = Depends(get_db)):
     due_flashcards = [f for f in flashcards if f.next_review_date and f.next_review_date <= now]
 
     # Calculate streaks (with freeze support)
-    from backend.services.streak_service import calculate_streak
+    from backend.services.streak_service import calculate_streak, week_days
     streak, freezes_left = calculate_streak(db, user_id, user.streak_freezes)
+    this_week = week_days(db, user_id)
 
     # Calculate error categories with examples
     error_categories = {}
@@ -125,6 +126,7 @@ async def get_stats(user_id: int, db: Session = Depends(get_db)):
             "cefr_level": user.cefr_level,
             "streak_days": streak,
             "streak_freezes": freezes_left,
+            "week_days": this_week,  # shown instead of the streak (A8)
             "total_xp": user.total_xp,
             "member_since": user.created_at.strftime("%B %d, %Y") if user.created_at else "Unknown"
         },

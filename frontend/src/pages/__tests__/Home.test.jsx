@@ -84,7 +84,7 @@ describe("Home", () => {
     const { getUserId, getStats } = await import("../../api/client")
     getUserId.mockReturnValue(42)
     getStats.mockResolvedValue({
-      user: { name: "Test", streak_days: 3, total_xp: 200 },
+      user: { name: "Test", streak_days: 3, total_xp: 200, week_days: { days: 2, goal: 5 } },
       lessons: { completed: 5 },
       tests: { average_score: 75 },
       level_info: { level: 5, level_name: "Beginner", xp: 200, next_level_xp: 500, progress_percent: 40 },
@@ -93,8 +93,11 @@ describe("Home", () => {
     renderHome()
 
     await waitFor(() => {
-      expect(screen.getByText("home.dayStreak")).toBeInTheDocument()
+      expect(screen.getByText("home.weekDays")).toBeInTheDocument()
     })
+    // A8: days this week instead of a streak
+    expect(screen.getByText("2 / 5")).toBeInTheDocument()
+    expect(screen.queryByText("home.dayStreak")).not.toBeInTheDocument()
     expect(screen.getByText("home.totalXP")).toBeInTheDocument()
     expect(screen.getByText("home.lessonsDone")).toBeInTheDocument()
     expect(screen.getByText("home.avgScore")).toBeInTheDocument()

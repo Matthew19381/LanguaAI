@@ -211,6 +211,7 @@ async def topic_detail(
             "repetitions": topic.repetitions,
             "lapses": topic.lapses,
             "is_due": topic.is_due(),
+            "has_own_reviews": topic.has_own_reviews(),
             "days_until_review": topic.days_until_review(),
             "next_review": topic.next_review_date.isoformat() if topic.next_review_date else None,
             "last_review": topic.last_review_date.isoformat() if topic.last_review_date else None,
@@ -255,9 +256,9 @@ async def review_topic(
         raise HTTPException(status_code=404, detail="Topic not found")
     if review.user_id and topic_check.user_id != review.user_id:
         raise HTTPException(status_code=403, detail="Not authorized to review this topic")
-    if topic_check.is_knowledge_row():
-        raise HTTPException(status_code=409, detail="Wpis Banku wiedzy nie ma własnych powtórek: "
-                                                    "jego ćwiczenia są w Powtórkach w hubie")
+    if not topic_check.has_own_reviews():
+        raise HTTPException(status_code=409, detail="Ten temat nie ma własnych powtórek: "
+                                                    "jego fiszki i ćwiczenia są w Powtórkach w hubie")
 
     try:
         topic = topic_service.review_topic(db, topic_id, review.rating)

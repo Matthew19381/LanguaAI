@@ -151,7 +151,6 @@ def check_and_award_achievements(user, db: Session) -> list:
     total_tests = len(test_results)
     perfect_tests = sum(1 for t in test_results if t.score >= 99.5)
     xp = user.total_xp
-    streak = user.streak_days or 0
     level_info = calculate_level_from_xp(xp)
     current_level = level_info["level"]
 
@@ -238,13 +237,8 @@ def check_and_award_achievements(user, db: Session) -> list:
     if completed_lessons >= 50: maybe_award("lessons_50")
     if completed_lessons >= 100: maybe_award("lessons_100")
 
-    # ── Streak-based ──
-    if streak >= 3: maybe_award("streak_3")
-    if streak >= 7: maybe_award("streak_7")
-    if streak >= 14: maybe_award("streak_14")
-    if streak >= 30: maybe_award("streak_30")
-    if streak >= 60: maybe_award("streak_60")
-    if streak >= 100: maybe_award("streak_100")
+    # Streak badges are no longer awarded (A8): the app counts days per week
+    # instead of an unbroken streak. Badges already earned stay.
 
     # ── Test-based ──
     if total_tests >= 1: maybe_award("first_test")
@@ -336,6 +330,9 @@ def check_and_award_achievements(user, db: Session) -> list:
     return newly_awarded
 
 
+STREAK_TYPES = {k for k in ACHIEVEMENT_DEFS if k.startswith("streak_")}
+
+
 def get_all_achievements_for_user(user_id: int, db: Session) -> dict:
     """Return all achievements (earned + locked) for display."""
     earned_records = db.query(Achievement).filter(
@@ -346,6 +343,8 @@ def get_all_achievements_for_user(user_id: int, db: Session) -> dict:
     all_achievements = []
     for ach_type, (title, description, icon) in ACHIEVEMENT_DEFS.items():
         record = earned_types.get(ach_type)
+        if ach_type in STREAK_TYPES and record is None:
+            continue  # no longer awarded (A8), so not shown as a goal
         all_achievements.append({
             "type": ach_type,
             "title": title,
@@ -356,7 +355,7 @@ def get_all_achievements_for_user(user_id: int, db: Session) -> dict:
         })
 
     return {
-        "total": len(ACHIEVEMENT_DEFS),
+        "total": len(all_achievements),
         "earned": len(earned_types),
         "achievements": all_achievements,
     }

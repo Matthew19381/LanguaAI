@@ -1,6 +1,7 @@
 """Pure unit tests for achievement_service — no HTTP client needed."""
 from datetime import datetime, timezone
 
+from backend.models.achievement import Achievement
 from backend.services.achievement_service import (
     ACHIEVEMENT_DEFS,
     calculate_level_from_xp,
@@ -125,11 +126,17 @@ class TestCheckAndAwardAchievements:
         assert "xp_100" in types
         assert "xp_500" in types
 
-    def test_streak_3_achievement(self, db):
-        user = self._make_user(db, streak=3)
+    def test_streak_no_longer_awarded_or_listed_as_goal(self, db):
+        # A8: days per week instead of a streak; earned streak badges stay visible
+        user = self._make_user(db, streak=30)
         result = check_and_award_achievements(user, db)
-        types = [r["type"] for r in result]
-        assert "streak_3" in types
+        assert not [r for r in result if r["type"].startswith("streak_")]
+        listed = get_all_achievements_for_user(user.id, db)
+        assert not [a for a in listed["achievements"] if a["type"].startswith("streak_")]
+        db.add(Achievement(user_id=user.id, achievement_type="streak_7"))
+        db.commit()
+        listed = get_all_achievements_for_user(user.id, db)
+        assert [a["type"] for a in listed["achievements"] if a["type"].startswith("streak_")] == ["streak_7"]
 
     def test_no_duplicate_achievements(self, db):
         user = self._make_user(db, xp=100)
@@ -169,7 +176,9 @@ class TestGetAllAchievements:
     def test_total_matches_defs(self, db):
         user = self._make_user(db)
         result = get_all_achievements_for_user(user.id, db)
-        assert result["total"] == len(ACHIEVEMENT_DEFS)
+        # Unearned streak badges are no longer listed (A8)
+        streak_types = [k for k in ACHIEVEMENT_DEFS if k.startswith("streak_")]
+        assert result["total"] == len(ACHIEVEMENT_DEFS) - len(streak_types) == len(result["achievements"])
 
     def test_earned_zero_initially(self, db):
         user = self._make_user(db)

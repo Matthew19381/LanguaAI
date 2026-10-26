@@ -49,9 +49,9 @@ export default function NotificationManager() {
     if (Notification.permission !== 'granted') return
     const messages = [
       'Czas na dzisiejszą lekcję! 📚',
-      'Nie przerywaj serii — poćwicz dziś 🔥',
+      'Krótka lekcja dziś przybliża Cię do B1 🎯',
       'Twój język czeka na Ciebie! 🌍',
-      '15 minut ćwiczeń podtrzyma Twoją serię! ⚡',
+      'Lekcja dnia czeka w „Lekcja” 📖',
     ]
     const msg = messages[Math.floor(Math.random() * messages.length)]
     new Notification('LinguaAI', {

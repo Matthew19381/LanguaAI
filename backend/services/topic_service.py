@@ -377,8 +377,8 @@ def get_due_topics(db: Session, user_id: int, language: str = None, limit: int =
     if language:
         query = query.filter(Topic.language == language)
 
-    due = query.order_by(Topic.next_review_date.asc()).limit(limit).all()
-    return due
+    due = query.order_by(Topic.next_review_date.asc()).all()
+    return [t for t in due if t.has_own_reviews()][:limit]
 
 
 def get_topic_stats(db: Session, user_id: int, language: str = None) -> dict:

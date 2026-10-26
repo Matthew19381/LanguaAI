@@ -1,5 +1,9 @@
-"""Streak calculation service."""
-from datetime import date, datetime
+"""Streak calculation service, and the weekly day count that replaces the
+streak in the UI (A8): days with a finished lesson this week, goal 5 of 7, as
+the hub's Feed counts them. One missed day does not stop habit formation
+(Lally et al. 2010), so nothing resets to zero.
+"""
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -80,3 +84,29 @@ def streak_at_date(lessons: list, target_date) -> int:
         count += 1
         prev -= timedelta(days=1)
     return count
+
+
+WEEK_GOAL_DAYS = 5  # the same goal as the hub's Feed ("5 z 7")
+
+
+def _local_date(moment: datetime) -> date:
+    """completed_at is stored as naive UTC; the week is counted in the PC's local time."""
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone().date()
+
+
+def week_days(db: Session, user_id: int, today: date | None = None) -> dict:
+    """Days of the current week (Monday to today, local time) with a finished lesson."""
+    today = today or datetime.now().astimezone().date()
+    monday = today - timedelta(days=today.weekday())
+    since = datetime.combine(monday - timedelta(days=1), datetime.min.time())  # margin for the UTC offset
+    rows = db.query(Lesson.completed_at).filter(
+        Lesson.user_id == user_id,
+        Lesson.is_completed == True,  # noqa: E712
+        Lesson.completed_at != None,  # noqa: E711
+        Lesson.completed_at >= since,
+    ).all()
+    dates = sorted({d for d in (_local_date(r[0]) for r in rows) if monday <= d <= today})
+    return {"week_start": monday.isoformat(), "days": len(dates), "goal": WEEK_GOAL_DAYS,
+            "dates": [d.isoformat() for d in dates]}

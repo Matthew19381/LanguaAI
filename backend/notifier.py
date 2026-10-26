@@ -141,25 +141,10 @@ def run():
                     Lesson.is_completed == True
                 ).first()
 
-                # Calculate streak
-                completed_lessons = db.query(Lesson).filter(
-                    Lesson.user_id == user.id,
-                    Lesson.is_completed == True
-                ).all()
-                streak = 0
-                if completed_lessons:
-                    lesson_dates = sorted(set(
-                        l.completed_at.date() for l in completed_lessons if l.completed_at
-                    ))
-                    if lesson_dates:
-                        streak = 1
-                        for i in range(len(lesson_dates) - 1, 0, -1):
-                            if (lesson_dates[i] - lesson_dates[i-1]).days == 1:
-                                streak += 1
-                            else:
-                                break
-
-                streak_text = f"Seria: {streak} dni 🔥" if streak > 0 else "Zacznij swoją serię dzisiaj!"
+                # Days this week instead of a streak (A8)
+                from backend.services.streak_service import week_days
+                week = week_days(db, user.id)
+                streak_text = f"W tym tygodniu: {week['days']} z {week['goal']} dni"
                 description = f"Czas na lekcję {user.target_language}! | {streak_text}"
 
                 if not today_lesson:

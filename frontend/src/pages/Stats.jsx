@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
-  BarChart3, Flame, Star, Trophy, BookOpen,
+  BarChart3, Flame, Star, Trophy, BookOpen, CalendarCheck,
   FlaskConical, Brain, TrendingUp, Target, Calendar,
   Download, Lightbulb, CheckCircle, Loader2, Clock
 } from 'lucide-react'
@@ -226,9 +226,9 @@ export default function Stats() {
       {/* Quick stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatBox
-          icon={<Flame className="w-6 h-6 text-orange-400" />}
-          label={t('stats.streak')}
-          value={`${user?.streak_days || 0} ${t('stats.days')}`}
+          icon={<CalendarCheck className="w-6 h-6 text-orange-400" />}
+          label={t('home.weekDays')}
+          value={`${user?.week_days?.days ?? 0} / ${user?.week_days?.goal ?? 5}`}
           color="orange"
         />
         <StatBox
