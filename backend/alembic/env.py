@@ -11,7 +11,9 @@ config = context.config
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep loggers created before the startup migration (uvicorn, app) enabled; the
+    # default disable_existing_loggers=True silenced "Application startup complete" in the logs.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Make the project root importable (alembic runs from backend/).
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
