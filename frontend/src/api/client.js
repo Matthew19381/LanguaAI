@@ -382,6 +382,20 @@ export const analyzePronunciation = (formData) =>
     timeout: 30000,
   })
 
+// ===== Speech recognition measured on the learner's voice (A6) =====
+
+export const getAsrSentences = () => api.get('/asr-benchmark/sentences')
+export const uploadAsrRecording = (formData) =>
+  axios.post('/api/asr-benchmark/recording', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 30000,
+  }).then(r => r.data)
+// 20 sentences x 3 Whisper sizes on the PC's CPU, plus a one-time model
+// download on the first run: allow 20 minutes.
+export const evaluateAsr = (sessionId, models) =>
+  api.post(`/asr-benchmark/${sessionId}/evaluate`, models ? { models } : {}, { timeout: 1200000 })
+export const getLatestAsr = () => api.get('/asr-benchmark/latest')
+
 // ===== YouTube =====
 
 export const searchYouTube = (userId, query = '', includePolish = false) =>

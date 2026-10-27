@@ -13,6 +13,8 @@ backend/.env
 backend/audio/
 backend/images/
 backend/exports/
+# A6: the learner's voice recordings for the ASR measurement: never commit
+backend/asr_pomiar/
 backend/__pycache__/
 
 # Frontend build

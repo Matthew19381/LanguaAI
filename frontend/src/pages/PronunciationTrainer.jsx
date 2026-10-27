@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Mic, MicOff, RotateCcw, ChevronRight, BarChart3, Trophy, CheckCircle } from 'lucide-react'
 import { getUserId, addFlashcard, askQuestion, getPronunciationPhrases, analyzePronunciation } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
@@ -160,6 +160,9 @@ export default function PronunciationTrainer() {
           <p className="text-gray-400">{t('pronun.subtitle')}</p>
         </div>
       </div>
+      <Link to="/asr-pomiar" className="block text-xs text-purple-400 mb-4" data-testid="asr-benchmark-link">
+        Zmierz, jak dobrze rozpoznawanie mowy rozumie Twój głos →
+      </Link>
 
       {!activityDone ? (
         <button

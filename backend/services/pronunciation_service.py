@@ -6,10 +6,16 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-# Model is downloaded once on first use (~75MB for "tiny")
-_whisper_model = None
+# Models are downloaded once on first use (~75MB for "tiny", ~480MB for "small").
+# The size comes from WHISPER_MODEL in .env, chosen with the measurement on the
+# learner's own recordings (A6, services/asr_benchmark.py).
+_whisper_models: dict = {}
 _whisper_lock = threading.Lock()
-WHISPER_MODEL_SIZE = "tiny"
+
+
+def _configured_size() -> str:
+    from backend.config import settings
+    return settings.WHISPER_MODEL or "tiny"
 
 LANGUAGE_CODES = {
     "German": "de",
@@ -27,28 +33,38 @@ LANGUAGE_CODES = {
 }
 
 
-def _get_model():
-    global _whisper_model
-    if _whisper_model is not None:
-        return _whisper_model
+def _get_model(size: str | None = None):
+    size = size or _configured_size()
+    if size in _whisper_models:
+        return _whisper_models[size]
     with _whisper_lock:
         # Double-check after acquiring lock
-        if _whisper_model is not None:
-            return _whisper_model
+        if size in _whisper_models:
+            return _whisper_models[size]
         try:
             from faster_whisper import WhisperModel
-            logger.info(f"Loading Whisper model '{WHISPER_MODEL_SIZE}'...")
-            _whisper_model = WhisperModel(WHISPER_MODEL_SIZE, device="cpu", compute_type="int8")
+            logger.info(f"Loading Whisper model '{size}'...")
+            _whisper_models[size] = WhisperModel(size, device="cpu", compute_type="int8")
             logger.info("Whisper model loaded.")
         except ImportError:
             logger.error("faster-whisper is not installed. Run: pip install faster-whisper==1.0.3")
             raise
-    return _whisper_model
+    return _whisper_models[size]
 
 
-def transcribe_audio(audio_bytes: bytes, audio_format: str = "webm", language: str = "de") -> str:
+def release_models() -> None:
+    """Free every loaded model except the configured one (after the A6 measurement,
+    so tiny, base and small do not all stay in memory)."""
+    keep = _configured_size()
+    with _whisper_lock:
+        for size in [s for s in _whisper_models if s != keep]:
+            del _whisper_models[size]
+
+
+def transcribe_audio(audio_bytes: bytes, audio_format: str = "webm", language: str = "de",
+                     model_size: str | None = None) -> str:
     """Transcribe audio bytes using faster-whisper. Returns transcribed text."""
-    model = _get_model()
+    model = _get_model(model_size)
 
     # Write to temp file (delete=True auto-removes on close, but we need the path for Whisper)
     suffix = f".{audio_format}"

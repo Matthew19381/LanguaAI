@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.routers import (
     admin,
+    asr_benchmark,
     audio,
     auth,
     conversation,
@@ -259,6 +260,7 @@ app.include_router(topics.router, prefix="/api/topics", tags=["Topics"])
 app.include_router(admin.router, tags=["Admin"])
 app.include_router(integration.router, tags=["Integration"])  # INT-1: System-Glowny
 app.include_router(push.router, tags=["Push"])
+app.include_router(asr_benchmark.router, tags=["ASR"])  # A6: speech recognition measured on own voice
 
 # Discover the /api/v1/* segments that are genuinely native (users, voice-chat,
 # summary, …) so the alias middleware never rewrites a real v1 route onto a

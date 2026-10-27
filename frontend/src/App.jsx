@@ -20,6 +20,7 @@ const Stats = lazy(() => import('./pages/Stats'))
 const QuickMode = lazy(() => import('./pages/QuickMode'))
 const News = lazy(() => import('./pages/News'))
 const PronunciationTrainer = lazy(() => import('./pages/PronunciationTrainer'))
+const AsrBenchmark = lazy(() => import('./pages/AsrBenchmark'))
 const LessonHistory = lazy(() => import('./pages/LessonHistory'))
 const Videos = lazy(() => import('./pages/Videos'))
 const ErrorReview = lazy(() => import('./pages/ErrorReview'))
@@ -49,6 +50,7 @@ function App() {
           <Route path="quickmode" element={<ErrorBoundary><QuickMode /></ErrorBoundary>} />
           <Route path="news" element={<ErrorBoundary><News /></ErrorBoundary>} />
           <Route path="pronunciation" element={<ErrorBoundary><PronunciationTrainer /></ErrorBoundary>} />
+          <Route path="asr-pomiar" element={<ErrorBoundary><AsrBenchmark /></ErrorBoundary>} />
           <Route path="videos" element={<ErrorBoundary><Videos /></ErrorBoundary>} />
           <Route path="errors" element={<ErrorBoundary><ErrorReview /></ErrorBoundary>} />
           <Route path="topics" element={<ErrorBoundary><TopicsPage /></ErrorBoundary>} />

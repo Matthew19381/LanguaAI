@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # server "http://localhost:8081/v2" or the public "https://api.languagetool.org/v2"
     # (sends the lesson's German sentences there). Empty (default) = off.
     LANGUAGETOOL_URL: str = ""
+    # A6: faster-whisper model for the pronunciation trainer: tiny, base, small,
+    # medium. Pick it with the measurement page (/asr-pomiar) on your own voice.
+    WHISPER_MODEL: str = "tiny"
     FRONTEND_URL: str = "http://localhost:5177"
     BACKEND_URL: str = "http://localhost:8001"
 
