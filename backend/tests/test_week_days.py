@@ -1,20 +1,18 @@
 """A8: days with a finished lesson this week (goal 5 of 7) instead of a streak."""
-import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
 from backend.models.lesson import Lesson
+from backend.services import streak_service
 from backend.services.streak_service import WEEK_GOAL_DAYS, week_days
 
 
 @pytest.fixture
 def warsaw(monkeypatch):
-    monkeypatch.setenv("TZ", "Europe/Warsaw")
-    time.tzset()
-    yield
-    monkeypatch.undo()
-    time.tzset()
+    # Warsaw after 25.10.2026 is CET (UTC+1); a fixed zone works on Windows too,
+    # where time.tzset() does not exist
+    monkeypatch.setattr(streak_service, "LOCAL_TZ", timezone(timedelta(hours=1)))
 
 
 def _lesson(db, uid, n, completed_at):

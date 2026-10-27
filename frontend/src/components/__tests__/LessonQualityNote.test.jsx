@@ -24,4 +24,10 @@ describe("LessonQualityNote (A7)", () => {
     render(<LessonQualityNote quality={{ review: "failed", corrections: [], open_issues: [] }} />)
     expect(screen.getByTestId("lesson-quality")).toHaveTextContent("nie zadziałała")
   })
+
+  it("tells how many corrections the second check did not confirm", () => {
+    render(<LessonQualityNote quality={{ review: "ok", corrections: [], open_issues: [], unconfirmed: 2 }} />)
+    fireEvent.click(screen.getByRole("button"))
+    expect(screen.getByTestId("lesson-quality-unconfirmed")).toHaveTextContent("Pominięte poprawki: 2")
+  })
 })

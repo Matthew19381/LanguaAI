@@ -89,16 +89,20 @@ def streak_at_date(lessons: list, target_date) -> int:
 WEEK_GOAL_DAYS = 5  # the same goal as the hub's Feed ("5 z 7")
 
 
+# None = the PC's local time zone; tests set a fixed zone (time.tzset() does not exist on Windows)
+LOCAL_TZ = None
+
+
 def _local_date(moment: datetime) -> date:
     """completed_at is stored as naive UTC; the week is counted in the PC's local time."""
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=timezone.utc)
-    return moment.astimezone().date()
+    return moment.astimezone(LOCAL_TZ).date()
 
 
 def week_days(db: Session, user_id: int, today: date | None = None) -> dict:
     """Days of the current week (Monday to today, local time) with a finished lesson."""
-    today = today or datetime.now().astimezone().date()
+    today = today or datetime.now().astimezone(LOCAL_TZ).date()
     monday = today - timedelta(days=today.weekday())
     since = datetime.combine(monday - timedelta(days=1), datetime.min.time())  # margin for the UTC offset
     rows = db.query(Lesson.completed_at).filter(

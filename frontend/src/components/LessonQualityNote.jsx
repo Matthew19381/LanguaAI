@@ -34,6 +34,11 @@ export default function LessonQualityNote({ quality }) {
               {issues.map((x, i) => <li key={i}>{x.text}: {x.issue}</li>)}
             </ul>
           )}
+          {quality.unconfirmed > 0 && (
+            <p className="text-xs text-gray-500" data-testid="lesson-quality-unconfirmed">
+              Pominięte poprawki: {quality.unconfirmed}, bo drugie sprawdzenie ich nie potwierdziło.
+            </p>
+          )}
           <p className="text-xs text-gray-500">Kontrolę robi model językowy, nie nauczyciel: zmniejsza liczbę błędów, ale ich nie wyklucza.</p>
         </div>
       )}

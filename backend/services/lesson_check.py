@@ -12,11 +12,16 @@ was checked and what is still open:
 2. LanguageTool (optional, LANGUAGETOOL_URL): its matches on the German text
    are passed to the reviewer as hints, because the tool also flags correct
    learner-level sentences;
-3. one reviewer call of the model that returns exact replacements; only a
-   replacement whose wrong text really occurs in the named field is applied.
+3. two independent reviewer calls of the model that return exact replacements;
+   only a replacement both calls return identically, whose wrong text really
+   occurs in the named field, is applied. One call alone wrote new errors on
+   real lessons (27.10: "prosimy" -> "proszimy"; a Polish-letter pronunciation
+   "KLEIN-gelt" corrected instead of removed) and its answer differs between
+   runs, so a single unconfirmed replacement is not trusted.
 The reviewer is a language model, not a teacher: it lowers the error rate, it
 does not guarantee a correct lesson.
 """
+import asyncio
 import json
 import logging
 import re
@@ -56,6 +61,10 @@ _LETTER = "A-Za-zÄÖÜäöüßąćęłńóśźżĄĆĘŁŃÓŚŹŻ"
 POLISH_TRANSCRIPTION = re.compile(
     rf"\s*\((?=[^)]*[A-ZĄĆĘŁŃÓŚŹŻ]{{2}})[{_LETTER}]+(?:[- ][{_LETTER}]+)*-[{_LETTER}]+(?:[- ][{_LETTER}]+)*\)"
 )
+# Pronunciation written as syllables: "KLEIN-geld", "HOJ-te" (an upper-case
+# syllable joined by a hyphen). A replacement that keeps such a spelling only
+# corrects the transcription instead of removing it.
+TRANSCRIPTION_TOKEN = re.compile(rf"\b[A-ZÄÖÜĄĆĘŁŃÓŚŹŻ]{{2,}}-[{_LETTER}]+")
 SINGLE_CAPITALISED = re.compile(r"[A-ZÄÖÜ][a-zäöüß]+")
 # Capitalised single words that are not nouns, or are used without an article
 NOT_A_NOUN = {"Hallo", "Danke", "Bitte", "Tschüss", "Ja", "Nein", "Entschuldigung", "Prost",
@@ -153,7 +162,9 @@ def review_prompt(fields: dict[str, str], flags: list[dict], hints: list[str], n
   "ich koste - ja kosztuję": every person needs its own correct {native_language} form);
 - a grammar explanation or rule that is false or uses the wrong word (e.g. "er" where "sie" is meant);
 - a vocabulary noun without its article: correct it to "der/die/das Noun";
-- pronunciation written in {native_language} letters: remove it.
+- pronunciation written in {native_language} letters: remove it (never correct its spelling).
+Do not touch correct {native_language} text: change it only when the translation or explanation is
+wrong, and keep its spelling exactly as it is everywhere else.
 
 Fields (path: text):
 {json.dumps(fields, ensure_ascii=False, indent=0)[:24000]}
@@ -180,12 +191,36 @@ def apply_corrections(lesson: dict, corrections) -> tuple[list[dict], list[dict]
         path, wrong, correct = c.get("path"), c.get("wrong"), c.get("correct")
         fields = flatten(lesson)
         if not (isinstance(path, str) and isinstance(wrong, str) and isinstance(correct, str)) \
-                or path not in fields or not wrong or wrong == correct or wrong not in fields[path]:
+                or path not in fields or not wrong or wrong == correct or wrong not in fields[path] \
+                or (TRANSCRIPTION_TOKEN.search(wrong) and TRANSCRIPTION_TOKEN.search(correct)):
             rejected.append(c)
             continue
         _set(lesson, path, fields[path].replace(wrong, correct, 1))
         applied.append({"path": path, "wrong": wrong, "correct": correct, "reason": str(c.get("reason") or "")})
     return applied, rejected
+
+
+def _key(c) -> tuple | None:
+    if not isinstance(c, dict):
+        return None
+    vals = [c.get(k) for k in ("path", "wrong", "correct")]
+    return tuple(v.strip() for v in vals) if all(isinstance(v, str) for v in vals) else None
+
+
+def confirmed_corrections(first, second) -> tuple[list[dict], int]:
+    """Corrections of the first run that the second run returned identically; and how many were not."""
+    def items(raw):
+        found = (raw or {}).get("corrections") if isinstance(raw, dict) else None
+        return found if isinstance(found, list) else []
+    second_keys = {_key(c) for c in items(second)} - {None}
+    agreed, seen = [], set()
+    for c in items(first):
+        k = _key(c)
+        if k in second_keys and k not in seen:
+            seen.add(k)
+            agreed.append(c)
+    unconfirmed = len({_key(c) for c in items(first) + items(second)} - {None} - seen)
+    return agreed, unconfirmed
 
 
 async def check_lesson(lesson: dict, native_language: str = "Polish", languagetool_url: str = "") -> dict:
@@ -198,11 +233,15 @@ async def check_lesson(lesson: dict, native_language: str = "Polish", languageto
     hints = await languagetool_hints(lesson, languagetool_url)
     review = "ok"
     applied: list[dict] = []
+    unconfirmed = 0
+    prompt = review_prompt(flatten(lesson), flags, hints, native_language)
     try:
-        raw = await generate_json(review_prompt(flatten(lesson), flags, hints, native_language))
-        applied, rejected = apply_corrections(lesson, (raw or {}).get("corrections"))
-        if rejected:
-            logger.info("Lesson review: %d corrections did not match their field", len(rejected))
+        first, second = await asyncio.gather(generate_json(prompt), generate_json(prompt))
+        agreed, unconfirmed = confirmed_corrections(first, second)
+        applied, rejected = apply_corrections(lesson, agreed)
+        if rejected or unconfirmed:
+            logger.info("Lesson review: %d corrections rejected, %d not confirmed by the second run",
+                        len(rejected), unconfirmed)
     except Exception as e:
         logger.error(f"Lesson review failed, lesson kept unchecked by the model: {e}")
         review = "failed"
@@ -212,6 +251,7 @@ async def check_lesson(lesson: dict, native_language: str = "Polish", languageto
         "review": review,
         "languagetool": bool(languagetool_url),
         "corrections": fixes + applied,
+        "unconfirmed": unconfirmed,
         "open_issues": open_issues,
     }
     return lesson["quality"]

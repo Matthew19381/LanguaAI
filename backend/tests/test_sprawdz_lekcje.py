@@ -41,22 +41,39 @@ def _content(path):
         con.close()
 
 
-def test_dry_run_then_apply(copy_db, monkeypatch, capsys):
+def test_proposals_file_then_apply_exactly_that(copy_db, tmp_path, monkeypatch, capsys):
+    out = tmp_path / "zamiany.json"
     monkeypatch.setattr(lesson_check, "generate_json", AsyncMock(return_value={"corrections": [
         {"path": "grammar.explanation", "wrong": "ja kosztuje", "correct": "ja kosztuję", "reason": "1. os."}]}))
-    assert sprawdz_lekcje.main(["--db", str(copy_db), "--ids", "12", "99"]) == 1  # 99 does not exist
-    out = capsys.readouterr().out
-    assert "„ja kosztuje” -> „ja kosztuję”" in out and "Tryb próbny" in out and "Lekcja 99: nie ma" in out
-    assert _content(copy_db)["vocabulary"][0]["word"] == "Käse (KĘ-ze)"
+    assert sprawdz_lekcje.main(["--db", str(copy_db), "--ids", "12", "99", "--out", str(out)]) == 1  # 99 missing
+    printed = capsys.readouterr().out
+    assert "„ja kosztuje” -> „ja kosztuję”" in printed and "Tryb próbny" in printed and "Lekcja 99: nie ma" in printed
+    assert _content(copy_db)["vocabulary"][0]["word"] == "Käse (KĘ-ze)"      # database untouched
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert [c["correct"] for c in data["lessons"]["12"]["corrections"]] == ["Käse", "ja kosztuję"]
 
-    assert sprawdz_lekcje.main(["--db", str(copy_db), "--ids", "12", "--apply"]) == 0
+    # Mateusz removes the replacement he does not want; --apply calls no model
+    data["lessons"]["12"]["corrections"] = data["lessons"]["12"]["corrections"][1:]
+    out.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(lesson_check, "generate_json", AsyncMock(side_effect=AssertionError("no model in --apply")))
+    assert sprawdz_lekcje.main(["--db", str(copy_db), "--apply", str(out)]) == 0
     saved = _content(copy_db)
     assert saved["grammar"]["explanation"] == "ich koste – ja kosztuję"
-    assert saved["vocabulary"][0]["word"] == "Käse" and saved["quality"]["review"] == "ok"
+    assert saved["vocabulary"][0]["word"] == "Käse (KĘ-ze)"                  # removed from the file: kept
+    assert len(saved["quality"]["applied_from_file"]["corrections"]) == 1
+
+    # a second --apply finds the wrong text gone and skips it
+    assert sprawdz_lekcje.main(["--db", str(copy_db), "--apply", str(out)]) == 0
+    assert "pominięte 1" in capsys.readouterr().out
 
 
-def test_model_failure_saves_nothing(copy_db, monkeypatch, capsys):
+def test_model_failure_gives_no_proposal(copy_db, tmp_path, monkeypatch, capsys):
+    out = tmp_path / "z.json"
     monkeypatch.setattr(lesson_check, "generate_json", AsyncMock(side_effect=RuntimeError("no key")))
-    assert sprawdz_lekcje.main(["--db", str(copy_db), "--ids", "12", "--apply"]) == 1
-    assert "nie zostanie zapisana" in capsys.readouterr().out
-    assert _content(copy_db)["vocabulary"][0]["word"] == "Käse (KĘ-ze)"
+    assert sprawdz_lekcje.main(["--db", str(copy_db), "--ids", "12", "--out", str(out)]) == 1
+    assert "Brak propozycji" in capsys.readouterr().out
+    assert json.loads(out.read_text(encoding="utf-8"))["lessons"] == {}
+
+
+def test_ids_or_apply_required(copy_db):
+    assert sprawdz_lekcje.main(["--db", str(copy_db)]) == 2

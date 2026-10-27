@@ -116,3 +116,47 @@ async def test_generated_german_lesson_is_checked(monkeypatch):
         out = await dl.generate_daily_lesson(user_id=1, target_language="Spanish", native_language="Polish",
                                              cefr_level="A2", recent_topics=[], day_number=1, db=None)
     assert "quality" not in out
+
+
+async def test_only_corrections_confirmed_by_both_runs(monkeypatch):
+    """27.10, real lessons 12 and 13: one run wrote "proszimy" and fixed the
+    spelling of "KLEIN-gelt" instead of removing it."""
+    lesson = _lesson()
+    lesson["grammar"]["explanation"] += " Prosimy o rachunek."
+    lesson["speaking_practice"] = [{"sample_answer": "Ich habe kein Kleingeld (KLEIN-gelt)."}]
+    good = {"path": "grammar.explanation", "wrong": "ty kosztuje", "correct": "ty kosztujesz", "reason": "2. os."}
+    invented = {"path": "grammar.explanation", "wrong": "Prosimy", "correct": "Proszimy", "reason": "?"}
+    transcription = {"path": "speaking_practice.0.sample_answer", "wrong": "KLEIN-gelt", "correct": "KLEIN-geld",
+                     "reason": "pisownia"}
+    runs = iter([{"corrections": [good, invented, transcription]},
+                 {"corrections": [dict(good, reason="inne słowa"), transcription]}])
+    monkeypatch.setattr(lc, "generate_json", AsyncMock(side_effect=lambda *a, **k: next(runs)))
+    q = await lc.check_lesson(lesson)
+    assert "ty kosztujesz" in lesson["grammar"]["explanation"]
+    assert "Prosimy o rachunek" in lesson["grammar"]["explanation"]          # one run only: not applied
+    assert "KLEIN-geld" not in lesson["speaking_practice"][0]["sample_answer"]  # transcription not "corrected"
+    assert [c["correct"] for c in q["corrections"] if c["path"] == "grammar.explanation"] == ["ty kosztujesz"]
+    assert q["unconfirmed"] == 1
+
+
+def test_confirmed_corrections_handles_bad_answers():
+    c = {"path": "a", "wrong": "x", "correct": "y"}
+    assert lc.confirmed_corrections({"corrections": [c, "zle"]}, {"corrections": [c]}) == ([c], 0)
+    assert lc.confirmed_corrections(None, {"corrections": [c]}) == ([], 1)
+    assert lc.confirmed_corrections({"corrections": "nie lista"}, []) == ([], 0)
+
+
+async def test_one_failed_run_applies_no_model_correction(monkeypatch):
+    runs = iter([{"corrections": [{"path": "grammar.explanation", "wrong": "ty kosztuje", "correct": "ty kosztujesz"}]},
+                 RuntimeError("timeout")])
+
+    async def fake(*a, **k):
+        r = next(runs)
+        if isinstance(r, Exception):
+            raise r
+        return r
+    monkeypatch.setattr(lc, "generate_json", fake)
+    lesson = _lesson()
+    q = await lc.check_lesson(lesson)
+    assert q["review"] == "failed" and lesson["grammar"]["explanation"].endswith("ty kosztuje")
+    assert lesson["vocabulary"][0]["word"] == "Käse"  # fixed rules still applied
