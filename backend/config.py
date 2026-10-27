@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # server "http://localhost:8081/v2" or the public "https://api.languagetool.org/v2"
     # (sends the lesson's German sentences there). Empty (default) = off.
     LANGUAGETOOL_URL: str = ""
+    # A10: generate the next lesson in the background after a lesson is
+    # completed (and once at start-up), so the "Lekcja" page does not wait.
+    PREPARE_NEXT_LESSON: bool = True
     # A6: faster-whisper model for the pronunciation trainer: tiny, base, small,
     # medium. Pick it with the measurement page (/asr-pomiar) on your own voice.
     WHISPER_MODEL: str = "tiny"

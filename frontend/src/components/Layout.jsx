@@ -35,6 +35,7 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [timerDisplay, setTimerDisplay] = useState(null)
+  const [translatorOpen, setTranslatorOpen] = useState(false)
 
   // Daily progress state
   const [dailyTabs, setDailyTabs] = useState(() => getDailyTabs().tabs)
@@ -133,7 +134,8 @@ export default function Layout() {
   return (
     <div className="min-h-screen dark:bg-gray-950 bg-gray-50 transition-colors duration-200">
       <OfflineBanner />
-      <NavBar dailyTabs={dailyTabs} dark={dark} onToggleDark={toggleDark} />
+      <NavBar dailyTabs={dailyTabs} dark={dark} onToggleDark={toggleDark}
+        onOpenTranslator={() => setTranslatorOpen(true)} />
       <NotificationManager />
       <main className="flex-1 pb-floating">
         {/* Suspense here (not above the nav) so lazy page chunks only reload the
@@ -161,7 +163,8 @@ export default function Layout() {
       )}
 
       {/* Translation Widget */}
-      <TranslatorWidget userId={userId} targetLanguage={targetLanguage} />
+      <TranslatorWidget userId={userId} targetLanguage={targetLanguage}
+        open={translatorOpen} setOpen={setTranslatorOpen} />
 
       {/* Achievement toasts */}
       <div className="fixed bottom-safe-4 right-4 z-50 flex flex-col gap-2 max-w-xs">
@@ -178,8 +181,9 @@ export default function Layout() {
   )
 }
 
-function TranslatorWidget({ userId, targetLanguage }) {
-  const [open, setOpen] = useState(false)
+// Phones open it from the header (NavBar): a floating button there always
+// covered part of the page (A10). Wider screens keep the floating button.
+function TranslatorWidget({ userId, targetLanguage, open, setOpen }) {
   const [text, setText] = useState('')
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
@@ -293,13 +297,12 @@ function TranslatorWidget({ userId, targetLanguage }) {
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 dark:bg-gray-800 bg-white hover:bg-indigo-600 dark:border dark:border-gray-700 border border-gray-200 dark:hover:border-indigo-600 dark:text-gray-300 text-gray-600 hover:text-white px-3 py-2 rounded-xl shadow-lg transition-all"
+          className="hidden sm:flex items-center gap-2 dark:bg-gray-800 bg-white hover:bg-indigo-600 dark:border dark:border-gray-700 border border-gray-200 dark:hover:border-indigo-600 dark:text-gray-300 text-gray-600 hover:text-white px-3 py-2 rounded-xl shadow-lg transition-all"
           title="Tłumacz"
           aria-label="Tłumacz"
         >
           <Languages className="w-5 h-5" />
-          {/* Icon-only on phones: the labelled pill sat on top of page content */}
-          <span className="text-sm font-medium hidden sm:inline">Tłumacz</span>
+          <span className="text-sm font-medium">Tłumacz</span>
         </button>
       )}
     </div>

@@ -43,7 +43,7 @@ def current_plan_day(db: Session, user: User, today: Optional[date] = None) -> O
     lesson = db.query(Lesson).filter(
         Lesson.user_id == user.id, Lesson.language == language,
         func.date(Lesson.created_at) == today.isoformat(),
-    ).first() or db.query(Lesson).filter(
+    ).order_by(Lesson.id).first() or db.query(Lesson).filter(
         Lesson.user_id == user.id, Lesson.language == language,
         Lesson.is_completed == False,  # noqa: E712
     ).order_by(Lesson.created_at.desc()).first()

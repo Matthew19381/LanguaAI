@@ -115,8 +115,23 @@ async def lifespan(app: FastAPI):
         from backend.services.hub_events import flush_in_new_session
         asyncio.get_running_loop().run_in_executor(None, flush_in_new_session)
 
+    # A10: a learner whose last lesson is completed gets the next one prepared
+    # in the background, a minute after start so start-up stays quick
+    prepare_task = None
+    if os.environ.get("TESTING") != "1":
+        import asyncio
+
+        from backend.services.lesson_prefetch import prepare_for_active_learners
+
+        async def _prepare_later():
+            await asyncio.sleep(60)
+            await prepare_for_active_learners()
+        prepare_task = asyncio.create_task(_prepare_later())
+
     logger.info("LinguaAI API started successfully!")
     yield
+    if prepare_task:
+        prepare_task.cancel()
     # Shutdown
     logger.info("LinguaAI API shutting down...")
 

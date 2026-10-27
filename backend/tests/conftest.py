@@ -17,6 +17,8 @@ os.environ["AI_MODEL_TIER"] = "cheap"
 # otherwise turns every API call in the suite into a 401.
 os.environ["APP_ACCESS_TOKEN"] = ""
 os.environ["TESTING"] = "1"
+# No background lesson generation after a completed lesson (tests enable it themselves)
+os.environ["PREPARE_NEXT_LESSON"] = "0"
 
 import pytest
 from fastapi.testclient import TestClient

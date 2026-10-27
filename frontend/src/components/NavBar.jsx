@@ -4,7 +4,7 @@ import {
   BookOpen, FlaskConical, MessageSquare, LayoutGrid,
   BarChart3, Star, Brain, Timer, Newspaper, Mic,
   BookmarkPlus, X, Loader2, Video, AlertTriangle, Layers,
-  Sun, Moon, Dumbbell, Headphones, UserCircle, Volume2, History, Settings, GraduationCap, CalendarCheck
+  Sun, Moon, Dumbbell, Headphones, UserCircle, Volume2, History, Settings, GraduationCap, CalendarCheck, Languages
 } from 'lucide-react'
 import { getUserId, getStats, addFlashcardAI } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
@@ -50,7 +50,7 @@ function getDailyTabsNav() {
   } catch { return [] }
 }
 
-export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark }) {
+export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark, onOpenTranslator }) {
   const location = useLocation()
   const [userStats, setUserStats] = useState(null)
   const userId = getUserId()
@@ -214,6 +214,17 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark })
               <Link to="/placement" className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1.5 px-4 rounded-lg text-sm transition-colors">
                 {t('nav.getStarted')}
               </Link>
+            )}
+
+            {/* Translator on phones (wider screens have the floating button) */}
+            {onOpenTranslator && (
+              <button
+                onClick={onOpenTranslator}
+                className="sm:hidden w-9 h-9 rounded-lg dark:bg-gray-800 bg-gray-100 dark:border dark:border-gray-700 border border-gray-300 flex items-center justify-center"
+                title="Tłumacz" aria-label="Tłumacz" data-testid="nav-translator"
+              >
+                <Languages className="w-4 h-4 text-indigo-400" />
+              </button>
             )}
 
             {/* Dark mode toggle */}

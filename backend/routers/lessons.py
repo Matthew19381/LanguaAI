@@ -19,7 +19,7 @@ from backend.schemas.lesson import (
     CompleteLessonRequest,
     EvaluateProductionRequest,
 )
-from backend.services import hub_events
+from backend.services import hub_events, lesson_prefetch
 from backend.services.audio_service import (
     generate_full_lesson_audio,
     generate_lesson_package_audio,
@@ -77,7 +77,7 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
         Lesson.user_id == user_id,
         Lesson.language == user.target_language,
         func.date(Lesson.created_at) == today_date
-    ).first()
+    ).order_by(Lesson.id).first()  # a lesson prepared ahead today comes after the one done today
 
     # If no lesson today, check for uncompleted lesson from previous days
     if not existing_lesson:
@@ -273,6 +273,8 @@ async def complete_lesson(
             }
 
         background_tasks.add_task(hub_events.flush_in_new_session)
+        # A10: the next lesson is ready when the learner comes back
+        background_tasks.add_task(lesson_prefetch.prepare_next_lesson, lesson.user_id)
 
         # Check achievements after commit
         if request.user_id:

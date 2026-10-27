@@ -126,3 +126,19 @@ describe('NavBar with logged-in user', () => {
     expect(screen.queryByText('Get Started')).toBeNull()
   })
 })
+
+describe('NavBar translator button (A10)', () => {
+  it('opens the translator from the header when Layout passes the handler', async () => {
+    const { fireEvent } = await import('@testing-library/react')
+    const onOpen = vi.fn()
+    render(<MemoryRouter><NavBar onOpenTranslator={onOpen} /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('nav-translator'))
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('nav-translator').className).toContain('sm:hidden')
+  })
+
+  it('has no translator button without the handler', () => {
+    renderNavBar()
+    expect(screen.queryByTestId('nav-translator')).toBeNull()
+  })
+})
