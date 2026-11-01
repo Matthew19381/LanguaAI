@@ -3,40 +3,33 @@ streak in the UI (A8): days with a finished lesson this week, goal 5 of 7, as
 the hub's Feed counts them. One missed day does not stop habit formation
 (Lally et al. 2010), so nothing resets to zero.
 """
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.models.lesson import Lesson
-
-
-def _parse_date(val):
-    """Convert a date value from SQLite (string) or Python date to date object."""
-    if isinstance(val, date):
-        return val
-    if isinstance(val, str):
-        return datetime.strptime(val, "%Y-%m-%d").date()
-    return val
+from backend.services import local_day
 
 
 def calculate_streak(db: Session, user_id: int, freezes_available: int = 0) -> tuple[int, int]:
-    """Calculate consecutive days with at least one completed lesson.
+    """Calculate consecutive local days with at least one completed lesson.
 
     Uses streak freezes to bridge single-day gaps (1 missed day = 1 freeze).
-    Returns (streak_length, freezes_remaining).
+    Returns (streak_length, freezes_remaining). A pure function of the history and
+    the allowance: callers must not store freezes_remaining back as the allowance,
+    because the next call counts the same old gaps again (until 01.11.2026 every
+    completed lesson charged the old gaps once more and the streak broke).
     """
-    dates = db.query(func.date(Lesson.completed_at)).filter(
+    rows = db.query(Lesson.completed_at).filter(
         Lesson.user_id == user_id,
-        Lesson.is_completed == True,
-        Lesson.completed_at != None,
-    ).distinct().order_by(func.date(Lesson.completed_at).desc()).all()
-
-    if not dates:
+        Lesson.is_completed == True,  # noqa: E712
+        Lesson.completed_at != None,  # noqa: E711
+    ).all()
+    if not rows:
         return 0, freezes_available
 
-    date_list = [_parse_date(d[0]) for d in dates]
-    today = date.today()
+    date_list = sorted({local_day.local_date(r[0]) for r in rows}, reverse=True)
+    today = local_day.local_today()
 
     # Count freezes needed to connect today to the most recent lesson
     freezes_used = 0
@@ -72,7 +65,7 @@ def streak_at_date(lessons: list, target_date) -> int:
     from datetime import timedelta
 
     completed_dates = sorted({
-        l.completed_at.date()
+        local_day.local_date(l.completed_at)
         for l in lessons
         if l.completed_at and l.is_completed
     })
@@ -89,20 +82,9 @@ def streak_at_date(lessons: list, target_date) -> int:
 WEEK_GOAL_DAYS = 5  # the same goal as the hub's Feed ("5 z 7")
 
 
-# None = the PC's local time zone; tests set a fixed zone (time.tzset() does not exist on Windows)
-LOCAL_TZ = None
-
-
-def _local_date(moment: datetime) -> date:
-    """completed_at is stored as naive UTC; the week is counted in the PC's local time."""
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
-    return moment.astimezone(LOCAL_TZ).date()
-
-
 def week_days(db: Session, user_id: int, today: date | None = None) -> dict:
     """Days of the current week (Monday to today, local time) with a finished lesson."""
-    today = today or datetime.now().astimezone(LOCAL_TZ).date()
+    today = today or local_day.local_today()
     monday = today - timedelta(days=today.weekday())
     since = datetime.combine(monday - timedelta(days=1), datetime.min.time())  # margin for the UTC offset
     rows = db.query(Lesson.completed_at).filter(
@@ -111,6 +93,6 @@ def week_days(db: Session, user_id: int, today: date | None = None) -> dict:
         Lesson.completed_at != None,  # noqa: E711
         Lesson.completed_at >= since,
     ).all()
-    dates = sorted({d for d in (_local_date(r[0]) for r in rows) if monday <= d <= today})
+    dates = sorted({d for d in (local_day.local_date(r[0]) for r in rows) if monday <= d <= today})
     return {"week_start": monday.isoformat(), "days": len(dates), "goal": WEEK_GOAL_DAYS,
             "dates": [d.isoformat() for d in dates]}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { localDay } from '../utils/localDay'
 import { useNavigate } from 'react-router-dom'
 import { Newspaper, BookOpen, ChevronDown, ChevronUp, ExternalLink, Plus, CheckCircle, Loader2 } from 'lucide-react'
 import { getUserId, addFlashcard, addFlashcardAI, translateWord, getNews } from '../api/client'
@@ -19,7 +20,7 @@ export default function News() {
 
   useEffect(() => {
     if (!userId) { navigate('/placement'); return }
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     const cacheDateKey = `news_date_${userId}_${targetLanguage}`
     const cacheDataKey = `news_data_${userId}_${targetLanguage}`
     const cachedDate = localStorage.getItem(cacheDateKey)
@@ -49,7 +50,7 @@ export default function News() {
 
   const markTabComplete = (tabKey) => {
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localDay()
       const raw = localStorage.getItem('daily_tabs')
       const stored = raw ? JSON.parse(raw) : { date: today, tabs: [] }
       const current = stored.date === today ? stored : { date: today, tabs: [] }

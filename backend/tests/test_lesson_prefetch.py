@@ -97,6 +97,7 @@ def test_completing_a_lesson_prepares_the_next_one(client, sample_user, db, enab
     # ... and the next day the prepared one, without generating
     yesterday = datetime.now(timezone.utc) - timedelta(days=1)
     db.query(Lesson).filter(Lesson.user_id == uid).update({"created_at": yesterday})
+    db.query(Lesson).filter(Lesson.user_id == uid, Lesson.is_completed == True).update({"completed_at": yesterday})  # noqa: E712
     db.commit()
     with patch("backend.routers.lessons.generate_daily_lesson", AsyncMock()) as page_gen:
         r = client.get(f"/api/lessons/today/{uid}").json()

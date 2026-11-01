@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { localDay } from '../utils/localDay'
 import {
   BarChart3, Flame, Star, Trophy, BookOpen, CalendarCheck,
   FlaskConical, Brain, TrendingUp, Target, Calendar,
@@ -22,7 +23,7 @@ export default function Stats() {
   const [voiceChatLoading, setVoiceChatLoading] = useState(false)
   const [bestTime, setBestTime] = useState(null)
   const [manualAnkiDone, setManualAnkiDone] = useState(() => {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     return localStorage.getItem('manual_anki_date') === today
   })
   const navigate = useNavigate()
@@ -41,7 +42,7 @@ export default function Stats() {
 
   useEffect(() => {
     if (!userId) return
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     const cachedDate = localStorage.getItem('tips_date')
     const cachedData = localStorage.getItem('tips_data')
     if (cachedDate === today && cachedData) {
@@ -371,7 +372,7 @@ export default function Stats() {
               checked={manualAnkiDone}
               onChange={e => {
                 if (e.target.checked) {
-                  localStorage.setItem('manual_anki_date', new Date().toISOString().slice(0, 10))
+                  localStorage.setItem('manual_anki_date', localDay())
                   setManualAnkiDone(true)
                 } else {
                   localStorage.removeItem('manual_anki_date')
@@ -816,7 +817,7 @@ function TodayCompletion({ stats }) {
       const raw = localStorage.getItem('daily_tabs')
       if (!raw) return []
       const parsed = JSON.parse(raw)
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localDay()
       if (parsed.date !== today) return []
       return parsed.tabs || []
     } catch { return [] }
@@ -829,7 +830,7 @@ function TodayCompletion({ stats }) {
         const raw = localStorage.getItem('daily_tabs')
         if (!raw) return setTabs([])
         const parsed = JSON.parse(raw)
-        const today = new Date().toISOString().slice(0, 10)
+        const today = localDay()
         setTabs(parsed.date === today ? (parsed.tabs || []) : [])
       } catch { setTabs([]) }
     }

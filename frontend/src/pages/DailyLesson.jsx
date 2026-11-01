@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
+import { localDay } from '../utils/localDay'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   BookOpen, CheckCircle, ChevronDown, ChevronUp,
@@ -46,7 +47,7 @@ const OBSIDIAN_OFFSETS = [
 
 function readLessonCache() {
   try {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     const uid = getUserId()
     const lang = localStorage.getItem('userLanguage') || ''
     const cached = localStorage.getItem(`lesson_cache_${uid}_${lang}_${today}`)
@@ -58,7 +59,7 @@ function clearLessonCache() {
   try {
     const uid = getUserId()
     const lang = localStorage.getItem('userLanguage') || ''
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     localStorage.removeItem(`lesson_cache_${uid}_${lang}_${today}`)
   } catch (e) {
     console.error('Failed to clear lesson cache:', e)
@@ -130,7 +131,7 @@ export default function DailyLesson() {
 
     if (!lessonId) {
       // Try loading from localStorage cache first (today's lesson)
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localDay()
       const lang = localStorage.getItem('userLanguage') || ''
       const cacheKey = `lesson_cache_${userId}_${lang}_${today}`
       const cached = localStorage.getItem(cacheKey)
@@ -162,7 +163,7 @@ export default function DailyLesson() {
         setLesson(data)
         setCompleted(data.is_completed)
         if (!lessonId) {
-          const today = new Date().toISOString().slice(0, 10)
+          const today = localDay()
           const lang = localStorage.getItem('userLanguage') || ''
           const cacheKey = `lesson_cache_${userId}_${lang}_${today}`
           localStorage.setItem(cacheKey, JSON.stringify(data))
@@ -178,7 +179,7 @@ export default function DailyLesson() {
 
   // Mark the lesson tab done for today (shared with the offline path)
   const markLessonTabDone = () => {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     try {
       const raw = localStorage.getItem('daily_tabs')
       const stored = raw ? JSON.parse(raw) : { date: today, tabs: [] }
@@ -194,7 +195,7 @@ export default function DailyLesson() {
   // still offline shows it done (the queued event syncs the server later).
   const markLessonCacheCompleted = () => {
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localDay()
       const lang = localStorage.getItem('userLanguage') || ''
       const cacheKey = `lesson_cache_${userId}_${lang}_${today}`
       const cached = localStorage.getItem(cacheKey)
@@ -260,7 +261,7 @@ export default function DailyLesson() {
       })
 
       // Pre-fetch test, news and videos in the background so they're ready immediately
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localDay()
       const lang = localStorage.getItem('userLanguage') || ''
       localStorage.removeItem(`test_cache_${userId}_${lang}_${today}`)
       getDailyTest(userId).then(test => {
@@ -331,7 +332,7 @@ export default function DailyLesson() {
     if (!lesson) return
     setAudioPackageLoading(true)
     try {
-      const response = await getLessonAudioPackage(lesson.lesson_id)
+      const response = await getLessonAudioPackage(lesson.lesson_id, userId)
       const url = URL.createObjectURL(new Blob([response.data], { type: 'application/zip' }))
       const link = document.createElement('a')
       link.href = url

@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { localDay } from '../utils/localDay'
 import { useState, useEffect, useRef } from 'react'
 import {
   BookOpen, FlaskConical, MessageSquare, LayoutGrid,
@@ -44,7 +45,7 @@ function getDailyTabsNav() {
     const raw = localStorage.getItem('daily_tabs')
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     if (parsed.date !== today) return []
     return parsed.tabs || []
   } catch { return [] }

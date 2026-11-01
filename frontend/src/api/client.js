@@ -497,8 +497,9 @@ export const reviewTopic = (topicId, rating, userId = getUserId()) =>
 export const resetTodayLesson = (userId) =>
   api.delete(`/lessons/reset-today/${userId}`)
 
-export const getLessonAudioPackage = (lessonId) =>
-  axios.get(`/api/lessons/${lessonId}/audio-package`, { responseType: 'blob' })
+// user_id is required by the backend: without it every download ended in 422 (01.11.2026)
+export const getLessonAudioPackage = (lessonId, userId) =>
+  axios.get(`/api/lessons/${lessonId}/audio-package`, { params: { user_id: userId }, responseType: 'blob' })
 
 // ===== Web Push =====
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { localDay } from '../utils/localDay'
 import { Link, useNavigate } from 'react-router-dom'
 import { Mic, MicOff, RotateCcw, ChevronRight, BarChart3, Trophy, CheckCircle } from 'lucide-react'
 import { getUserId, addFlashcard, askQuestion, getPronunciationPhrases, analyzePronunciation } from '../api/client'
@@ -37,7 +38,7 @@ export default function PronunciationTrainer() {
 
   const markTabComplete = (tabKey) => {
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localDay()
       const raw = localStorage.getItem('daily_tabs')
       const stored = raw ? JSON.parse(raw) : { date: today, tabs: [] }
       const current = stored.date === today ? stored : { date: today, tabs: [] }

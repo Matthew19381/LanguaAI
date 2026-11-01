@@ -94,3 +94,15 @@ describe('API function exports', () => {
     }
   })
 })
+
+describe('getLessonAudioPackage', () => {
+  it('sends user_id, which the backend requires', async () => {
+    const axios = (await import('axios')).default
+    const spy = vi.spyOn(axios, 'get').mockResolvedValue({ data: new Blob() })
+    const { getLessonAudioPackage } = await import('../client')
+    await getLessonAudioPackage(5, 1)
+    expect(spy).toHaveBeenCalledWith('/api/lessons/5/audio-package',
+      expect.objectContaining({ params: { user_id: 1 } }))
+    spy.mockRestore()
+  })
+})

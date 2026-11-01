@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { localDay } from '../utils/localDay'
 import { useNavigate } from 'react-router-dom'
 import {
   FlaskConical, ChevronRight, CheckCircle, XCircle,
@@ -25,6 +26,7 @@ export default function DailyTest() {
   const [error, setError] = useState('')
   const [textInputs, setTextInputs] = useState({})
   const testInputRef = useRef(null)
+  const [attempt, setAttempt] = useState(0)  // "Spróbuj ponownie" loads the test again
   const navigate = useNavigate()
   const userId = getUserId()
   const { t, targetLanguage } = useLanguage()
@@ -35,7 +37,7 @@ export default function DailyTest() {
       return
     }
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     const lang = localStorage.getItem('userLanguage') || ''
     const cacheKey = `test_cache_${userId}_${lang}_${today}`
     const cached = localStorage.getItem(cacheKey)
@@ -75,7 +77,7 @@ export default function DailyTest() {
         setError(e.message)
         setStep(STEPS.RESULTS)
       })
-  }, [userId])
+  }, [userId, attempt])
 
   const questions = testData?.questions || []
   const currentQuestion = questions[currentIndex]
@@ -113,18 +115,24 @@ export default function DailyTest() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [step, currentQuestion, currentIndex, questions.length])
 
+  const submittingRef = useRef(false)  // a second tap before the re-render must not send again
   const handleSubmit = async () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
     setStep(STEPS.SUBMITTING)
     try {
       const res = await submitTest({
         user_id: userId,
-        test_type: 'daily',
+        // "Test z błędów" is its own test: sent as 'daily' it hit today's daily
+        // result and its answers were never checked
+        test_type: testData?.kind === 'errors' ? 'errors' : 'daily',
         questions,
         answers
       })
       setResults(res)
       setStep(STEPS.RESULTS)
-      const today = new Date().toISOString().slice(0, 10)
+      if (testData?.kind === 'errors') return  // today's daily test stays as it was
+      const today = localDay()
       const lang = localStorage.getItem('userLanguage') || ''
       // Update cache to mark test as already taken
       localStorage.setItem(`test_cache_${userId}_${lang}_${today}`, JSON.stringify({ already_taken: true, score: res.score }))
@@ -141,6 +149,8 @@ export default function DailyTest() {
     } catch (e) {
       setError(e.message)
       setStep(STEPS.TESTING)
+    } finally {
+      submittingRef.current = false
     }
   }
 
@@ -156,7 +166,7 @@ export default function DailyTest() {
           <h2 className="text-xl font-semibold mb-2">{t('test.couldNotLoad')}</h2>
           <p className="text-gray-400 mb-4">{error}</p>
           <div className="flex flex-col gap-2">
-            <button onClick={() => { setError(''); setStep(STEPS.LOADING); }} className="btn-secondary">
+            <button onClick={() => { setError(''); setStep(STEPS.LOADING); setAttempt(a => a + 1) }} className="btn-secondary">
               {t('test.tryAgain')}
             </button>
             <button onClick={() => navigate('/lesson')} className="btn-primary">
@@ -180,13 +190,20 @@ export default function DailyTest() {
 
   if (step === STEPS.RESULTS && results) {
     const handleRegenerateFromErrors = async () => {
+      setError('')
+      setStep(STEPS.LOADING)
       try {
         const test = await getTestFromErrors(userId)
-        const today = new Date().toISOString().slice(0, 10)
-        const lang = localStorage.getItem('userLanguage') || ''
-        localStorage.setItem(`test_cache_${userId}_${lang}_${today}`, JSON.stringify(test))
-        window.location.reload()
-      } catch {}
+        setResults(null)
+        setAnswers({})
+        setTextInputs({})
+        setCurrentIndex(0)
+        setTestData({ ...test, kind: 'errors' })
+        setStep(STEPS.TESTING)
+      } catch (e) {
+        setError(e.message)
+        setStep(STEPS.RESULTS)
+      }
     }
     return <TestResults results={results} onRetry={() => navigate('/lesson')} onRegenerateFromErrors={handleRegenerateFromErrors} t={t} />
   }

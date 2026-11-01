@@ -56,6 +56,18 @@ async def prepare_next_lesson(user_id: int) -> int | None:
             db.close()
 
 
+async def wait_if_preparing(user_id: int) -> bool:
+    """Wait for a background preparation of the user's lesson; True when one was running.
+
+    Opening "Lekcja" while the next lesson was being prepared used to start a second
+    generation of the same day (two model calls, the slower one discarded)."""
+    lock = _locks.get(user_id)
+    if lock is None or not lock.locked():
+        return False
+    async with lock:
+        return True
+
+
 async def _prepare(db, user_id: int) -> int | None:
     # Imported here: the lessons router imports this service
     from backend.routers.lessons import get_day_number

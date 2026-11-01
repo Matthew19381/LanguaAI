@@ -214,6 +214,7 @@ async def get_best_study_time(user_id: int, db: Session = Depends(get_db)):
 
 @router.get("/api/stats/{user_id}/export-csv")
 async def export_progress_csv(user_id: int, db: Session = Depends(get_db)):
+    from backend.services import local_day
     from backend.services.streak_service import streak_at_date
     user = get_user_or_404(db, user_id)
 
@@ -240,7 +241,7 @@ async def export_progress_csv(user_id: int, db: Session = Depends(get_db)):
         d = lesson.created_at.strftime("%Y-%m-%d")
         if lesson.is_completed:
             xp += 25
-            lesson_streak = streak_at_date(lessons, lesson.completed_at.date()) if lesson.completed_at else 0
+            lesson_streak = streak_at_date(lessons, local_day.local_date(lesson.completed_at)) if lesson.completed_at else 0
         else:
             lesson_streak = 0
         scores = tests_by_date.get(d, [])

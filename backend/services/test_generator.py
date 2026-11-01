@@ -1,15 +1,29 @@
+import asyncio
 import json
 import logging
-from datetime import date
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.models.test_result import TestResult
 from backend.models.user import User
 from backend.services.lesson_generator import analyze_test_errors, generate_daily_test, generate_weekly_test
+from backend.services.local_day import local_today, on_local_day
 
 logger = logging.getLogger(__name__)
+
+# One submission per user and test type at a time: the answer check takes seconds,
+# and two taps used to pass the "already submitted today" check together and give XP
+# twice (the unique key includes the full timestamp, so it never caught them).
+_submit_locks: dict[tuple, asyncio.Lock] = {}
+
+
+def _taken_today(db: Session, user, test_type: str):
+    return db.query(TestResult).filter(
+        TestResult.user_id == user.id,
+        TestResult.test_type == test_type,
+        TestResult.language == user.target_language,
+        on_local_day(TestResult.created_at, local_today()),
+    ).order_by(TestResult.id).first()
 
 
 async def get_or_create_daily_test(
@@ -24,27 +38,20 @@ async def get_or_create_daily_test(
     ``daily_test`` so that reopening the test page does not pay for the same AI
     generation again. Pass ``lesson`` (the Lesson row) to enable that caching.
     """
-    from datetime import date
-
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise ValueError(f"User {user_id} not found")
 
-    # Check if there's already a daily test for today (per language, UTC)
-    today_date = date.today()
-    existing_test = db.query(TestResult).filter(
-        TestResult.user_id == user_id,
-        TestResult.test_type == "daily",
-        TestResult.language == user.target_language,
-        func.date(TestResult.created_at) == today_date
-    ).first()
-
+    # Already taken on the learner's local day (per language)
+    existing_test = _taken_today(db, user, "daily")
     if existing_test:
         return {
             "test_id": existing_test.id,
             "already_taken": True,
             "score": existing_test.score,
-            "questions": json.loads(existing_test.answers) if existing_test.answers else []
+            # Until 01.11.2026 the stored answers were returned here as "questions"
+            "questions": [],
+            "errors": json.loads(existing_test.errors) if existing_test.errors else [],
         }
 
     # Reuse the questions generated earlier for this lesson, if any
@@ -101,23 +108,38 @@ async def submit_test(
     if not user:
         raise ValueError(f"User {user_id} not found")
 
-    # Check for duplicate submission (idempotency)
-    today_date = date.today()
-    existing_today = db.query(TestResult).filter(
-        TestResult.user_id == user_id,
-        TestResult.test_type == test_type,
-        TestResult.language == user.target_language,
-        func.date(TestResult.created_at) == today_date
-    ).first()
-    if existing_today:
-        return {
-            "test_result_id": existing_today.id,
-            "score": existing_today.score,
-            "errors": json.loads(existing_today.errors) if existing_today.errors else [],
-            "performance_summary": "",
-            "xp_earned": 0,
-            "already_submitted": True
-        }
+    lock = _submit_locks.setdefault((user_id, test_type), asyncio.Lock())
+    async with lock:
+        return await _submit(user, test_type, questions, answers, db)
+
+
+def _already_submitted(existing) -> dict:
+    return {
+        "test_result_id": existing.id,
+        "score": existing.score,
+        "errors": json.loads(existing.errors) if existing.errors else [],
+        "performance_summary": "",
+        "xp_earned": 0,
+        "already_submitted": True,
+    }
+
+
+async def _submit(user, test_type: str, questions: list, answers: dict, db: Session) -> dict:
+    user_id = user.id
+    # Check for duplicate submission (idempotency), on the learner's local day.
+    # The errors test may be taken again: each round is a new set of questions.
+    if test_type != "errors":
+        existing_today = _taken_today(db, user, test_type)
+        if existing_today:
+            return _already_submitted(existing_today)
+    else:
+        same = db.query(TestResult).filter(
+            TestResult.user_id == user_id, TestResult.test_type == "errors",
+            TestResult.language == user.target_language, TestResult.answers == json.dumps(answers),
+            on_local_day(TestResult.created_at, local_today()),
+        ).first()
+        if same:  # the same round sent twice
+            return _already_submitted(same)
 
     # Analyze errors
     analysis = await analyze_test_errors(
@@ -148,28 +170,7 @@ async def submit_test(
     xp_earned = min(50, int(score * 0.5))
     user.total_xp += xp_earned
 
-    try:
-        db.commit()
-    except Exception:  # intentional: any DB error during concurrent test submission
-        # Handle race condition: unique constraint violation means another request
-        # already submitted — rollback and return the existing result
-        db.rollback()
-        existing = db.query(TestResult).filter(
-            TestResult.user_id == user_id,
-            TestResult.test_type == test_type,
-            TestResult.language == user.target_language,
-            func.date(TestResult.created_at) == today_date
-        ).first()
-        if existing:
-            return {
-                "test_result_id": existing.id,
-                "score": existing.score,
-                "errors": json.loads(existing.errors) if existing.errors else [],
-                "performance_summary": "",
-                "xp_earned": 0,
-                "already_submitted": True
-            }
-        raise
+    db.commit()
     db.refresh(test_result)
 
     return {

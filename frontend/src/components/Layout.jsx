@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { localDay } from '../utils/localDay'
 import { Outlet } from 'react-router-dom'
 import NavBar from './NavBar'
 import { PageLoader } from './LoadingSpinner'
@@ -14,7 +15,7 @@ import { Timer, Languages, X, ArrowRight, Sun, Moon } from 'lucide-react'
 const AUTO_VISIT_PATHS = ['/flashcards', '/conversation', '/quickmode', '/news', '/pronunciation']
 
 function getTodayStr() {
-  return new Date().toISOString().slice(0, 10)
+  return localDay()
 }
 
 function getDailyTabs() {

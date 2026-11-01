@@ -1,12 +1,12 @@
 """Pydantic schemas for test router."""
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel
 
 
 class SubmitTestRequest(BaseModel):
     user_id: int
-    test_type: str  # 'daily' or 'weekly'
+    test_type: Literal['daily', 'weekly', 'errors']  # 'errors' = "Test z błędów"
     questions: List[dict] = []
     answers: dict
     language: Optional[str] = None

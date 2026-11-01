@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { localDay } from '../utils/localDay'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BookOpen, FlaskConical, MessageSquare,
@@ -27,7 +28,7 @@ export default function Home() {
       setLoading(false)
       return
     }
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     const cachedDate = localStorage.getItem('tips_date')
     const cachedData = localStorage.getItem('tips_data')
     const hasCachedTips = cachedDate === today && cachedData

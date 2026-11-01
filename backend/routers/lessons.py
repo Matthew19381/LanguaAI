@@ -32,12 +32,14 @@ from backend.services.lesson_generator import (
     generate_daily_lesson,
     generate_iplus1_content,
 )
+from backend.services.lesson_generator.tests import lesson_grammar_text
 from backend.services.lesson_service import (
     create_and_persist_lesson,
     gather_lesson_context,
     lesson_payload,
 )
 from backend.services.mastery import apply_module_gate
+from backend.services.plan_day import current_lesson, lesson_for_review, next_day_number, todays_lesson
 from backend.services.obsidian_service import save_obsidian_md
 from backend.services.pdf_service import EXPORTS_DIR, generate_lesson_pdf
 from backend.services.streak_service import calculate_streak
@@ -54,15 +56,9 @@ LESSON_UNAVAILABLE = ("Nie udało się wygenerować lekcji: model AI nie odpowia
 
 
 def get_day_number(user: User, db: Session = None, language: str = None) -> int:
-    """Calculate which day number the user is on for a specific language.
-    Uses per-language lesson count so each language starts at day 1."""
+    """Day number of the next lesson to generate for a language (plan_day.next_day_number)."""
     if db is not None and language is not None:
-        count = db.query(Lesson).filter(
-            Lesson.user_id == user.id,
-            Lesson.language == language,
-            Lesson.is_completed == True
-        ).count()
-        return count + 1
+        return next_day_number(db, user, language)
     # Fallback: global calendar-based calculation
     if not user.created_at:
         return 1
@@ -74,27 +70,18 @@ def get_day_number(user: User, db: Session = None, language: str = None) -> int:
 async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = get_user_or_404(db, user_id)
 
-    # Check if today's lesson already exists for this language
-    from sqlalchemy import func
-    today_date = date.today()
-    existing_lesson = db.query(Lesson).filter(
-        Lesson.user_id == user_id,
-        Lesson.language == user.target_language,
-        func.date(Lesson.created_at) == today_date
-    ).order_by(Lesson.id).first()  # a lesson prepared ahead today comes after the one done today
-
-    # If no lesson today, check for uncompleted lesson from previous days
-    if not existing_lesson:
-        existing_lesson = db.query(Lesson).filter(
-            Lesson.user_id == user_id,
-            Lesson.language == user.target_language,
-            Lesson.is_completed == False
-        ).order_by(Lesson.created_at.desc()).first()
-
-    day_number = get_day_number(user, db, user.target_language)
+    # The lesson finished today, else the waiting one (plan_day.todays_lesson)
+    existing_lesson = todays_lesson(db, user)
+    if existing_lesson is None and await lesson_prefetch.wait_if_preparing(user_id):
+        # The next lesson was being prepared in the background: use it instead of
+        # paying for a second generation of the same day
+        db.expire_all()
+        existing_lesson = todays_lesson(db, user)
 
     if existing_lesson:
         return lesson_payload(db, existing_lesson)
+
+    day_number = get_day_number(user, db, user.target_language)
 
     # Get active study plan
     study_plan = db.query(StudyPlan).filter(
@@ -246,16 +233,19 @@ async def complete_lesson(
         lesson.is_completed = True
         lesson.completed_at = occurred
 
-        # Award XP for completing lesson
-        if request.user_id:
-            user = db.query(User).filter(User.id == request.user_id).first()
-            if user:
-                user.total_xp += 25  # 25 XP for completing a lesson
-                xp_awarded = 25
-                # Update streak — consecutive days with at least one completed lesson (with freeze support)
-                streak, freezes_left = calculate_streak(db, user.id, user.streak_freezes)
-                user.streak_days = streak
-                user.streak_freezes = freezes_left
+        # Award XP for completing lesson (to the lesson's owner: a replayed offline
+        # completion without user_id used to give no XP and no streak)
+        user = db.query(User).filter(User.id == lesson.user_id).first()
+        if user:
+            user.total_xp += 25  # 25 XP for completing a lesson
+            xp_awarded = 25
+            # Update streak — consecutive days with at least one completed lesson (with freeze support).
+            # The session does not autoflush, so without the flush the streak ignored this lesson.
+            # streak_freezes is the allowance, not a counter: calculate_streak spends it on the
+            # gaps every time, so storing what is left charged the same gaps again next time.
+            db.flush()
+            streak, _freezes_left = calculate_streak(db, user.id, user.streak_freezes or 0)
+            user.streak_days = streak
 
         record_event(db, request.client_event_id,
                      request.user_id or lesson.user_id,
@@ -284,11 +274,10 @@ async def complete_lesson(
         background_tasks.add_task(lesson_prefetch.prepare_next_lesson, lesson.user_id)
 
         # Check achievements after commit
-        if request.user_id:
-            from backend.services.achievement_service import check_and_award_achievements
-            user = db.query(User).filter(User.id == request.user_id).first()
-            if user:
-                newly_awarded = check_and_award_achievements(user, db)
+        from backend.services.achievement_service import check_and_award_achievements
+        user = db.query(User).filter(User.id == lesson.user_id).first()
+        if user:
+            newly_awarded = check_and_award_achievements(user, db)
 
     return {
         "success": True,
@@ -581,7 +570,7 @@ async def get_lesson_history(user_id: int, db: Session = Depends(get_db)):
 
 @router.post("/api/lessons/next/{user_id}")
 async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    """Generate the NEXT lesson (max day_number + 1) without deleting the current one."""
+    """The next lesson: the waiting unfinished one, else a new one (max day_number + 1)."""
     user = get_user_or_404(db, user_id)
 
     # Get active study plan
@@ -592,12 +581,17 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
     if not study_plan:
         raise HTTPException(status_code=404, detail="No active study plan. Please complete placement test first.")
 
-    # Determine next day number (per-language)
-    latest_lesson = db.query(Lesson).filter(
-        Lesson.user_id == user_id,
-        Lesson.language == user.target_language
-    ).order_by(Lesson.day_number.desc()).first()
-    next_day = (latest_lesson.day_number + 1) if latest_lesson else 1
+    # An unfinished lesson waits (usually the one prepared in the background after the
+    # last lesson): that is the next lesson. Until 01.11.2026 this generated one more
+    # day past it, so the prepared day was skipped and stayed unfinished forever.
+    waiting = current_lesson(db, user)
+    if waiting is None and await lesson_prefetch.wait_if_preparing(user_id):
+        db.expire_all()
+        waiting = current_lesson(db, user)
+    if waiting is not None:
+        return lesson_payload(db, waiting)
+
+    next_day = next_day_number(db, user)
 
     study_plan_data = apply_module_gate(db, study_plan, next_day)
     context = gather_lesson_context(db, user)
@@ -617,7 +611,19 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
     except LessonGenerationError:
         raise HTTPException(status_code=503, detail=LESSON_UNAVAILABLE)
 
-    lesson = create_and_persist_lesson(db, user, next_day, lesson_content)
+    try:
+        lesson = create_and_persist_lesson(db, user, next_day, lesson_content)
+    except IntegrityError:
+        # Prepared in the background at the same moment: return that lesson
+        db.rollback()
+        existing = db.query(Lesson).filter(
+            Lesson.user_id == user_id, Lesson.language == user.target_language, Lesson.day_number == next_day,
+        ).first()
+        if existing:
+            return lesson_payload(db, existing)
+        raise
+
+    background_tasks.add_task(generate_full_lesson_audio, lesson_content, user.target_language, lesson.id)
 
     # Extract topics (background, non-blocking)
     background_tasks.add_task(
@@ -636,26 +642,53 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
 
 @router.delete("/api/lessons/reset-today/{user_id}")
 async def reset_today_lesson(user_id: int, db: Session = Depends(get_db)):
-    """Delete today's lesson so it gets regenerated on next visit."""
-    from backend.models.flashcard import Flashcard
+    """Delete the current unfinished lesson so it gets generated again on the next visit.
+
+    Until 01.11.2026 this deleted every lesson *created* today (UTC): also a lesson
+    finished today and the prepared next one, together with all their flashcards and
+    the review history; with foreign keys on, a lesson with exercises failed with 500.
+    Now only the unfinished lesson goes. Its never-reviewed flashcards and never-answered
+    exercises go with it; reviewed ones stay and only lose the link to the lesson.
+    """
+    from backend.models.exercise import Exercise
+    from backend.models.skill_attempt import SkillAttempt
+    from backend.models.topic import TopicItem
     user = get_user_or_404(db, user_id)
-    today_start = datetime.combine(date.today(), datetime.min.time())
-    lessons_to_delete = db.query(Lesson).filter(
-        Lesson.user_id == user_id,
-        Lesson.language == user.target_language,
-        Lesson.created_at >= today_start
-    ).all()
-    lesson_ids = [l.id for l in lessons_to_delete]
-    # Remove child flashcards first (FK constraint, no ON DELETE CASCADE in SQLite)
-    if lesson_ids:
-        db.query(Flashcard).filter(Flashcard.lesson_id.in_(lesson_ids)).delete(
-            synchronize_session=False
-        )
-    deleted = db.query(Lesson).filter(Lesson.id.in_(lesson_ids)).delete(
-        synchronize_session=False
-    ) if lesson_ids else 0
+    lesson = current_lesson(db, user)
+    if lesson is None:
+        done = todays_lesson(db, user)
+        if done is not None:
+            raise HTTPException(status_code=409, detail="Ukończonej lekcji nie generuje się od nowa.")
+        return {"success": True, "deleted": 0}
+
+    fresh_cards = db.query(Flashcard.id).filter(
+        Flashcard.lesson_id == lesson.id,
+        (Flashcard.repetitions == 0) | (Flashcard.repetitions == None),  # noqa: E711
+        Flashcard.last_review_date == None,  # noqa: E711
+    )
+    db.query(Flashcard).filter(Flashcard.id.in_(fresh_cards.scalar_subquery())).delete(synchronize_session=False)
+    db.query(Flashcard).filter(Flashcard.lesson_id == lesson.id).update(
+        {Flashcard.lesson_id: None}, synchronize_session=False)
+
+    answered = db.query(SkillAttempt.exercise_id).filter(SkillAttempt.exercise_id != None)  # noqa: E711
+    unused = [r[0] for r in db.query(Exercise.id).filter(
+        Exercise.source_lesson_id == lesson.id,
+        (Exercise.times_seen == 0) | (Exercise.times_seen == None),  # noqa: E711
+        Exercise.id.notin_(answered.scalar_subquery()),
+    ).all()]
+    if unused:
+        db.query(Exercise).filter(Exercise.variant_of.in_(unused)).update(
+            {Exercise.variant_of: None}, synchronize_session=False)
+        db.query(Exercise).filter(Exercise.id.in_(unused)).delete(synchronize_session=False)
+    db.query(Exercise).filter(Exercise.source_lesson_id == lesson.id).update(
+        {Exercise.source_lesson_id: None}, synchronize_session=False)
+
+    # SQLite gives the regenerated lesson the same id; its topic links must not carry over
+    db.query(TopicItem).filter(TopicItem.item_type == "lesson", TopicItem.item_id == lesson.id).delete(
+        synchronize_session=False)
+    db.delete(lesson)
     db.commit()
-    return {"success": True, "deleted": deleted}
+    return {"success": True, "deleted": 1}
 
 
 @with_model("lesson")
@@ -773,16 +806,15 @@ async def get_lesson_concepts(user_id: int, db: Session = Depends(get_db)):
     """Generate grammar concepts from the latest lesson and return them (without saving to flashcards)."""
     user = get_user_or_404(db, user_id)
 
-    lesson = db.query(Lesson).filter(
-        Lesson.user_id == user_id,
-        Lesson.language == user.target_language
-    ).order_by(Lesson.day_number.desc()).first()
+    # The lesson just studied, not the prepared next one (A10)
+    lesson = lesson_for_review(db, user)
 
     if not lesson:
         return {"concepts": [], "lesson_title": None}
 
     content = json.loads(lesson.content)
-    grammar_explanation = content.get("grammar_explanation") or content.get("explanation", "")
+    # Daily lessons keep grammar under "grammar"; the old keys alone gave nothing (01.11.2026)
+    grammar_explanation = lesson_grammar_text(content)
     if not grammar_explanation:
         return {"concepts": [], "lesson_title": lesson.title}
 

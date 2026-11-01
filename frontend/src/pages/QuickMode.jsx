@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { localDay } from '../utils/localDay'
 import { useNavigate } from 'react-router-dom'
 import { Timer, CheckCircle, BookOpen, FlaskConical, Brain, Mic, Newspaper, Play, Pause, RotateCcw, Headphones, Dumbbell, Volume2 } from 'lucide-react'
 import { getUserId, getQuickMode } from '../api/client'
@@ -31,7 +32,7 @@ export default function QuickMode() {
   const [error, setError] = useState('')
   const [checked, setChecked] = useState(() => {
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localDay()
       const raw = localStorage.getItem('daily_tabs')
       if (!raw) return {}
       const parsed = JSON.parse(raw)
@@ -129,7 +130,7 @@ export default function QuickMode() {
       const nowChecked = !prev[id]
       if (nowChecked && route) {
         const key = route.replace('/', '')
-        const today = new Date().toISOString().slice(0, 10)
+        const today = localDay()
         try {
           const raw = localStorage.getItem('daily_tabs')
           const stored = raw ? JSON.parse(raw) : { date: today, tabs: [] }

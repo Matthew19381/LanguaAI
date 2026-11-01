@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { localDay } from '../utils/localDay'
 import { useNavigate } from 'react-router-dom'
 import { Youtube, Search, RefreshCw, ExternalLink, Play, X, BookOpen, CheckCircle, Heart, Plus, Users } from 'lucide-react'
 import { getUserId, searchYouTube } from '../api/client'
@@ -119,7 +120,7 @@ export default function Videos() {
 
   const markTabComplete = (tabKey) => {
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localDay()
       const raw = localStorage.getItem('daily_tabs')
       const stored = raw ? JSON.parse(raw) : { date: today, tabs: [] }
       const current = stored.date === today ? stored : { date: today, tabs: [] }

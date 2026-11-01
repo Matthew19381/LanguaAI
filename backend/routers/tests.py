@@ -1,6 +1,5 @@
 import json
 import logging
-from datetime import date, datetime
 from typing import Optional
 
 import httpx
@@ -8,10 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
 from backend.models.user import User
 from backend.schemas.test import SubmitTestRequest
+from backend.services.plan_day import last_finished_lesson, lesson_for_review
 from backend.services.test_generator import (
     get_or_create_daily_test,
     get_or_create_weekly_test,
@@ -28,20 +27,9 @@ router = APIRouter()
 async def get_daily_test(user_id: int, db: Session = Depends(get_db)):
     user = get_user_or_404(db, user_id)
 
-    # Find today's lesson for the user's current language
-    today_start = datetime.combine(date.today(), datetime.min.time())
-    today_lesson = db.query(Lesson).filter(
-        Lesson.user_id == user_id,
-        Lesson.language == user.target_language,
-        Lesson.created_at >= today_start
-    ).first()
-
-    if not today_lesson:
-        # Fallback: try latest lesson for this language regardless of date
-        today_lesson = db.query(Lesson).filter(
-            Lesson.user_id == user_id,
-            Lesson.language == user.target_language
-        ).order_by(Lesson.created_at.desc()).first()
+    # The lesson just studied (plan_day.lesson_for_review). Until 01.11.2026 the lesson
+    # created today came first, which after A10 is the prepared, not yet studied one.
+    today_lesson = lesson_for_review(db, user)
 
     if not today_lesson:
         raise HTTPException(
@@ -161,12 +149,10 @@ async def get_weekly_test(
     user = get_user_or_404(db, user_id)
 
     if week is None:
-        # Calculate current week number
-        if user.created_at:
-            days_elapsed = (date.today() - user.created_at.date()).days
-            week = (days_elapsed // 7) + 1
-        else:
-            week = 1
+        # The plan week of the last finished lesson. Until 01.11.2026 the week was counted
+        # from the account's creation, so after a new plan the test covered the wrong days.
+        last = last_finished_lesson(db, user)
+        week = ((last.day_number - 1) // 7) + 1 if last and last.day_number else 1
 
     try:
         test_data = await get_or_create_weekly_test(user_id, week, db)

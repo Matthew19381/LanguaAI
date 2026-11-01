@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { localDay } from '../utils/localDay'
 import { AlertTriangle, ChevronDown, ChevronUp, BookOpen, Brain, FlaskConical, MessageSquare } from 'lucide-react'
 import { getUserId, getAllErrors, addFlashcardAI, getTestFromErrors, askQuestion } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
@@ -62,7 +63,7 @@ export default function ErrorReview() {
     setTestLoading(true)
     try {
       const test = await getTestFromErrors(userId)
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localDay()
       const lang = localStorage.getItem('userLanguage') || ''
       localStorage.setItem(`test_cache_${userId}_${lang}_${today}`, JSON.stringify(test))
       navigate('/test')

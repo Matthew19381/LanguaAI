@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from backend.models.lesson import Lesson
-from backend.services import streak_service
+from backend.services import local_day, streak_service
 from backend.services.streak_service import WEEK_GOAL_DAYS, week_days
 
 
@@ -12,7 +12,7 @@ from backend.services.streak_service import WEEK_GOAL_DAYS, week_days
 def warsaw(monkeypatch):
     # Warsaw after 25.10.2026 is CET (UTC+1); a fixed zone works on Windows too,
     # where time.tzset() does not exist
-    monkeypatch.setattr(streak_service, "LOCAL_TZ", timezone(timedelta(hours=1)))
+    monkeypatch.setattr(local_day, "LOCAL_TZ", timezone(timedelta(hours=1)))
 
 
 def _lesson(db, uid, n, completed_at):

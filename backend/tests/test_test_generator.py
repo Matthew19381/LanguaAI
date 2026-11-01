@@ -141,7 +141,8 @@ class TestSubmitTest:
 
         mock_db = MagicMock()
         # First .first() returns user, second (idempotency check) returns None
-        mock_db.query.return_value.filter.return_value.first.side_effect = [mock_user, None]
+        mock_db.query.return_value.filter.return_value.first.side_effect = [mock_user]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None  # not taken today
 
         mock_analysis = {
             "score": 80.0,
@@ -189,7 +190,8 @@ class TestSubmitTest:
 
         mock_db = MagicMock()
         # First .first() returns user, second (idempotency check) returns None
-        mock_db.query.return_value.filter.return_value.first.side_effect = [mock_user, None]
+        mock_db.query.return_value.filter.return_value.first.side_effect = [mock_user]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None  # not taken today
 
         mock_analysis = {
             "score": 100.0,
