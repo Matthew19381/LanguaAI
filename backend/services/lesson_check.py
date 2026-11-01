@@ -58,8 +58,14 @@ GERMAN_KEYS = {"word", "example_sentence", "sentence", "sample_answer", "sample_
 # "(KĘ-ze)", "(GU-ten MOR-gen)": an upper-case syllable joined by hyphens.
 # "(Pl.)", "(-e)", "(der/die)" do not match.
 _LETTER = "A-Za-zÄÖÜäöüßąćęłńóśźżĄĆĘŁŃÓŚŹŻ"
+# Each syllable is either upper-case with a vowel ("GU", "KĘ") or lower-case ("ten"):
+# "(SMS-y)" (no vowel) and "(EU-Land)" (a capitalised word) are not transcriptions and
+# were removed until 01.11.2026.
+_UP = "[A-ZÄÖÜĄĆĘŁŃÓŚŹŻ]*[AEIOUYÄÖÜĄĘÓ][A-ZÄÖÜĄĆĘŁŃÓŚŹŻ]*"
+_LO = "[a-zäöüßąćęłńóśźż]+"
+_SYL = f"(?:{_UP}|{_LO})"
 POLISH_TRANSCRIPTION = re.compile(
-    rf"\s*\((?=[^)]*[A-ZĄĆĘŁŃÓŚŹŻ]{{2}})[{_LETTER}]+(?:[- ][{_LETTER}]+)*-[{_LETTER}]+(?:[- ][{_LETTER}]+)*\)"
+    rf"\s*\((?=[^)]*[A-ZĄĆĘŁŃÓŚŹŻ]{{2}}){_SYL}(?:[- ]{_SYL})*-{_SYL}(?:[- ]{_SYL})*\)"
 )
 # Pronunciation written as syllables: "KLEIN-geld", "HOJ-te" (an upper-case
 # syllable joined by a hyphen). A replacement that keeps such a spelling only
@@ -68,7 +74,11 @@ TRANSCRIPTION_TOKEN = re.compile(rf"\b[A-ZÄÖÜĄĆĘŁŃÓŚŹŻ]{{2,}}-[{_LET
 SINGLE_CAPITALISED = re.compile(r"[A-ZÄÖÜ][a-zäöüß]+")
 # Capitalised single words that are not nouns, or are used without an article
 NOT_A_NOUN = {"Hallo", "Danke", "Bitte", "Tschüss", "Ja", "Nein", "Entschuldigung", "Prost",
-              "Servus", "Moin", "Achtung", "Willkommen", "Herzlich"}
+              "Servus", "Moin", "Achtung", "Willkommen", "Herzlich",
+              # Names of countries and cities go without an article (01.11.2026)
+              "Deutschland", "Österreich", "Polen", "Frankreich", "Italien", "Spanien", "England",
+              "Europa", "Amerika", "Berlin", "Wien", "München", "Hamburg", "Köln", "Frankfurt",
+              "Dresden", "Leipzig", "Zürich", "Krakau", "Warschau", "Breslau", "Danzig", "Posen"}
 
 
 def is_german(language: str | None) -> bool:
@@ -191,10 +201,11 @@ def apply_corrections(lesson: dict, corrections) -> tuple[list[dict], list[dict]
         path, wrong, correct = c.get("path"), c.get("wrong"), c.get("correct")
         fields = flatten(lesson)
         if not (isinstance(path, str) and isinstance(wrong, str) and isinstance(correct, str)) \
-                or path not in fields or not wrong or wrong == correct or wrong not in fields[path] \
+                or path not in fields or not wrong or wrong == correct or fields[path].count(wrong) != 1 \
                 or (TRANSCRIPTION_TOKEN.search(wrong) and TRANSCRIPTION_TOKEN.search(correct)):
             rejected.append(c)
             continue
+        # exactly one occurrence: with two, replace() changed the first, possibly correct one
         _set(lesson, path, fields[path].replace(wrong, correct, 1))
         applied.append({"path": path, "wrong": wrong, "correct": correct, "reason": str(c.get("reason") or "")})
     return applied, rejected

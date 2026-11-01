@@ -1,5 +1,7 @@
 """Pydantic schemas for the mock exam router."""
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class ExamUser(BaseModel):
@@ -8,7 +10,8 @@ class ExamUser(BaseModel):
 
 class Teil1Message(BaseModel):
     user_id: int
-    message: str = Field(..., min_length=1, max_length=2000)
+    # stripped first: a turn of spaces only passed min_length=1 (01.11.2026)
+    message: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 
 
 class Teil2Submit(BaseModel):

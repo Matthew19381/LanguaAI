@@ -179,3 +179,8 @@ def test_interleaving_takes_topics_of_the_learners_language(db, sample_user):
     db.commit()
     ctx = gather_lesson_context(db, db.query(User).get(uid))
     assert ctx["recent_topics"] == ["Dativ"]
+
+
+def test_exam_turn_of_spaces_is_rejected(client, sample_user):
+    r = client.post("/api/exam/1/teil1", json={"user_id": sample_user["user_id"], "message": "   "})
+    assert r.status_code == 422

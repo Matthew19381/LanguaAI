@@ -126,8 +126,11 @@ class Topic(Base):
             reps=self.repetitions,
             lapses=self.lapses,
         )
-        if (self.fsrs_state or "Learning") != "Review":
-            strength = min(strength, 0.6)  # forgotten or still learning: never a "strong" topic
+        state = self.fsrs_state or "Learning"
+        if state == "Relearning":
+            strength = min(strength, 0.4)  # just forgotten: a weak topic, never a strong one
+        elif state != "Review":
+            strength = min(strength, 0.6)  # still learning: not yet strong
         return strength
 
     def current_strength(self) -> float:

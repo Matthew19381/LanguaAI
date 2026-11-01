@@ -33,10 +33,12 @@ def lesson_sentences_sample(lesson_content: dict, limit: int = 4) -> str:
     g = lesson_content.get("grammar")
     examples = g.get("examples", []) if isinstance(g, dict) else []
     out = [e.get("sentence", "").strip() for e in examples if isinstance(e, dict) and (e.get("sentence") or "").strip()]
+    out = out[:limit]
     of = lesson_content.get("output_forcing")
     if isinstance(of, dict) and (of.get("text") or "").strip():
+        # always kept: with 5+ examples it was cut off by the limit (01.11.2026)
         out.append(of["text"].strip())
-    return "  ".join(out[:limit + 1])
+    return "  ".join(out)
 
 
 @with_model("test")

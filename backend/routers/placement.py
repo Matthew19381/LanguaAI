@@ -18,6 +18,7 @@ from backend.schemas.placement import (
     UpdateLanguageRequest,
 )
 from backend.services.lesson_generator import analyze_placement_results, generate_placement_test, generate_study_plan
+from backend.services.lesson_generator.placement import CEFR_LEVELS, level_from_score
 from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
@@ -95,8 +96,12 @@ async def submit_placement(
             native_language=native_language
         )
 
-        cefr_level = analysis.get("cefr_level", "A1")
         score = analysis.get("score", 0)
+        # The service already validates the level; checked here too, so no other analysis
+        # path can store "b1" or "B1+" (that made uses_curriculum false: a model plan)
+        cefr_level = str(analysis.get("cefr_level") or "").strip().upper()
+        if cefr_level not in CEFR_LEVELS:
+            cefr_level = level_from_score(float(score or 0))
 
         user = None
         study_plan_data = None

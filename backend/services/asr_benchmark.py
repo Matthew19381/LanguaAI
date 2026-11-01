@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import time
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -57,10 +58,55 @@ SENTENCES = [
 ]
 
 
+_ONES = ["null", "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn",
+         "elf", "zwölf", "dreizehn", "vierzehn", "fünfzehn", "sechzehn", "siebzehn", "achtzehn", "neunzehn"]
+_TENS = {20: "zwanzig", 30: "dreißig", 40: "vierzig", 50: "fünfzig", 60: "sechzig", 70: "siebzig",
+         80: "achtzig", 90: "neunzig"}
+
+
+def german_number(n: int) -> str:
+    """Cardinal number in words, 0-9999 ("vierundzwanzig", "zweitausendsechsundzwanzig")."""
+    if n < 20:
+        return _ONES[n]
+    if n < 100:
+        unit, ten = n % 10, n - n % 10
+        return _TENS[ten] if not unit else ("ein" if unit == 1 else _ONES[unit]) + "und" + _TENS[ten]
+    if n < 1000:
+        head, rest = divmod(n, 100)
+        return ("ein" if head == 1 else _ONES[head]) + "hundert" + (german_number(rest) if rest else "")
+    head, rest = divmod(n, 1000)
+    return ("ein" if head == 1 else german_number(head)) + "tausend" + (german_number(rest) if rest else "")
+
+
+def _ordinal_stem(n: int) -> str:
+    special = {1: "erst", 3: "dritt", 7: "siebt", 8: "acht"}
+    if n in special:
+        return special[n]
+    return german_number(n) + ("t" if n < 20 else "st")
+
+
+def _number_words() -> dict[str, str]:
+    words = {}
+    for n in range(0, 2101):
+        forms = [german_number(n)] + ([_ordinal_stem(n) + e for e in ("e", "en", "er", "es", "em")] if n else [])
+        for form in forms:
+            words[form] = str(n)
+            for long, short in (("eintausend", "tausend"), ("einhundert", "hundert")):
+                if form.startswith(long):  # "hundertzwanzig" as well as "einhundertzwanzig"
+                    words[short + form[len(long):]] = str(n)
+    return words
+
+
+NUMBER_WORDS = _number_words()
+
+
 def normalize(text: str) -> list[str]:
-    text = (text or "").lower()
+    """Words for WER: NFC (an umlaut sent as NFD counted as two errors), lower case, no
+    punctuation, and numbers as digits on both sides ("halb sieben" = "halb 7",
+    "vierundzwanzigsten" = "24."), since the browser writes digits (01.11.2026)."""
+    text = unicodedata.normalize("NFC", text or "").lower()
     text = re.sub(r"[^\w\s]", " ", text)
-    return text.split()
+    return [NUMBER_WORDS.get(w, w) for w in text.split()]
 
 
 def word_errors(reference: str, hypothesis: str) -> tuple[int, int]:
