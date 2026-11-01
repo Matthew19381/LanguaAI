@@ -9,7 +9,7 @@ def test_tts_basic(client, sample_user):
         "backend.services.audio_service.generate_audio",
         return_value=None,  # File created successfully
     ), patch(
-        "os.path.exists", return_value=True
+        "backend.routers.audio.audio_ready", return_value=True
     ):
         r = client.post("/api/audio/tts", json={
             "text": "Hello, how are you?",
@@ -42,7 +42,7 @@ def test_tts_cached(client, sample_user):
         "backend.services.audio_service.generate_audio",
         return_value=None,
     ), patch(
-        "os.path.exists", return_value=True
+        "backend.routers.audio.audio_ready", return_value=True
     ):
         # First call
         r1 = client.post("/api/audio/tts", json={
@@ -67,7 +67,7 @@ def test_tts_service_error(client):
         "backend.routers.audio.generate_audio",
         new_callable=AsyncMock,
         side_effect=Exception("Service error")
-    ), patch("os.path.exists", return_value=False):
+    ), patch("backend.routers.audio.audio_ready", return_value=False):
         r = client.post("/api/audio/tts", json={
             "text": "Hello",
             "language": "German"
@@ -82,7 +82,7 @@ def test_tts_different_languages(client):
             "backend.services.audio_service.generate_audio",
             return_value=None,
         ), patch(
-            "os.path.exists", return_value=True
+            "backend.routers.audio.audio_ready", return_value=True
         ):
             r = client.post("/api/audio/tts", json={
                 "text": "Hello",

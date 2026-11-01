@@ -41,3 +41,31 @@ async def test_package_reads_grammar_in_learners_voice_and_lesson_sentences(audi
     assert set(files) == {"grammar", "vocabulary", "dialogue"}
     assert ("Po „weil” czasownik idzie na koniec.", "Polish") in audio_dir
     assert ("Ich bleibe zu Hause, weil es regnet.  Es regnet heute.", "German") in audio_dir
+
+
+async def test_failed_tts_leaves_no_empty_cached_file(tmp_path, monkeypatch):
+    """edge-tts creates the file before audio arrives; a failure must not leave it as 'cached'."""
+    import sys
+    import types
+
+    calls = []
+
+    class FailingCommunicate:
+        def __init__(self, text, voice):
+            pass
+
+        async def save(self, path):
+            calls.append(path)
+            open(path, "wb").close()              # what edge-tts does before it fails
+            raise ConnectionError("offline")
+
+    monkeypatch.setitem(sys.modules, "edge_tts", types.SimpleNamespace(Communicate=FailingCommunicate))
+    monkeypatch.setattr(audio_service, "AUDIO_DIR", str(tmp_path))
+    monkeypatch.setattr(audio_service.asyncio, "sleep", AsyncMock())
+    out = tmp_path / "tts_x.mp3"
+    with pytest.raises(ConnectionError):
+        await audio_service.generate_audio("Guten Tag", "German", str(out))
+    assert len(calls) == 3 and list(tmp_path.iterdir()) == []
+    assert audio_service.audio_ready(str(out)) is False
+    out.write_bytes(b"")                           # a 0-byte file left by the old code
+    assert audio_service.audio_ready(str(out)) is False

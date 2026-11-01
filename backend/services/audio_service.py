@@ -38,6 +38,16 @@ def lesson_audio_name(lesson_id: int, kind: str, text: str) -> str:
     return f"lesson_{lesson_id}_{kind}_{digest}.mp3"
 
 
+def audio_ready(path: str) -> bool:
+    """A cached recording is usable: it exists and is not empty. edge-tts creates the
+    file before any audio arrives, so a failed call used to leave a 0-byte file that
+    was then served as cached forever (01.11.2026)."""
+    try:
+        return os.path.getsize(path) > 0
+    except OSError:
+        return False
+
+
 async def generate_audio(text: str, language: str, output_path: str) -> str:
     """Generate audio for the given text using edge-tts. Retries up to 3 times on transient errors."""
     import edge_tts
@@ -47,7 +57,15 @@ async def generate_audio(text: str, language: str, output_path: str) -> str:
     for attempt in range(3):
         try:
             communicate = edge_tts.Communicate(text, voice)
-            await asyncio.wait_for(communicate.save(output_path), timeout=15.0)
+            part = f"{output_path}.part"   # renamed only when complete
+            try:
+                await asyncio.wait_for(communicate.save(part), timeout=15.0)
+                if not audio_ready(part):
+                    raise RuntimeError("edge-tts returned no audio")
+                os.replace(part, output_path)
+            finally:
+                if os.path.exists(part):
+                    os.remove(part)
             logger.info(f"Audio generated: {output_path}")
             return output_path
         except asyncio.TimeoutError:
@@ -75,7 +93,7 @@ async def generate_vocabulary_audio(vocabulary: list, language: str, lesson_id: 
         filename = lesson_audio_name(lesson_id, f"vocab_{i}", word)
         output_path = os.path.join(AUDIO_DIR, filename)
 
-        if os.path.exists(output_path):
+        if audio_ready(output_path):
             audio_files.append({"word": word, "audio_path": f"/audio/{filename}"})
             continue
 
@@ -103,7 +121,7 @@ async def generate_dialogue_audio(dialogue_lines: list, language: str, lesson_id
         filename = lesson_audio_name(lesson_id, f"dialogue_{i}", text)
         output_path = os.path.join(AUDIO_DIR, filename)
 
-        if os.path.exists(output_path):
+        if audio_ready(output_path):
             audio_files.append({"speaker": speaker, "text": text, "audio_path": f"/audio/{filename}"})
             continue
 
@@ -123,7 +141,7 @@ async def generate_flashcard_audio(word: str, language: str, flashcard_id: int) 
     filename = f"flashcard_{flashcard_id}_{word[:20].replace(' ', '_')}.mp3"
     output_path = os.path.join(AUDIO_DIR, filename)
 
-    if os.path.exists(output_path):
+    if audio_ready(output_path):
         return f"/audio/{filename}"
 
     try:
@@ -164,7 +182,7 @@ async def generate_full_lesson_audio(lesson_content: dict, language: str, lesson
         try:
             filename = lesson_audio_name(lesson_id, "reading", ci_text[:500])
             output_path = os.path.join(AUDIO_DIR, filename)
-            if not os.path.exists(output_path):
+            if not audio_ready(output_path):
                 await generate_audio(ci_text[:500], language, output_path)
             result["reading"] = f"/audio/{filename}"
         except Exception as e:
@@ -177,7 +195,7 @@ async def generate_full_lesson_audio(lesson_content: dict, language: str, lesson
         try:
             filename = lesson_audio_name(lesson_id, "output_forcing", of_text[:300])
             output_path = os.path.join(AUDIO_DIR, filename)
-            if not os.path.exists(output_path):
+            if not audio_ready(output_path):
                 await generate_audio(of_text[:300], language, output_path)
             result["output_forcing"] = f"/audio/{filename}"
         except Exception as e:
@@ -204,7 +222,7 @@ async def generate_lesson_package_audio(lesson_content: dict, language: str, les
         filename = lesson_audio_name(lesson_id, "pkg_gramatyka", explanation[:1500])
         output_path = os.path.join(AUDIO_DIR, filename)
         try:
-            if not os.path.exists(output_path):
+            if not audio_ready(output_path):
                 await generate_audio(explanation[:1500], native_language, output_path)
             result["grammar"] = output_path
         except Exception as e:
@@ -224,7 +242,7 @@ async def generate_lesson_package_audio(lesson_content: dict, language: str, les
             filename = lesson_audio_name(lesson_id, "pkg_slownictwo", vocab_text[:1500])
             output_path = os.path.join(AUDIO_DIR, filename)
             try:
-                if not os.path.exists(output_path):
+                if not audio_ready(output_path):
                     await generate_audio(vocab_text[:1500], language, output_path)
                 result["vocabulary"] = output_path
             except Exception as e:
@@ -247,7 +265,7 @@ async def generate_lesson_package_audio(lesson_content: dict, language: str, les
             filename = lesson_audio_name(lesson_id, "pkg_dialog", dialogue_text[:1500])
             output_path = os.path.join(AUDIO_DIR, filename)
             try:
-                if not os.path.exists(output_path):
+                if not audio_ready(output_path):
                     await generate_audio(dialogue_text[:1500], language, output_path)
                 result["dialogue"] = output_path
             except Exception as e:

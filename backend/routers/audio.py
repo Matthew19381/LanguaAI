@@ -6,7 +6,7 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.services.audio_service import AUDIO_DIR, generate_audio
+from backend.services.audio_service import AUDIO_DIR, audio_ready, generate_audio
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -27,7 +27,7 @@ async def text_to_speech(request: TTSRequest):
     filename = f"tts_{text_hash}.mp3"
     output_path = os.path.join(AUDIO_DIR, filename)
 
-    if not os.path.exists(output_path):
+    if not audio_ready(output_path):
         try:
             await generate_audio(request.text.strip(), request.language, output_path)
         except httpx.RequestError as e:

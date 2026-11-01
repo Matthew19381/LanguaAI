@@ -2,6 +2,7 @@ import logging
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -56,7 +57,9 @@ async def analyze_pronunciation(
     try:
         from backend.services.pronunciation_service import LANGUAGE_CODES
         lang_code = LANGUAGE_CODES.get(user.target_language, "de")
-        transcribed = transcribe_audio(audio_bytes, audio_format=fmt, language=lang_code)
+        # Whisper is CPU-bound (and loads the model on first use): in a thread, so the
+        # rest of the app keeps answering meanwhile
+        transcribed = await run_in_threadpool(transcribe_audio, audio_bytes, audio_format=fmt, language=lang_code)
         result = score_pronunciation(transcribed, target_text)
         result["language"] = user.target_language
         return {"success": True, **result}
@@ -65,7 +68,10 @@ async def analyze_pronunciation(
             status_code=503,
             detail="Pronunciation service unavailable. Please run: pip install faster-whisper==1.0.3"
         )
-    except (httpx.RequestError, ValueError, OSError) as e:
+    except ValueError as e:   # recording that cannot be decoded
+        logger.warning("Pronunciation audio rejected: %s", e)
+        raise HTTPException(status_code=400, detail="Nie udało się odczytać nagrania. Nagraj jeszcze raz.")
+    except (httpx.RequestError, OSError) as e:
         logger.exception("Error in pronunciation analysis: %s", e)
         raise HTTPException(status_code=500, detail="Failed to analyze pronunciation")
 
