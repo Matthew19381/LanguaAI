@@ -10,6 +10,29 @@ from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+class AIServiceUnavailable(httpx.RequestError):
+    """The model service answered with an error (429 limit, 402 no credit, 5xx) or without
+    the expected content. A RequestError, so every router's ``except httpx.RequestError``
+    answers 503 "try again" instead of a bare 500 (01.11.2026)."""
+
+
+def _raise_for_status(response: httpx.Response) -> None:
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        raise AIServiceUnavailable(f"AI service HTTP {e.response.status_code}", request=e.request) from e
+
+
+def _content(data, *path):
+    """data[path...] or AIServiceUnavailable (an error body like {"error": ...} has no choices)."""
+    try:
+        for key in path:
+            data = data[key]
+        return data
+    except (KeyError, IndexError, TypeError):
+        raise AIServiceUnavailable(f"AI response without content: {str(data)[:200]}")
+
 # OpenRouter settings
 _OPENROUTER_URL = f"{settings.OPENROUTER_BASE_URL}/chat/completions"
 # Default model is resolved from model_router's tier default (not hardcoded :free),
@@ -148,10 +171,10 @@ async def _call_gemini_api(url: str, payload: dict, headers: dict, timeout: floa
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             response = await client.post(url, json=payload, headers=headers, params=params)
-            response.raise_for_status()
+            _raise_for_status(response)
             data = response.json()
             # Extract text from Gemini response format
-            return data["candidates"][0]["content"]["parts"][0]["text"]
+            return _content(data, "candidates", 0, "content", "parts", 0, "text")
         except Exception as e:
             logger.error(f"Error calling Gemini API: {e}")
             raise
@@ -163,9 +186,9 @@ async def _call_openrouter_api(url: str, payload: dict, headers: dict, timeout: 
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
+            _raise_for_status(response)
             data = response.json()
-            return data["choices"][0]["message"]["content"]
+            return _content(data, "choices", 0, "message", "content")
         except Exception as e:
             # Include the model id so a catalog typo is visible in logs instead
             # of degrading silently to a hardcoded fallback downstream (A3).
@@ -234,7 +257,7 @@ async def _generate_text_stream_openrouter(prompt: str, model: str = None):
     payload["stream"] = True
     async with httpx.AsyncClient(timeout=120.0) as client:
         async with client.stream("POST", url, json=payload, headers=headers) as response:
-            response.raise_for_status()
+            _raise_for_status(response)
             async for line in response.aiter_lines():
                 if not line.startswith("data:"):
                     continue
@@ -267,7 +290,7 @@ async def _generate_text_stream_gemini(prompt: str, model: str = None):
     params = {"key": settings.GEMINI_API_KEY, "alt": "sse"}
     async with httpx.AsyncClient(timeout=120.0) as client:
         async with client.stream("POST", url, json=payload, headers=headers, params=params) as response:
-            response.raise_for_status()
+            _raise_for_status(response)
             async for line in response.aiter_lines():
                 if not line.startswith("data:"):
                     continue
@@ -313,7 +336,7 @@ async def _generate_image_openrouter(prompt: str) -> bytes:
     }
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(url, json=payload, headers=headers)
-        response.raise_for_status()
+        _raise_for_status(response)
         data = response.json()
     try:
         images = data["choices"][0]["message"]["images"]
@@ -340,7 +363,7 @@ async def _generate_image_gemini(prompt: str) -> bytes:
     }
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(url, json=payload, headers=headers, params=params)
-        response.raise_for_status()
+        _raise_for_status(response)
         data = response.json()
     try:
         parts = data["candidates"][0]["content"]["parts"]
@@ -383,6 +406,17 @@ async def _generate_json_openrouter(prompt: str, model: str = None, fallback: di
     payload = _build_openrouter_payload(full_prompt, model, json_mode=True)
     text = await _call_openrouter_api(url, payload, headers, timeout=120.0)
     return _parse_json_response(text, fallback)
+
+
+def json_object(result) -> dict:
+    """A model's JSON answer that must be one object: a one-item list holding it is
+    unwrapped, anything else is a ValueError (models sometimes wrap the object in a list;
+    callers then crashed on .get with a 500)."""
+    if isinstance(result, list) and len(result) == 1:
+        result = result[0]
+    if not isinstance(result, dict):
+        raise ValueError(f"AI returned {type(result).__name__} instead of a JSON object")
+    return result
 
 
 def _parse_json_response(text: str, fallback: dict | None = None) -> dict:

@@ -1,12 +1,12 @@
 """Pydantic schemas for voice chat router."""
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class VoiceChatMessageRequest(BaseModel):
     user_id: Optional[int] = None
-    message: Optional[str] = None
+    message: Optional[str] = Field(None, max_length=2000)
     language: str = "German"
 
 

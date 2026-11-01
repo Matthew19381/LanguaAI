@@ -18,7 +18,7 @@ class MessageRequest(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     session_id: str
-    user_id: Optional[int] = None
+    user_id: int   # required: without it the ownership check was skipped
 
 
 class QuestionRequest(BaseModel):
@@ -33,6 +33,6 @@ class AnalyzePastedRequest(BaseModel):
 
 class TranslateRequest(BaseModel):
     text: str = Field(..., max_length=200)
-    from_lang: str
-    to_lang: str
+    from_lang: str = Field(..., max_length=40)
+    to_lang: str = Field(..., max_length=40)
     user_id: int

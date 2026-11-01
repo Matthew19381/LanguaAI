@@ -2,7 +2,7 @@ import csv
 import io
 import json
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -49,7 +49,7 @@ async def get_stats(user_id: int, db: Session = Depends(get_db)):
         Flashcard.is_active == True
     ).all()
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)   # dates are stored as naive UTC
     due_flashcards = [f for f in flashcards if f.next_review_date and f.next_review_date <= now]
 
     # Calculate streaks (with freeze support)

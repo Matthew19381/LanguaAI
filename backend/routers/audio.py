@@ -4,7 +4,7 @@ import os
 
 import httpx
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.services.audio_service import AUDIO_DIR, audio_ready, generate_audio
 
@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 class TTSRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=1500)
     language: str = "German"
 
 

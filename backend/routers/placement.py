@@ -113,7 +113,7 @@ async def submit_placement(
                     profiles = {}
                 profiles[language] = cefr_level
                 user.language_profiles = _json.dumps(profiles)
-                db.commit()
+                # Saved together with the plan below: if the plan fails, nothing changes
 
                 # Save test result
                 test_result = TestResult(

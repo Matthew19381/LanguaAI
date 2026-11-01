@@ -329,7 +329,7 @@ async def analyze_session(
         raise HTTPException(status_code=404, detail="Conversation session not found")
 
     # Verify ownership
-    if request.user_id and conv_session.user_id != request.user_id:
+    if conv_session.user_id != request.user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this session")
 
     try:

@@ -1,7 +1,7 @@
 """Conversation scenario generation and analysis."""
 import logging
 
-from backend.services.gemini_service import generate_json, with_model
+from backend.services.gemini_service import AIServiceUnavailable, generate_json, json_object, with_model
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +80,22 @@ Return JSON:
     return scenario
 
 
+ANALYSIS_MAX_MESSAGES = 60     # the last turns of a long chat
+ANALYSIS_MAX_CHARS = 600       # per message
+
+
+def conversation_transcript(history: list) -> str:
+    """The chat as plain lines for the analysis prompt, bounded: a long session used to
+    send its whole history (both sides, unlimited) in one call."""
+    lines = []
+    for msg in (history or [])[-ANALYSIS_MAX_MESSAGES:]:
+        if not isinstance(msg, dict):
+            continue
+        who = "LEARNER" if msg.get("role") == "user" else "PARTNER"
+        lines.append(f"{who}: {str(msg.get('content') or '')[:ANALYSIS_MAX_CHARS]}")
+    return "\n".join(lines)
+
+
 def _skill_tagging(language: str) -> tuple[str, str]:
     """Catalog list and the extra JSON field that make the analysis tag each error
     with a curriculum grammar id (German only; services/mastery.py uses it)."""
@@ -101,7 +117,9 @@ async def analyze_conversation(
     prompt = f"""Analyze this {language} conversation practice session for a {native_language} speaker at CEFR {cefr_level}.
 
 Conversation:
-{conversation_history}
+{conversation_transcript(conversation_history)}
+
+Judge only the LEARNER lines; PARTNER lines are context.
 
 Produce a DETAILED analysis with SPECIFIC error categories. Use these category types:
 - "grammar" — grammatical rule violations (wrong case, wrong tense, wrong conjugation)
@@ -142,22 +160,13 @@ Return JSON:
 
 Note: category_advice should only include categories where errors were found."""
 
+    # No made-up result when the model fails: it used to return score 70, which was saved
+    # as a real result with XP. Now the router answers 503 and keeps the session to retry.
     try:
-        return await generate_json(prompt)
+        return json_object(await generate_json(prompt))
     except Exception as e:
         logger.error(f"Error analyzing conversation: {e}")
-        return {
-            "summary": "Conversation analysis complete. Good effort in practicing!",
-            "errors": [],
-            "category_advice": {},
-            "recommendations": [
-                "Continue practicing daily conversations",
-                "Focus on grammar accuracy",
-                "Expand vocabulary in this topic area",
-            ],
-            "score": 70,
-            "strengths": ["Attempted communication", "Used target language"],
-        }
+        raise AIServiceUnavailable(f"conversation analysis failed: {e}") from e
 
 
 @with_model("conversation")
@@ -202,14 +211,7 @@ Return JSON:
 }}"""
 
     try:
-        return await generate_json(prompt)
+        return json_object(await generate_json(prompt))
     except Exception as e:
         logger.error(f"Error analyzing pasted conversation: {e}")
-        return {
-            "summary": "Analiza zakończona.",
-            "errors": [],
-            "category_advice": {},
-            "recommendations": ["Ćwicz codziennie konwersacje"],
-            "score": 0,
-            "strengths": [],
-        }
+        raise AIServiceUnavailable(f"pasted text analysis failed: {e}") from e

@@ -1,9 +1,19 @@
 """Placement test generation and analysis."""
 import logging
 
-from backend.services.gemini_service import generate_json, with_model
+from backend.services.gemini_service import generate_json, json_object, with_model
 
 logger = logging.getLogger(__name__)
+
+CEFR_LEVELS = ("A1", "A2", "B1", "B2", "C1", "C2")
+
+
+def level_from_score(score: float) -> str:
+    """Level from the share of correct answers, used when the model's level is missing."""
+    for limit, level in ((40, "A1"), (55, "A2"), (70, "B1"), (85, "B2"), (95, "C1")):
+        if score < limit:
+            return level
+    return "C2"
 
 
 @with_model("placement")
@@ -54,7 +64,7 @@ GOOD EXAMPLE (word_order for B1):
 {{"question": "Ułóż słowa w poprawnej kolejności: weil / ich / müde / bin / heute", "options": ["A. weil ich heute müde bin", "B. weil bin ich heute müde", "C. weil ich bin heute müde", "D. weil heute ich müde bin"], "correct": "A", "points": 2, "cefr_hint": "B1"}}
 
 GOOD EXAMPLE (correct_sentence for B2):
-{{"question": "Które zdanie jest gramatycznie poprawne (strona bierna)?", "options": ["A. Das Buch wurde von ihm gelesen.", "B. Das Buch ist von ihm gelesen worden.", "C. Das Buch wird von ihm gelesen gewesen.", "D. Das Buch hat von ihm gelesen werden."], "correct": "A", "points": 3, "cefr_hint": "B2"}}
+{{"question": "Które zdanie to strona bierna w czasie Perfekt?", "options": ["A. Das Buch wurde von ihm gelesen.", "B. Das Buch ist von ihm gelesen worden.", "C. Das Buch wird von ihm gelesen gewesen.", "D. Das Buch hat von ihm gelesen werden."], "correct": "B", "points": 3, "cefr_hint": "B2"}}
 
 GOOD EXAMPLE (comprehension for A2):
 {{"question": "Anna kupiła wczoraj chleb i mleko. Poszła do sklepu rano, bo był pusty. Pytanie: Kiedy Anna poszła do sklepu?", "options": ["A. Wieczorem", "B. W południe", "C. Rano", "D. Wczoraj wieczorem"], "correct": "C", "points": 1, "cefr_hint": "A2"}}
@@ -120,19 +130,19 @@ def _generate_fallback_questions(language: str, native_language: str) -> list:
             {"id": 5, "type": "fill_blank", "question": "Uzupełnij (biernik): Ich sehe ___ Hund.", "options": ["A. der", "B. den", "C. dem", "D. die"], "correct": "B", "points": 1, "cefr_hint": "A2"},
             {"id": 6, "type": "fill_blank", "question": "Uzupełnij (celownik): Ich gebe ___ Kind ein Geschenk.", "options": ["A. der", "B. die", "C. dem", "D. das"], "correct": "C", "points": 1, "cefr_hint": "A2"},
             {"id": 7, "type": "fill_blank", "question": "Czas Perfekt: Ich ___ nach Hause ___.", "options": ["A. habe / gegangen", "B. bin / gegangen", "C. habe / gehen", "D. bin / gehen"], "correct": "B", "points": 1, "cefr_hint": "A2"},
-            {"id": 8, "type": "fill_blank", "question": "Przyimek: Er geht ___ Schule.", "options": ["A. nach", "B. zu", "C. in", "D. an"], "correct": "B", "points": 1, "cefr_hint": "A2"},
+            {"id": 8, "type": "fill_blank", "question": "Przyimek: Er geht ___ Schule.", "options": ["A. nach", "B. zur", "C. in", "D. an"], "correct": "B", "points": 1, "cefr_hint": "A2"},
             {"id": 9, "type": "word_order", "question": "Ułóż zdanie: weil / ich / müde / bin", "options": ["A. weil ich müde bin", "B. weil bin ich müde", "C. weil ich bin müde", "D. weil müde ich bin"], "correct": "A", "points": 2, "cefr_hint": "B1"},
             {"id": 10, "type": "fill_blank", "question": "Konjunktiv II: Ich ___ gern mehr Zeit.", "options": ["A. hätte", "B. habe", "C. hatte", "D. hat"], "correct": "A", "points": 2, "cefr_hint": "B1"},
             {"id": 11, "type": "fill_blank", "question": "Zwrotny czasownik: Er ___ sich die Hände.", "options": ["A. wäscht", "B. wascht", "C. waschen", "D. wäschen"], "correct": "A", "points": 2, "cefr_hint": "B1"},
             {"id": 12, "type": "fill_blank", "question": "Przyimek dwupadkowy: Er sitzt ___ Stuhl. (Dativ)", "options": ["A. auf den", "B. auf dem", "C. auf das", "D. auf die"], "correct": "B", "points": 2, "cefr_hint": "B1"},
             {"id": 13, "type": "fill_blank", "question": "Dopełniacz: Die Farbe ___ Hauses (neutrum)", "options": ["A. des", "B. der", "C. dem", "D. die"], "correct": "A", "points": 2, "cefr_hint": "B1"},
-            {"id": 14, "type": "correct_sentence", "question": "Które zdanie jest poprawne (strona bierna)?", "options": ["A. Das Buch wurde gelesen.", "B. Das Buch ist gelesen worden.", "C. Das Buch hat gelesen werden.", "D. Das Buch wird gelesen gewesen."], "correct": "A", "points": 3, "cefr_hint": "B2"},
-            {"id": 15, "type": "fill_blank", "question": "Tryb łączący (Konj.II): Er sagte, er ___ krank.", "options": ["A. ist", "B. sei", "C. wäre", "D. war"], "correct": "B", "points": 3, "cefr_hint": "B2"},
-            {"id": 16, "type": "fill_blank", "question": "Rozszerzone wyprzedzenie: Die ___ Blumen sind schön.", "options": ["A. rot", "B. roten", "C. roter", "D. rotes"], "correct": "B", "points": 3, "cefr_hint": "B2"},
+            {"id": 14, "type": "correct_sentence", "question": "Które zdanie to strona bierna w czasie Perfekt?", "options": ["A. Das Buch wurde gelesen.", "B. Das Buch ist gelesen worden.", "C. Das Buch hat gelesen werden.", "D. Das Buch wird gelesen gewesen."], "correct": "B", "points": 3, "cefr_hint": "B2"},
+            {"id": 15, "type": "fill_blank", "question": "Mowa zależna (Konjunktiv I): Er sagte, er ___ krank.", "options": ["A. ist", "B. sei", "C. sein", "D. war"], "correct": "B", "points": 3, "cefr_hint": "B2"},
+            {"id": 16, "type": "fill_blank", "question": "Odmiana przymiotnika: Die ___ Blumen sind schön.", "options": ["A. rot", "B. roten", "C. roter", "D. rotes"], "correct": "B", "points": 1, "cefr_hint": "A2"},
             {"id": 17, "type": "fill_blank", "question": "Rzeczownik odsłownik: Das ___ ist wichtig.", "options": ["A. Lesen", "B. lesen", "C. gelesen", "D. lesend"], "correct": "A", "points": 3, "cefr_hint": "B2"},
-            {"id": 18, "type": "fill_blank", "question": "Partykuła modalna: Das ist ___ wahr.", "options": ["A. doch", "B. ja", "C. wohl", "D. schon"], "correct": "C", "points": 4, "cefr_hint": "C1"},
+            {"id": 18, "type": "fill_blank", "question": "Partykuła modalna (przypuszczenie, \"chyba\"): Er hustet die ganze Zeit, er ist ___ krank.", "options": ["A. doch", "B. ja", "C. wohl", "D. halt"], "correct": "C", "points": 4, "cefr_hint": "C1"},
             {"id": 19, "type": "comprehension", "question": "Trotz der Schwierigkeiten hat er seine Ziele erreicht. Co oznacza 'trotz'?", "options": ["A. Dzięki", "B. Pomimo", "C. Z powodu", "D. Przed"], "correct": "B", "points": 4, "cefr_hint": "C1"},
-            {"id": 20, "type": "correct_sentence", "question": "Które zdanie zawiera subtelny błąd?", "options": ["A. Kaum dass er ankam, rief er an.", "B. Er aß, nachdem er gekocht hatte.", "C. Je mehr er lernte, desto besser wurde er.", "D. Er behauptete, er habe es nicht gewusst."], "correct": "A", "points": 5, "cefr_hint": "C2"},
+            {"id": 20, "type": "correct_sentence", "question": "Które zdanie zawiera subtelny błąd?", "options": ["A. Nachdem er gegessen hat, ging er schlafen.", "B. Er aß, nachdem er gekocht hatte.", "C. Je mehr er lernte, desto besser wurde er.", "D. Er behauptete, er habe es nicht gewusst."], "correct": "A", "points": 5, "cefr_hint": "C2"},
         ]
     elif lang_lower == "english":
         return [
@@ -151,7 +161,7 @@ def _generate_fallback_questions(language: str, native_language: str) -> list:
             {"id": 13, "type": "fill_blank", "question": "The report must ___ by Friday.", "options": ["A. finish", "B. be finished", "C. finished", "D. finishing"], "correct": "B", "points": 2, "cefr_hint": "B1"},
             {"id": 14, "type": "fill_blank", "question": "Not until midnight ___ the results.", "options": ["A. we received", "B. did we receive", "C. we did receive", "D. received we"], "correct": "B", "points": 3, "cefr_hint": "B2"},
             {"id": 15, "type": "fill_blank", "question": "The proposal is worthy ___ consideration.", "options": ["A. of", "B. for", "C. to", "D. with"], "correct": "A", "points": 3, "cefr_hint": "B2"},
-            {"id": 16, "type": "fill_blank", "question": "He denied ___ the money.", "options": ["A. take", "B. to take", "C. taking", "D. having taken"], "correct": "D", "points": 3, "cefr_hint": "B2"},
+            {"id": 16, "type": "fill_blank", "question": "He denied ___ the money.", "options": ["A. take", "B. to take", "C. took", "D. having taken"], "correct": "D", "points": 3, "cefr_hint": "B2"},
             {"id": 17, "type": "fill_blank", "question": "___ the circumstances, we did well.", "options": ["A. Given", "B. Giving", "C. Having given", "D. To give"], "correct": "A", "points": 3, "cefr_hint": "B2"},
             {"id": 18, "type": "fill_blank", "question": "The ___ of evidence was overwhelming.", "options": ["A. weigh", "B. weight", "C. weighted", "D. weighing"], "correct": "B", "points": 4, "cefr_hint": "C1"},
             {"id": 19, "type": "fill_blank", "question": "She spoke so ___ that everyone was captivated.", "options": ["A. eloquent", "B. eloquently", "C. eloquence", "D. elocution"], "correct": "B", "points": 4, "cefr_hint": "C1"},
@@ -217,24 +227,16 @@ Return JSON:
 }}"""
 
     try:
-        return await generate_json(prompt)
+        result = json_object(await generate_json(prompt))
+        # The score is counted from the answers; the model's own number and a level
+        # outside A1-C2 (e.g. "B1+", which no plan knows) are not trusted (01.11.2026)
+        result["score"] = round(score, 1)
+        level = str(result.get("cefr_level") or "").strip().upper()
+        result["cefr_level"] = level if level in CEFR_LEVELS else level_from_score(score)
+        return result
     except Exception as e:
         logger.error(f"Error analyzing placement results: {e}")
-        if score < 20:
-            level = "A1"
-        elif score < 40:
-            level = "A1"
-        elif score < 55:
-            level = "A2"
-        elif score < 70:
-            level = "B1"
-        elif score < 85:
-            level = "B2"
-        elif score < 95:
-            level = "C1"
-        else:
-            level = "C2"
-
+        level = level_from_score(score)
         return {
             "cefr_level": level,
             "score": score,

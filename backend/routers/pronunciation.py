@@ -34,7 +34,7 @@ async def analyze_pronunciation(
 
     # Limit audio upload to 10 MB to prevent memory exhaustion
     MAX_AUDIO_SIZE = 10 * 1024 * 1024  # 10 MB
-    audio_bytes = await audio.read()
+    audio_bytes = await audio.read(MAX_AUDIO_SIZE + 1)   # never more than the limit in memory
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="Empty audio file received.")
     if len(audio_bytes) > MAX_AUDIO_SIZE:

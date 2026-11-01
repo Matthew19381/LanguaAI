@@ -5,7 +5,7 @@ Prompt zawiera: co użytkownik dzisiaj robił, problemy, słownictwo.
 import base64
 import json
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -84,7 +84,7 @@ def generate_voice_chat_prompt(user_id: int, db: Session = Depends(get_db)):
         Flashcard.user_id == user_id,
         Flashcard.is_active == True,
         Flashcard.next_review_date != None,
-        Flashcard.next_review_date <= datetime.now()
+        Flashcard.next_review_date <= datetime.now(timezone.utc)
     ).limit(10).all()
 
     flashcard_info = ""
@@ -167,7 +167,18 @@ async def voice_chat_voice_conversation(request: VoiceChatMessageRequest):
         # Generuj audio z tekstu (edge-tts)
         audio_bytes = None
         try:
-            audio_bytes = await audio_service.generate_audio(ai_text, language)
+            # generate_audio writes a file; read it back and remove it
+            import os
+            import tempfile
+            fd, tmp = tempfile.mkstemp(suffix=".mp3")
+            os.close(fd)
+            try:
+                await audio_service.generate_audio(ai_text, language, tmp)
+                with open(tmp, "rb") as f:
+                    audio_bytes = f.read()
+            finally:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
         except Exception as e:
             logger.warning(f"Audio generation failed: {e}")
 
