@@ -28,6 +28,7 @@ from backend.services.audio_service import (
 from backend.services.gemini_service import generate_json as ai_generate_json
 from backend.services.gemini_service import with_model
 from backend.services.lesson_generator import (
+    LessonGenerationError,
     generate_daily_lesson,
     generate_iplus1_content,
 )
@@ -47,6 +48,9 @@ from backend.utils import get_user_or_404
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+LESSON_UNAVAILABLE = ("Nie udało się wygenerować lekcji: model AI nie odpowiada "
+                      "(klucz, środki na koncie albo awaria). Nic nie zapisano, spróbuj za chwilę.")
 
 
 def get_day_number(user: User, db: Session = None, language: str = None) -> int:
@@ -106,16 +110,19 @@ async def get_today_lesson(user_id: int, background_tasks: BackgroundTasks, db: 
     context = gather_lesson_context(db, user)
 
     # Generate new lesson
-    lesson_content = await generate_daily_lesson(
-        user_id=user_id,
-        target_language=user.target_language,
-        native_language=user.native_language,
-        cefr_level=user.cefr_level,
-        day_number=day_number,
-        db=db,
-        study_plan_data=study_plan_data,
-        **context,
-    )
+    try:
+        lesson_content = await generate_daily_lesson(
+            user_id=user_id,
+            target_language=user.target_language,
+            native_language=user.native_language,
+            cefr_level=user.cefr_level,
+            day_number=day_number,
+            db=db,
+            study_plan_data=study_plan_data,
+            **context,
+        )
+    except LessonGenerationError:
+        raise HTTPException(status_code=503, detail=LESSON_UNAVAILABLE)
 
     # Save lesson + flashcards + exercises (handle race condition via unique constraint)
     try:
@@ -596,16 +603,19 @@ async def generate_next_lesson(user_id: int, background_tasks: BackgroundTasks, 
     context = gather_lesson_context(db, user)
 
     # Generate lesson
-    lesson_content = await generate_daily_lesson(
-        user_id=user_id,
-        day_number=next_day,
-        study_plan_data=study_plan_data,
-        cefr_level=user.cefr_level,
-        target_language=user.target_language,
-        native_language=user.native_language,
-        db=db,
-        **context,
-    )
+    try:
+        lesson_content = await generate_daily_lesson(
+            user_id=user_id,
+            day_number=next_day,
+            study_plan_data=study_plan_data,
+            cefr_level=user.cefr_level,
+            target_language=user.target_language,
+            native_language=user.native_language,
+            db=db,
+            **context,
+        )
+    except LessonGenerationError:
+        raise HTTPException(status_code=503, detail=LESSON_UNAVAILABLE)
 
     lesson = create_and_persist_lesson(db, user, next_day, lesson_content)
 

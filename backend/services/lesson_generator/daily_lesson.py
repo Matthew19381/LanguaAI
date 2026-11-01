@@ -135,6 +135,10 @@ def review_warmup(skill_review: dict | None) -> str:
     return "".join(lines)
 
 
+class LessonGenerationError(RuntimeError):
+    """Every attempt to generate the lesson raised (no key, no credit, model down)."""
+
+
 @with_model("lesson")
 async def generate_daily_lesson(
     user_id: int,
@@ -381,73 +385,11 @@ async def generate_daily_lesson(
             # A7: automatic check of the German before the learner sees it
             await check_lesson(lesson, native_language, settings.LANGUAGETOOL_URL)
         return lesson
-    else:
-        logger.error("Error generating daily lesson: all %d attempts raised", 1 + CONTENT_RETRIES)
-        # Fallback lesson
-        return {
-            "pretest": [{
-                "word": "Hallo",
-                "prompt": "Zgadnij, co znaczy to słowo (błędna odpowiedź jest OK):",
-                "options": ["Hello", "Goodbye", "Please", "Thank you"],
-                "answer": "Hello"
-            }],
-            "warmup": {
-                "activity": "Review yesterday's vocabulary",
-                "duration_minutes": 3,
-                "content": "Go over the 5 words from yesterday's lesson"
-            },
-            "vocabulary": [{
-                "word": "Hallo",
-                "translation": "Hello",
-                "example_sentence": "Hallo! Wie heißen Sie?",
-                "audio_cue": "After greeting"
-            }],
-            "grammar": {
-                "topic": "Basic sentence structure",
-                "explanation": "Simple sentences follow Subject-Verb-Object order",
-                "examples": [{
-                    "sentence": "Ich heiße Anna.",
-                    "translation": "My name is Anna."
-                }],
-                "rule": "Subject comes first, then verb, then object",
-                "elaboration_prompt": "Dlaczego Twoim zdaniem czasownik stoi zaraz po podmiocie, a nie na końcu zdania?",
-                "elaboration_answer": "W zdaniach głównych czasownik odmieniony (finite verb) zawsze zajmuje drugą pozycję — to jedna z podstawowych zasad szyku zdania, niezależna od tego, ile innych elementów jest przed nim."
-            },
-            "exercises": [{
-                "type": "translation",
-                "instruction": "Translate to German",
-                "items": [{
-                    "prompt": "Hello",
-                    "answer": "Hallo"
-                }],
-                "feedback": "Hallo is the correct greeting"
-            }],
-            "cultural_note": {
-                "title": "German-speaking countries",
-                "content": "German is spoken in Germany, Austria, Switzerland, Liechtenstein, and parts of Belgium and Italy.",
-                "relevance": "Understanding where the language is spoken helps with motivation"
-            },
-            "speaking_practice": [{
-                "prompt": "Say your name in German",
-                "focus": "pronunciation",
-                "sample_answer": "Ich heiße [Your Name]"
-            }],
-            "writing_exercise": {
-                "prompt": "Write a simple sentence introducing yourself",
-                "guidelines": "Use the structure: Ich heiße [name]. Ich komme aus [country].",
-                "sample_response": "Ich heiße Max. Ich komme aus Polen."
-            },
-            "wrap_up": {
-                "summary": "Learned basic greetings and self-introduction",
-                "preview": "Tomorrow: numbers 1-10 and basic questions",
-                "motivational_message": "Great job starting your language journey!"
-            },
-            "interleaved_review": [],
-            "output_forcing": {
-                "instruction": "Przeczytaj 3 zdania poniżej, zakryj je i spróbuj odtworzyć z pamięci.",
-                "text": "Hallo, ich heiße Max und ich komme aus Polen. In meiner Freizeit lerne ich Deutsch. Meine Familie wohnt in Warschau."
-            }
-        }
+    logger.error("Error generating daily lesson: all %d attempts raised", 1 + CONTENT_RETRIES)
+    # No made-up lesson: a generic placeholder ("Hallo", English instructions) used to be
+    # saved as the real lesson of this day, also by the background preparation (0016),
+    # so one AI outage consumed a day of the plan. Nothing is saved; the page asks to retry.
+    raise LessonGenerationError("AI model unavailable: the lesson was not generated")
 
 
 @with_model("lesson")

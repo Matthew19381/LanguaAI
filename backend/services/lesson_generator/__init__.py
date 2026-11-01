@@ -15,6 +15,7 @@ from backend.services.lesson_generator.conversation import (
     generate_conversation_scenario,
 )
 from backend.services.lesson_generator.daily_lesson import (
+    LessonGenerationError,
     generate_daily_lesson,
     generate_exercise_variants,
     generate_iplus1_content,
@@ -42,6 +43,7 @@ __all__ = [
     "generate_placement_test",
     "analyze_placement_results",
     "generate_study_plan",
+    "LessonGenerationError",
     "generate_daily_lesson",
     "generate_exercise_variants",
     "generate_iplus1_content",
