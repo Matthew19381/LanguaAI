@@ -161,7 +161,7 @@ export default function Profile() {
           <button
             onClick={downloadBackup}
             disabled={busyExport || !userId}
-            className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 rounded-lg bg-green-700 text-white hover:bg-green-800 disabled:opacity-50 flex items-center gap-2"
           >
             {busyExport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             Pobierz kopię (JSON)

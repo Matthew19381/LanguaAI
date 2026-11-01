@@ -987,22 +987,25 @@ export default function Flashcards() {
               </div>
 
               {/* Progress dots */}
-              <div className="flex gap-1.5 mt-4 justify-center flex-wrap" role="tablist" aria-label={t('flash.cardProgress') || 'Postęp fiszek'}>
+              <div className="flex gap-0.5 mt-4 justify-center flex-wrap" role="tablist" aria-label={t('flash.cardProgress') || 'Postęp fiszek'}>
                 {displayCards.map((card, i) => (
                   <button
                     key={i}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      i === currentIndex
-                        ? 'bg-indigo-400 w-4'
-                        : reviewDone.has(card.id)
-                        ? 'bg-emerald-600'
-                        : 'bg-gray-700'
-                    }`}
+                    // 24×24 hit area (WCAG 2.5.8) around the small dot
+                    className="w-6 h-6 flex items-center justify-center rounded-full"
                     onClick={() => { setCurrentIndex(i); setIsFlipped(false) }}
                     role="tab"
                     aria-selected={i === currentIndex}
                     aria-label={`${t('flash.card') || 'Fiszka'} ${i + 1}${reviewDone.has(card.id) ? ` (${t('flash.reviewed') || 'przejrzana'})` : ''}`}
-                  />
+                  >
+                    <span aria-hidden="true" className={`h-2 rounded-full transition-all ${
+                      i === currentIndex
+                        ? 'dark:bg-indigo-400 bg-indigo-600 w-4'
+                        : reviewDone.has(card.id)
+                        ? 'bg-emerald-600 w-2'
+                        : 'dark:bg-gray-700 bg-gray-300 w-2'
+                    }`} />
+                  </button>
                 ))}
               </div>
             </div>

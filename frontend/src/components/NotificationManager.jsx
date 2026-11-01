@@ -101,6 +101,7 @@ export function NotificationSettings() {
         <div className="flex items-center gap-3">
           <label className="text-gray-400 text-sm w-32">Godzina:</label>
           <select
+            aria-label="Godzina przypomnienia"
             defaultValue={hour}
             onChange={handleChange}
             className="input-field w-32 text-sm"

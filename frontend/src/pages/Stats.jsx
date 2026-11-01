@@ -494,11 +494,12 @@ export default function Stats() {
                   className={`rounded-lg p-3 text-center transition-all ${
                     ach.earned
                       ? 'bg-yellow-900/20 border border-yellow-700/40'
-                      : 'bg-gray-800/50 opacity-40'
+                      : 'dark:bg-gray-800/50 bg-gray-100 border border-transparent'
                   }`}
                   title={displayDesc}
                 >
-                  <div className="text-2xl mb-1">{ach.icon}</div>
+                  {/* Locked: only the icon is faded, the name stays readable */}
+                  <div className={`text-2xl mb-1 ${ach.earned ? '' : 'grayscale opacity-40'}`}>{ach.icon}</div>
                   <p className={`text-xs font-medium ${ach.earned ? 'text-yellow-300' : 'text-gray-500'}`}>
                     {displayTitle}
                   </p>

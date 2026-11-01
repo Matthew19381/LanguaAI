@@ -21,6 +21,9 @@ export function useDarkMode() {
       root.classList.add('light')
     }
     localStorage.setItem(STORAGE_KEY, String(dark))
+    // Phone status bar matches the header instead of a fixed purple
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', dark ? '#111827' : '#ffffff')
   }, [dark])
 
   const toggle = () => setDark(d => !d)

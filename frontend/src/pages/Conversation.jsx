@@ -334,6 +334,7 @@ export default function Conversation() {
               <label className="block text-sm text-gray-400 mb-2">{t('conv.chooseTopic')}</label>
               <select
                 className="input-field"
+                aria-label={t('conv.chooseTopic')}
                 value={topic}
                 onChange={e => setTopic(e.target.value)}
               >

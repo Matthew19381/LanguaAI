@@ -567,6 +567,7 @@ function TopicDetail({ topicId, onClose }) {
             <div className="flex items-center gap-3">
               <label className="text-sm text-gray-600 dark:text-gray-300">Liczba fiszek:</label>
               <select
+                aria-label="Liczba fiszek"
                 value={fcCount}
                 onChange={e => setFcCount(Number(e.target.value))}
                 className="border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2 py-1 text-sm"
@@ -847,6 +848,7 @@ export default function TopicsPage() {
             />
           </div>
           <select
+            aria-label="Kategoria"
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
             className="flex-1 sm:flex-none min-w-0 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:focus:ring-indigo-500 focus:ring-indigo-300"
@@ -857,6 +859,7 @@ export default function TopicsPage() {
             ))}
           </select>
           <select
+            aria-label="Sortowanie"
             value={sortBy}
             onChange={e => setSortBy(e.target.value)}
             className="flex-1 sm:flex-none min-w-0 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:focus:ring-indigo-500 focus:ring-indigo-300"
