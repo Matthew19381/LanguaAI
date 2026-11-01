@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 import os
 
@@ -25,6 +26,16 @@ AUDIO_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "audio")
 
 def ensure_audio_dir():
     os.makedirs(AUDIO_DIR, exist_ok=True)
+
+
+def lesson_audio_name(lesson_id: int, kind: str, text: str) -> str:
+    """File name of a lesson recording, with a hash of the spoken text.
+
+    Files are reused when they exist. Named by lesson id alone, a new lesson that got
+    the id of a deleted one (SQLite reuses the highest free id) played the old lesson's
+    recording, and a corrected lesson text kept the old recording (01.11.2026)."""
+    digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:10]
+    return f"lesson_{lesson_id}_{kind}_{digest}.mp3"
 
 
 async def generate_audio(text: str, language: str, output_path: str) -> str:
@@ -61,7 +72,7 @@ async def generate_vocabulary_audio(vocabulary: list, language: str, lesson_id: 
         if not word:
             continue
 
-        filename = f"lesson_{lesson_id}_vocab_{i}_{word[:20].replace(' ', '_')}.mp3"
+        filename = lesson_audio_name(lesson_id, f"vocab_{i}", word)
         output_path = os.path.join(AUDIO_DIR, filename)
 
         if os.path.exists(output_path):
@@ -89,7 +100,7 @@ async def generate_dialogue_audio(dialogue_lines: list, language: str, lesson_id
         if not text:
             continue
 
-        filename = f"lesson_{lesson_id}_dialogue_{i}.mp3"
+        filename = lesson_audio_name(lesson_id, f"dialogue_{i}", text)
         output_path = os.path.join(AUDIO_DIR, filename)
 
         if os.path.exists(output_path):
@@ -151,7 +162,7 @@ async def generate_full_lesson_audio(lesson_content: dict, language: str, lesson
     ci_text = ci.get("text", "") if isinstance(ci, dict) else ""
     if ci_text:
         try:
-            filename = f"lesson_{lesson_id}_reading.mp3"
+            filename = lesson_audio_name(lesson_id, "reading", ci_text[:500])
             output_path = os.path.join(AUDIO_DIR, filename)
             if not os.path.exists(output_path):
                 await generate_audio(ci_text[:500], language, output_path)
@@ -164,7 +175,7 @@ async def generate_full_lesson_audio(lesson_content: dict, language: str, lesson
     of_text = of.get("text", "") or of.get("sentence", "") if isinstance(of, dict) else ""
     if of_text:
         try:
-            filename = f"lesson_{lesson_id}_output_forcing.mp3"
+            filename = lesson_audio_name(lesson_id, "output_forcing", of_text[:300])
             output_path = os.path.join(AUDIO_DIR, filename)
             if not os.path.exists(output_path):
                 await generate_audio(of_text[:300], language, output_path)
@@ -175,7 +186,8 @@ async def generate_full_lesson_audio(lesson_content: dict, language: str, lesson
     return result
 
 
-async def generate_lesson_package_audio(lesson_content: dict, language: str, lesson_id: int) -> dict:
+async def generate_lesson_package_audio(lesson_content: dict, language: str, lesson_id: int,
+                                        native_language: str = "Polish") -> dict:
     """Generate 3 combined audio files for download: Grammar, Vocabulary, Dialog.
 
     Returns dict with local file paths:
@@ -184,14 +196,16 @@ async def generate_lesson_package_audio(lesson_content: dict, language: str, les
     ensure_audio_dir()
     result = {}
 
-    # 1. Grammar — full explanation text
-    explanation = lesson_content.get("explanation", "")
+    # 1. Grammar — the explanation is in the learner's language, so that voice reads it
+    # (lessons keep it under "grammar"; a top-level "explanation" is the old shape)
+    grammar = lesson_content.get("grammar") if isinstance(lesson_content.get("grammar"), dict) else {}
+    explanation = (grammar.get("explanation") or lesson_content.get("explanation") or "").strip()
     if explanation:
-        filename = f"lesson_{lesson_id}_pkg_gramatyka.mp3"
+        filename = lesson_audio_name(lesson_id, "pkg_gramatyka", explanation[:1500])
         output_path = os.path.join(AUDIO_DIR, filename)
         try:
             if not os.path.exists(output_path):
-                await generate_audio(explanation[:1500], language, output_path)
+                await generate_audio(explanation[:1500], native_language, output_path)
             result["grammar"] = output_path
         except Exception as e:
             logger.warning(f"Grammar package audio failed: {e}")
@@ -207,7 +221,7 @@ async def generate_lesson_package_audio(lesson_content: dict, language: str, les
                 parts.append(f"{word}. {translation}." if translation else f"{word}.")
         vocab_text = "  ".join(parts)
         if vocab_text:
-            filename = f"lesson_{lesson_id}_pkg_slownictwo.mp3"
+            filename = lesson_audio_name(lesson_id, "pkg_slownictwo", vocab_text[:1500])
             output_path = os.path.join(AUDIO_DIR, filename)
             try:
                 if not os.path.exists(output_path):
@@ -216,18 +230,21 @@ async def generate_lesson_package_audio(lesson_content: dict, language: str, les
             except Exception as e:
                 logger.warning(f"Vocabulary package audio failed: {e}")
 
-    # 3. Dialogue — all lines concatenated
+    # 3. Dialogue — all lines concatenated; a daily lesson has no dialogue, so then the
+    # grammar examples and the recall text (target-language sentences of the lesson)
     dialogue = lesson_content.get("dialogue", {})
     lines = dialogue.get("lines", []) if isinstance(dialogue, dict) else dialogue if isinstance(dialogue, list) else []
-    if lines:
-        parts = []
-        for line in lines:
-            text = line.get("text", "")
-            if text:
-                parts.append(text)
+    parts = [line.get("text", "") for line in lines if isinstance(line, dict) and line.get("text")]
+    if not parts:
+        parts = [e.get("sentence", "") for e in grammar.get("examples", []) or []
+                 if isinstance(e, dict) and e.get("sentence")]
+        of = lesson_content.get("output_forcing")
+        if isinstance(of, dict) and of.get("text"):
+            parts.append(of["text"])
+    if parts:
         dialogue_text = "  ".join(parts)
         if dialogue_text:
-            filename = f"lesson_{lesson_id}_pkg_dialog.mp3"
+            filename = lesson_audio_name(lesson_id, "pkg_dialog", dialogue_text[:1500])
             output_path = os.path.join(AUDIO_DIR, filename)
             try:
                 if not os.path.exists(output_path):

@@ -457,7 +457,9 @@ async def download_lesson_audio_package(lesson_id: int, user_id: int, db: Sessio
         raise HTTPException(status_code=403, detail="Not authorized to access this lesson")
 
     content = json.loads(lesson.content)
-    audio_files = await generate_lesson_package_audio(content, lesson.language, lesson_id)
+    owner = db.query(User).filter(User.id == lesson.user_id).first()
+    audio_files = await generate_lesson_package_audio(
+        content, lesson.language, lesson_id, native_language=(owner.native_language if owner else None) or "Polish")
 
     if not audio_files:
         raise HTTPException(status_code=500, detail="Could not generate audio files")
