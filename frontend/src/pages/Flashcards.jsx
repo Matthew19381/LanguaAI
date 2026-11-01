@@ -748,12 +748,12 @@ export default function Flashcards() {
                 <div className="flashcard-container mb-6">
                   <div
                     className={`flashcard ${isFlipped ? 'flipped' : ''}`}
+                    // Tap/click flips. Not a role=button any more: it holds the
+                    // listen button (a button inside a button, WCAG 4.1.2), and
+                    // its own Enter/Space handler ran together with the page-wide
+                    // one (Space/Enter = flip), so a focused card flipped twice.
+                    // Keyboard and screen readers use the "Odpowiedź" button below.
                     onClick={handleFlip}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFlip() } }}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={isFlipped ? (t('flash.showFront') || 'Pokaż przód') : (t('flash.reveal') || 'Odpowiedź')}
-                    aria-expanded={isFlipped}
                   >
                     {/* Front */}
                     <div className="flashcard-front">
