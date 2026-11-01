@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import NavBar from '../NavBar'
@@ -49,6 +49,7 @@ describe('NavBar', () => {
 
   it('renders all nav items', () => {
     renderNavBar()
+    const screen = within(document.querySelector('[data-testid="nav-desktop"]'))
     expect(screen.getByText('Lesson')).toBeInTheDocument()
     expect(screen.getByText('Test')).toBeInTheDocument()
     expect(screen.getByText('Flashcards')).toBeInTheDocument()
@@ -72,6 +73,7 @@ describe('NavBar', () => {
 
   it('nav links have correct href attributes', () => {
     renderNavBar()
+    const screen = within(document.querySelector('[data-testid="nav-desktop"]'))
     const lessonLink = screen.getByText('Lesson').closest('a')
     expect(lessonLink).toHaveAttribute('href', '/lesson')
 
@@ -86,32 +88,60 @@ describe('NavBar', () => {
     expect(nav.className).toContain('sticky')
   })
 
-  // Regression lock for docs/BACKLOG_UX_2026-08.md P3-1: every function must
-  // have a permanently-visible label — not hidden below a breakpoint, not
-  // behind a hover/menu. Covers every route in App.jsx's Layout, including
-  // the Polish-only labels that bypass the t() map.
-  it('every nav destination has a label that is not hidden behind a breakpoint class', () => {
+  // Regression lock for docs/BACKLOG_UX_2026-08.md P3-1 (DoD: every function
+  // reachable from navigation with a readable label). Since 1.11.2026 phones
+  // get a bottom bar + "Wszystko" sheet, md+ keeps the grouped links. Both
+  // lists must contain every route in App.jsx's Layout, each with its label.
+  const allLabels = [
+    'Home', 'Lesson', 'Test', 'Speak', 'Pronounce', 'Egzamin B1', 'News', 'Bank wiedzy',
+    'Flashcards', 'nav.practice', 'nav.dictation', 'Czytaj', '15 min', 'Videos',
+    'Stats', 'Błędy', 'Historia', 'Profil', 'Ustawienia',
+  ]
+
+  it('md+ nav lists every destination with a text label', () => {
     renderNavBar()
-    const allLabels = [
-      'Lesson', 'Test', 'Speak', 'Pronounce', 'News', 'Bank wiedzy',
-      'Flashcards', '15 min', 'Czytaj', 'Błędy', 'Historia', 'Profil', 'Ustawienia',
-    ]
+    const desktop = within(screen.getByTestId('nav-desktop'))
     for (const label of allLabels) {
-      const el = screen.getByText(label)
-      // The label must not sit inside an element whose class hides it at any
-      // breakpoint (the old bug: <span className="hidden md:block">).
+      expect(desktop.getByText(label).closest('a')).toBeTruthy()
+    }
+  })
+
+  it('phone bottom bar has 4 labelled destinations and a "Wszystko" button', () => {
+    renderNavBar()
+    const bar = within(screen.getByTestId('nav-bottom'))
+    expect(bar.getAllByRole('link').map(a => a.textContent)).toEqual(['Home', 'Lesson', 'Flashcards', 'Speak'])
+    expect(bar.getByRole('button', { name: /Wszystko/ })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('"Wszystko" opens every destination, each with a label not hidden by a breakpoint', () => {
+    renderNavBar()
+    fireEvent.click(screen.getByTestId('nav-all-button'))
+    const dialog = screen.getByRole('dialog', { name: 'Wszystkie funkcje' })
+    for (const label of allLabels) {
+      const el = within(dialog).getByText(label)
+      expect(el.closest('a')).toBeTruthy()
       let node = el
-      while (node && node.tagName !== 'NAV') {
-        expect(node.className || '').not.toMatch(/\bhidden\b/)
+      while (node && node !== dialog) {
+        expect(node.className || '').not.toMatch(/(^|\s)hidden\b/)
         node = node.parentElement
       }
     }
+    expect(within(dialog).getByText('Lesson').closest('a')).toHaveAttribute('href', '/lesson')
+  })
+
+  it('"Wszystko" closes with Escape', () => {
+    renderNavBar()
+    fireEvent.click(screen.getByTestId('nav-all-button'))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('groups nav items under visible category headings', () => {
     renderNavBar()
+    const desktop = within(screen.getByTestId('nav-desktop'))
     for (const heading of ['Nauka', 'Ćwiczenia', 'Media', 'Postępy', 'Konto']) {
-      expect(screen.getByText(heading)).toBeInTheDocument()
+      expect(desktop.getByText(heading)).toBeInTheDocument()
     }
   })
 })
