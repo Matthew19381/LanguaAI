@@ -7,6 +7,7 @@ import PlacementTest from "../PlacementTest"
 // Mock API client
 vi.mock("../../api/client", () => ({
   createUser: vi.fn(),
+  getUser: vi.fn(),
   startPlacementTest: vi.fn(),
   submitPlacementTest: vi.fn(),
   setUserId: vi.fn(),
@@ -34,8 +35,50 @@ function renderPlacement(initialEntries = ["/placement"]) {
 }
 
 describe("PlacementTest", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    localStorage.clear()   // the finished test saves userName there
+    const { getUserId } = await import("../../api/client")
+    getUserId.mockReturnValue(null)
+  })
+
+  it("without an account on this device tells how to sign in instead", () => {
+    renderPlacement()
+    expect(screen.getByTestId("placement-have-account")).toHaveTextContent("Pokaż link logowania")
+  })
+
+  it("signed in: re-levels the same account and never creates a new one", async () => {
+    const { createUser, getUser, getUserId, startPlacementTest, submitPlacementTest, setUserId } =
+      await import("../../api/client")
+    const user = userEvent.setup()
+    getUserId.mockReturnValue(1)
+    getUser.mockResolvedValue({ user_id: 1, name: "Mateusz", target_language: "German" })
+    startPlacementTest.mockResolvedValue({
+      questions: [{ id: "q1", question: "Q1?", options: ["A. Yes", "B. No"], type: "grammar", cefr_hint: "A1" }]
+    })
+    submitPlacementTest.mockResolvedValue({ cefr_level: "A2", score: 60, strong_areas: [], weak_areas: [] })
+    renderPlacement()
+    expect(await screen.findByTestId("placement-account")).toHaveTextContent("Mateusz")
+    expect(screen.queryByPlaceholderText("place.namePlaceholder")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("placement-have-account")).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: /place.startTest/i }))
+    await screen.findByText("Q1?")
+    await user.click(screen.getByText("Yes"))
+    await user.click(screen.getByRole("button", { name: /place.submit/i }))
+    await waitFor(() => expect(submitPlacementTest).toHaveBeenCalled())
+    expect(createUser).not.toHaveBeenCalled()
+    expect(submitPlacementTest.mock.calls[0][0]).toMatchObject({ user_id: 1, language: "German" })
+    await user.click(await screen.findByRole("button", { name: /place.startLearning/i }))
+    expect(setUserId).toHaveBeenCalledWith(1)
+  })
+
+  it("a stale saved id (account gone) falls back to a new account", async () => {
+    const { getUser, getUserId } = await import("../../api/client")
+    getUserId.mockReturnValue(99)
+    getUser.mockRejectedValue(new Error("User not found"))
+    renderPlacement()
+    await waitFor(() => expect(getUser).toHaveBeenCalledWith(99))
+    expect(screen.getByPlaceholderText("place.namePlaceholder")).toBeInTheDocument()
   })
 
   it("renders setup step with form fields", () => {

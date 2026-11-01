@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ChevronRight, ChevronLeft, CheckCircle, User,
@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import {
-  startPlacementTest, submitPlacementTest, createUser, setUserId, getUserId
+  startPlacementTest, submitPlacementTest, createUser, getUser, setUserId, getUserId
 } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
 
@@ -59,8 +59,25 @@ export default function PlacementTest() {
   const [results, setResults] = useState(null)
   const [userId, setLocalUserId] = useState(existingUserId || null)
 
+  // Signed in on this device: the test re-levels this account (flashcards and history
+  // stay) instead of creating a new one. Before 01.11.2026 a second user was created.
+  const [account, setAccount] = useState(null)
+  useEffect(() => {
+    if (!existingUserId || isLanguageChange) return
+    let cancelled = false
+    getUser(existingUserId)
+      .then(u => {
+        if (cancelled || !u?.user_id) return
+        setAccount(u)
+        if (u.target_language) setTargetLanguage(u.target_language)
+      })
+      .catch(() => { if (!cancelled) setLocalUserId(null) })  // stale id: new account as before
+    return () => { cancelled = true }
+  }, [existingUserId, isLanguageChange])
+
   const handleStartTest = async () => {
-    if (!isLanguageChange && !name.trim()) {
+    const reuseAccount = isLanguageChange || !!account
+    if (!reuseAccount && !name.trim()) {
       setError(t('place.enterName'))
       return
     }
@@ -69,8 +86,8 @@ export default function PlacementTest() {
 
     try {
       let newUserId = userId
-      if (!isLanguageChange || !newUserId) {
-        // Create new user only if not changing language
+      if (!reuseAccount || !newUserId) {
+        // Create a new user only without an account on this device
         const userRes = await createUser({
           name: name.trim(),
           native_language: nativeLanguage,
@@ -132,7 +149,7 @@ export default function PlacementTest() {
   const handleFinish = () => {
     if (userId) {
       setUserId(userId)
-      localStorage.setItem('userName', name)
+      localStorage.setItem('userName', account?.name || name)
       localStorage.setItem('userLanguage', targetLanguage)
     }
     navigate('/')
@@ -171,8 +188,22 @@ export default function PlacementTest() {
                 Test plasujący dla języka: <strong>{LANG_DISPLAY[preselectedLang] || preselectedLang}</strong>
               </div>
             )}
+            {account && (
+              <div data-testid="placement-account" className="bg-indigo-900/20 border border-indigo-700/30 rounded-lg p-3 mb-4 text-sm text-indigo-300">
+                Test dla Twojego konta: <strong>{account.name}</strong> ({LANG_DISPLAY[account.target_language] || account.target_language}).
+                Fiszki i ich historia zostają, test ustawi tylko poziom i plan nauki.
+              </div>
+            )}
+            {!isLanguageChange && !account && (
+              <div data-testid="placement-have-account" className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 mb-4 text-sm text-gray-300">
+                <strong>Masz już konto?</strong> Nie rób testu, bo powstanie nowe, puste konto.
+                Otwórz LinguaAI tam, gdzie jesteś zalogowany, wejdź w Profil → „Pokaż link logowania”
+                i otwórz ten link na tym urządzeniu. Jeśli adres jest inny, podmień początek linku
+                (do <code>/login-as</code>) na adres z paska tej przeglądarki.
+              </div>
+            )}
             <div className="space-y-4">
-              {!isLanguageChange && (
+              {!isLanguageChange && !account && (
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     <User className="w-4 h-4 inline mr-1" />
@@ -189,7 +220,7 @@ export default function PlacementTest() {
                 </div>
               )}
 
-              {!isLanguageChange && (
+              {!isLanguageChange && !account && (
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     <Globe className="w-4 h-4 inline mr-1" />
