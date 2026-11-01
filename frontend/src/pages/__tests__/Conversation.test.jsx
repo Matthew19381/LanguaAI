@@ -166,3 +166,24 @@ describe("Conversation — module task and voice mode (2026-10-26)", () => {
     delete window.SpeechRecognition
   })
 })
+
+describe("Conversation — one turn at a time (audit 01.11.2026)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    localStorage.setItem("userId", "42")
+  })
+
+  it("does not send a second message while the reply is still streaming", async () => {
+    const { sendMessageStream } = await import("../../api/client")
+    sendMessageStream.mockImplementationOnce(() => new Promise(() => {}))  // still streaming
+    await startChat()
+    const box = screen.getByPlaceholderText("conv.typeMessage")
+    fireEvent.change(box, { target: { value: "Erste Nachricht" } })
+    fireEvent.keyDown(box, { key: "Enter" })
+    fireEvent.change(box, { target: { value: "Zweite Nachricht" } })
+    fireEvent.keyDown(box, { key: "Enter" })
+    await new Promise(r => setTimeout(r, 20))
+    expect(sendMessageStream).toHaveBeenCalledTimes(1)
+  })
+})

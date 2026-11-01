@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ChevronRight, ChevronLeft, CheckCircle, User,
@@ -62,21 +62,42 @@ export default function PlacementTest() {
   // Signed in on this device: the test re-levels this account (flashcards and history
   // stay) instead of creating a new one. Before 01.11.2026 a second user was created.
   const [account, setAccount] = useState(null)
+  // checking | found | none | error. Until 01.11.2026 any failed check (no network, a
+  // locked device) and a tap before the answer counted as "no account": a new, empty
+  // account was created instead of re-levelling account 1.
+  const [accountCheck, setAccountCheck] = useState(
+    existingUserId && !isLanguageChange ? 'checking' : 'none')
+  const createdUserRef = useRef(null)  // a retry after a failed start reuses this account
   useEffect(() => {
     if (!existingUserId || isLanguageChange) return
     let cancelled = false
     getUser(existingUserId)
       .then(u => {
-        if (cancelled || !u?.user_id) return
+        if (cancelled) return
+        if (!u?.user_id) { setAccountCheck('none'); setLocalUserId(null); return }
         setAccount(u)
+        setAccountCheck('found')
         if (u.target_language) setTargetLanguage(u.target_language)
       })
-      .catch(() => { if (!cancelled) setLocalUserId(null) })  // stale id: new account as before
+      .catch(e => {
+        if (cancelled) return
+        if (e?.status === 404) {  // the stored id is gone: a new account as before
+          setLocalUserId(null)
+          setAccountCheck('none')
+        } else {
+          setAccountCheck('error')
+        }
+      })
     return () => { cancelled = true }
   }, [existingUserId, isLanguageChange])
 
   const handleStartTest = async () => {
-    const reuseAccount = isLanguageChange || !!account
+    if (accountCheck === 'checking') return
+    if (accountCheck === 'error') {
+      setError('Nie udało się sprawdzić konta na tym urządzeniu. Sprawdź połączenie i odśwież stronę.')
+      return
+    }
+    const reuseAccount = isLanguageChange || !!account || !!createdUserRef.current
     if (!reuseAccount && !name.trim()) {
       setError(t('place.enterName'))
       return
@@ -85,7 +106,7 @@ export default function PlacementTest() {
     setLoadingTest(true)
 
     try {
-      let newUserId = userId
+      let newUserId = createdUserRef.current || userId
       if (!reuseAccount || !newUserId) {
         // Create a new user only without an account on this device
         const userRes = await createUser({
@@ -94,6 +115,7 @@ export default function PlacementTest() {
           target_language: targetLanguage
         })
         newUserId = userRes.user_id
+        createdUserRef.current = newUserId
         setLocalUserId(newUserId)
       }
 
@@ -257,7 +279,7 @@ export default function PlacementTest() {
             <button
               className="btn-primary w-full mt-6 py-3 flex items-center justify-center gap-2"
               onClick={handleStartTest}
-              disabled={loadingTest}
+              disabled={loadingTest || accountCheck === 'checking'}
             >
               {loadingTest ? (
                 <>

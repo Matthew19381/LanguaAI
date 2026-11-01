@@ -8,6 +8,7 @@ import SpecialChars from '../components/SpecialChars'
 
 export default function Dictation() {
   const [items, setItems] = useState(null)
+  const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(true)
   const [index, setIndex] = useState(0)
   const [typed, setTyped] = useState('')
@@ -23,7 +24,7 @@ export default function Dictation() {
     if (!userId) { navigate('/placement'); return }
     getDictation(userId, 5)
       .then(data => setItems(data.items || []))
-      .catch(() => setItems([]))
+      .catch(e => { setItems([]); setLoadError(e?.message || 'error') })  // was shown as "no sentences"
       .finally(() => setLoading(false))
   }, [userId])
 
@@ -61,7 +62,9 @@ export default function Dictation() {
   if (!items || items.length === 0) {
     return (
       <div className="max-w-2xl mx-auto p-4">
-        <p className="text-gray-400">{t('dictation.empty')}</p>
+        {loadError
+          ? <p role="alert" className="text-red-400">Nie udało się przygotować dyktanda ({loadError}). Spróbuj ponownie.</p>
+          : <p className="text-gray-400">{t('dictation.empty')}</p>}
       </div>
     )
   }

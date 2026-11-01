@@ -114,3 +114,17 @@ def test_get_tips_grounded_in_real_recent_and_weak_topics(client, sample_user, d
     assert "Perfekt" in kwargs["recent_topics"]
     assert "Konjunktiv II" in kwargs["recent_topics"]
     assert kwargs["weak_topics"] == ["Konjunktiv II"]
+
+
+def test_stats_marks_new_achievements_only_for_the_toast_caller(client, sample_user, db):
+    """Audit 01.11.2026: every page reading stats marked new achievements as shown,
+    so the toast in Layout almost never appeared."""
+    from backend.models.achievement import Achievement
+    uid = sample_user["user_id"]
+    db.query(Achievement).filter(Achievement.user_id == uid).delete()
+    db.add(Achievement(user_id=uid, achievement_type="first_lesson", notified=False))
+    db.commit()
+    assert client.get(f"/api/stats/{uid}").json()["new_achievements"] == []
+    shown = client.get(f"/api/stats/{uid}", params={"notify": True}).json()["new_achievements"]
+    assert len(shown) == 1
+    assert client.get(f"/api/stats/{uid}", params={"notify": True}).json()["new_achievements"] == []

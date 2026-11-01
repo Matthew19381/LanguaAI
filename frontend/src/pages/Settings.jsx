@@ -33,6 +33,7 @@ export default function Settings() {
   const [languageMsg, setLanguageMsg] = useState('')
   const navigate = useNavigate()
   const userId = getUserId()
+  const [loadError, setLoadError] = useState('')
   const { lang, setLang, t, targetLanguage } = useLanguage()
   const [audioSettings, setAudioSettings] = useState(loadFlashcardAudio)
 
@@ -40,7 +41,7 @@ export default function Settings() {
     if (!userId) { navigate('/placement'); return }
     getStats(userId)
       .then(setStats)
-      .catch(() => setStats(null))
+      .catch(e => { setStats(null); setLoadError(e?.message || 'error') })  // was a blank page
       .finally(() => setLoading(false))
     getLanguageProfiles(userId)
       .then(setLanguageProfiles)
@@ -89,7 +90,13 @@ export default function Settings() {
   }
 
   if (loading) return <PageLoader text="Ładowanie ustawień..." />
-  if (!stats) return null
+  if (!stats) {
+    return loadError ? (
+      <div className="page-container">
+        <p role="alert" className="text-red-400">Nie udało się wczytać danych. Sprawdź połączenie i odśwież stronę. ({loadError})</p>
+      </div>
+    ) : null
+  }
 
   const { user } = stats
 

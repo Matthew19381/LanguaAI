@@ -43,6 +43,7 @@ export default function AsrBenchmark() {
   const [loading, setLoading] = useState(true)
   const heardRef = useRef([])
   const recorderRef = useRef(null)
+  const streamRef = useRef(null)
   const initialDone = useRef(session.done)
   const dictation = useDictation((text) => heardRef.current.push(text))
 
@@ -59,11 +60,17 @@ export default function AsrBenchmark() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Leaving the page while recording kept the microphone on (01.11.2026)
+  useEffect(() => () => {
+    streamRef.current?.getTracks().forEach(t => t.stop())  // useDictation stops itself
+  }, [])
+
   const start = async () => {
     setError('')
     heardRef.current = []
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
       const recorder = new MediaRecorder(stream)
       const chunks = []
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
@@ -78,6 +85,7 @@ export default function AsrBenchmark() {
       if (dictation.supported) dictation.start()
       setRecording(true)
     } catch (e) {
+      streamRef.current?.getTracks().forEach(t => t.stop())
       setError('Brak dostępu do mikrofonu: ' + e.message)
     }
   }

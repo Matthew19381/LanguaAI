@@ -284,22 +284,7 @@ async def send_message_stream(request: MessageRequest, db: Session = Depends(get
     model = get_model_for_task("conversation")
     session_id = request.session_id
 
-    async def event_stream():
-        full_text = ""
-        try:
-            async for chunk in generate_text_stream(prompt, model=model):
-                full_text += chunk
-                yield f"data: {json.dumps({'delta': chunk})}\n\n"
-        except Exception as e:
-            logger.error(f"Streaming conversation error: {e}")
-            # Nothing usable was generated (or it broke mid-stream) — don't
-            # persist a partial/garbled reply into the session history.
-            yield f"data: {json.dumps({'error': 'Failed to generate response'})}\n\n"
-            return
-
-        ai_response = full_text.strip()
-        history.append({"role": "assistant", "content": ai_response})
-
+    def save_history() -> None:
         from backend.database import SessionLocal
         write_db = SessionLocal()
         try:
@@ -309,6 +294,28 @@ async def send_message_stream(request: MessageRequest, db: Session = Depends(get
                 _save_session(write_db, fresh_session)
         finally:
             write_db.close()
+
+    async def event_stream():
+        full_text = ""
+        try:
+            async for chunk in generate_text_stream(prompt, model=model):
+                full_text += chunk
+                yield f"data: {json.dumps({'delta': chunk})}\n\n"
+        except Exception as e:
+            logger.error(f"Streaming conversation error: {e}")
+            # The learner's turn is kept (until 01.11.2026 it vanished from the session,
+            # so the analysis never saw it), and so is the part of the reply already on
+            # the screen: the next reply then follows what the learner actually read.
+            partial = full_text.strip()
+            if partial:
+                history.append({"role": "assistant", "content": partial})
+            save_history()
+            yield f"data: {json.dumps({'error': 'Failed to generate response'})}\n\n"
+            return
+
+        ai_response = full_text.strip()
+        history.append({"role": "assistant", "content": ai_response})
+        save_history()
 
         yield f"data: {json.dumps({'done': True, 'response': ai_response, 'message_count': len(history)})}\n\n"
 

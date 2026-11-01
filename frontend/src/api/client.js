@@ -288,8 +288,9 @@ export const translateWord = (text, fromLang, toLang, userId) =>
 
 // ===== Stats =====
 
-export const getStats = (userId) =>
-  api.get(`/stats/${userId}`)
+// notify: also return (and mark as shown) the new achievements; only Layout shows them
+export const getStats = (userId, { notify = false } = {}) =>
+  api.get(`/stats/${userId}`, notify ? { params: { notify: true } } : undefined)
 
 export const getDailyTips = (userId) =>
   api.get(`/tips/${userId}`)

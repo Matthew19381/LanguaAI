@@ -80,7 +80,7 @@ export default function Layout() {
   const checkNewAchievements = useCallback(async () => {
     if (!userId) return
     try {
-      const data = await getStats(userId)
+      const data = await getStats(userId, { notify: true })
       const newAchs = data?.new_achievements || []
       if (newAchs.length > 0) {
         setToasts(prev => [

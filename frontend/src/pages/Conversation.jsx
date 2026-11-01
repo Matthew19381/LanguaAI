@@ -73,6 +73,7 @@ export default function Conversation() {
   const [moduleTask, setModuleTask] = useState(null)
   const messagesEndRef = useRef(null)
   const recognitionRef = useRef(null)
+  const sendingRef = useRef(false)
   const navigate = useNavigate()
   const userId = getUserId()
   const { t, targetLanguage } = useLanguage()
@@ -80,6 +81,9 @@ export default function Conversation() {
   useEffect(() => {
     if (!userId) { navigate('/placement'); return }
   }, [userId])
+
+  // Leaving the page while listening kept the microphone on (01.11.2026)
+  useEffect(() => () => recognitionRef.current?.abort?.(), [])
 
   useEffect(() => {
     // Scroll only the message list. scrollIntoView() also scrolled the whole
@@ -115,6 +119,10 @@ export default function Conversation() {
   const handleSend = async (textOverride) => {
     const text = (textOverride || inputText).trim()
     if (!text || !sessionId) return
+    // One turn at a time: a message sent while the reply was still streaming reached the
+    // model without that reply and mixed up the order of the conversation (01.11.2026)
+    if (sendingRef.current) return
+    sendingRef.current = true
     const userMsg = { role: "user", content: text, id: Date.now() }
     setMessages(prev => [...prev, userMsg])
     if (!textOverride) setInputText("")
@@ -149,6 +157,7 @@ export default function Conversation() {
       }
     } finally {
       setAiTyping(false)
+      sendingRef.current = false
     }
   }
   // Voice mode goes through the same session as typing, so spoken turns keep

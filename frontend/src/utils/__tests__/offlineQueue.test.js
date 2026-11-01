@@ -283,3 +283,21 @@ describe('audit 01.11.2026', () => {
     expect(queueSize()).toBe(1)
   })
 })
+
+describe('audit 01.11.2026: replay', () => {
+  it('keeps an answer queued while the replay runs', async () => {
+    enqueueFlashcardReview({ flashcardId: 1, userId: 5, rating: 3 })
+    const fc = vi.fn(async () => {
+      enqueueFlashcardReview({ flashcardId: 2, userId: 5, rating: 4 })  // answered meanwhile
+    })
+    await syncQueue(handlers(vi.fn(), fc))
+    expect(getQueue().map(e => e.flashcard_id)).toEqual([2])
+  })
+
+  it('runs one replay at a time', async () => {
+    enqueueFlashcardReview({ flashcardId: 1, userId: 5, rating: 3 })
+    const fc = vi.fn().mockResolvedValue({})
+    await Promise.all([syncQueue(handlers(vi.fn(), fc)), syncQueue(handlers(vi.fn(), fc))])
+    expect(fc).toHaveBeenCalledTimes(1)
+  })
+})

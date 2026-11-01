@@ -187,7 +187,15 @@ export function clearQueue() {
  * (including ones it rejects permanently) are removed; genuine network failures
  * stay queued for the next attempt. Returns { synced, failed }.
  */
-export async function syncQueue(handlers) {
+let running = null  // one replay at a time: two triggers used to send the same events twice
+
+export function syncQueue(handlers) {
+  if (running) return running
+  running = replay(handlers).finally(() => { running = null })
+  return running
+}
+
+async function replay(handlers) {
   const pending = getQueue()
   if (pending.length === 0) return { synced: 0, failed: 0 }
 
@@ -225,7 +233,11 @@ export async function syncQueue(handlers) {
     }
   }
 
-  writeQueue(remaining)
+  // Answers queued while the replay ran are kept: writing only `remaining` deleted them
+  // (01.11.2026)
+  const handled = new Set(pending.map(e => e.client_event_id))
+  const added = getQueue().filter(e => !handled.has(e.client_event_id))
+  writeQueue([...remaining, ...added])
   return { synced, failed: remaining.length }
 }
 

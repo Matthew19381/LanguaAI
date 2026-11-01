@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Smartphone, Download, Upload, Copy, Check, Loader2, Lock } from 'lucide-react'
-import { getUserId, getLoginLink, exportProfile, importProfile, getAuthStatus, lockDevice } from '../api/client'
+import { getUserId, setUserId, getLoginLink, exportProfile, importProfile, getAuthStatus, lockDevice } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
 import PushToggle from '../components/PushToggle'
 
@@ -84,6 +84,9 @@ export default function Profile() {
     setMessage('')
     try {
       const res = await importProfile(file)
+      // The restore makes a new account: switch this device to it, or the reload showed
+      // the old account again (01.11.2026)
+      if (res.data?.user_id) setUserId(res.data.user_id)
       setMessage(`Profil przywrócony (użytkownik id=${res.data.user_id}). Odświeżam…`)
       setTimeout(() => window.location.reload(), 1500)
     } catch (err) {

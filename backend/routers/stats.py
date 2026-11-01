@@ -29,7 +29,7 @@ def calculate_level(xp: int) -> dict:
 
 
 @router.get("/api/stats/{user_id}")
-async def get_stats(user_id: int, db: Session = Depends(get_db)):
+async def get_stats(user_id: int, notify: bool = False, db: Session = Depends(get_db)):
     user = get_user_or_404(db, user_id)
 
     # Get lesson stats (filter by current target language)
@@ -115,7 +115,9 @@ async def get_stats(user_id: int, db: Session = Depends(get_db)):
 
     from backend.services.achievement_service import get_all_achievements_for_user, get_unnotified_achievements
     achievements_data = get_all_achievements_for_user(user_id, db)
-    unnotified = get_unnotified_achievements(user_id, db)
+    # Only the caller that shows the toasts (Layout, notify=true) marks them as shown.
+    # Home, Stats, Settings and the nav bar read stats too and used to swallow them.
+    unnotified = get_unnotified_achievements(user_id, db) if notify else []
 
     return {
         "user": {

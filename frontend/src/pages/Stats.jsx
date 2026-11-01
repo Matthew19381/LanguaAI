@@ -28,13 +28,14 @@ export default function Stats() {
   })
   const navigate = useNavigate()
   const userId = getUserId()
+  const [loadError, setLoadError] = useState('')
   const { t } = useLanguage()
 
   useEffect(() => {
     if (!userId) { navigate('/placement'); return }
     getStats(userId)
       .then(setStats)
-      .catch(() => setStats(null))
+      .catch(e => { setStats(null); setLoadError(e?.message || 'error') })  // was a blank page
       .finally(() => setLoading(false))
     getStudyPlan(userId).then(setStudyPlan).catch(() => {})
     getBestStudyTime(userId).then(setBestTime).catch(() => {})
@@ -104,7 +105,13 @@ export default function Stats() {
   }
 
   if (loading) return <PageLoader text={t('stats.loading')} />
-  if (!stats) return null
+  if (!stats) {
+    return loadError ? (
+      <div className="page-container">
+        <p role="alert" className="text-red-400">Nie udało się wczytać danych. Sprawdź połączenie i odśwież stronę. ({loadError})</p>
+      </div>
+    ) : null
+  }
 
   const { user, level_info, lessons, tests, flashcards, error_categories, error_examples, achievements } = stats
 

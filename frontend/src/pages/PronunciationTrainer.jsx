@@ -23,6 +23,7 @@ export default function PronunciationTrainer() {
   const [flashMsg, setFlashMsg] = useState('')
   const [generatingPhrases, setGeneratingPhrases] = useState(false)
   const mediaRecorderRef = useRef(null)
+  const streamRef = useRef(null)
   const audioChunksRef = useRef([])
   const navigate = useNavigate()
   const userId = getUserId()
@@ -56,11 +57,19 @@ export default function PronunciationTrainer() {
 
   const currentPhrase = useCustom ? customPhrase : phrases[currentIdx]?.text || ''
 
+  // Leaving the page while recording kept the microphone on (01.11.2026)
+  useEffect(() => () => {
+    const rec = mediaRecorderRef.current
+    if (rec) rec.onstop = null
+    streamRef.current?.getTracks().forEach(t => t.stop())
+  }, [])
+
   const startRecording = async () => {
     setError('')
     setResult(null)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
       const mediaRecorder = new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
       audioChunksRef.current = []
@@ -78,6 +87,7 @@ export default function PronunciationTrainer() {
       mediaRecorder.start()
       setRecording(true)
     } catch (e) {
+      streamRef.current?.getTracks().forEach(t => t.stop())  // the recorder failed after the mic opened
       setError(t('pronun.micError'))
     }
   }

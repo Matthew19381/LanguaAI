@@ -233,7 +233,9 @@ def test_send_message_stream_generation_error_emits_error_event_not_500(client, 
         raise RuntimeError("upstream provider error")
         yield  # pragma: no cover - makes this an async generator
 
-    with patch("backend.routers.conversation.generate_text_stream", new=_broken_stream):
+    from backend.tests.conftest import TestingSessionLocal
+    with patch("backend.routers.conversation.generate_text_stream", new=_broken_stream), \
+         patch("backend.database.SessionLocal", TestingSessionLocal):  # the turn is saved on failure too
         r2 = client.post("/api/conversation/message/stream", json={
             "session_id": session_id,
             "user_message": "Hello",
@@ -305,3 +307,27 @@ def test_analyze_pasted_text(client, sample_user, db):
         data = r.json()
         assert data["success"] is True
         assert "score" in data
+
+
+def test_stream_cut_off_keeps_the_learners_turn_and_the_shown_part(client, sample_user, db):
+    """Audit 01.11.2026: a reply that broke mid-stream lost the learner's message from the session."""
+    import json as _json
+
+    from backend.models.conversation_session import ConversationSession
+    from backend.tests.conftest import TestingSessionLocal
+    uid = sample_user["user_id"]
+    with patch("backend.routers.conversation.generate_conversation_scenario", return_value=MOCK_SCENARIO):
+        session_id = client.post(f"/api/conversation/start/{uid}", json={}).json()["session_id"]
+
+    async def _cut(prompt, model=None):
+        yield "Das ist "
+        raise RuntimeError("connection reset")
+
+    with patch("backend.routers.conversation.generate_text_stream", new=_cut), \
+         patch("backend.database.SessionLocal", TestingSessionLocal):
+        client.post("/api/conversation/message/stream", json={
+            "session_id": session_id, "user_message": "Ich wohne in Krakau.", "user_id": uid})
+    db.expire_all()
+    history = _json.loads(db.query(ConversationSession).filter(ConversationSession.id == session_id).one().history)
+    assert history[-2:] == [{"role": "user", "content": "Ich wohne in Krakau."},
+                            {"role": "assistant", "content": "Das ist"}]

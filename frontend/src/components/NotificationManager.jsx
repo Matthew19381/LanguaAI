@@ -40,8 +40,8 @@ export default function NotificationManager() {
     const delay = msUntilNextNotif(hour)
 
     timerRef.current = setTimeout(() => {
+      scheduleNotif() // reschedule for next day first: a failing notification stopped the chain
       sendNotif()
-      scheduleNotif() // reschedule for next day
     }, delay)
   }
 
@@ -54,10 +54,18 @@ export default function NotificationManager() {
       'Lekcja dnia czeka w „Lekcja” 📖',
     ]
     const msg = messages[Math.floor(Math.random() * messages.length)]
-    new Notification('LinguaAI', {
-      body: msg,
-      icon: '/favicon.ico',
-    })
+    const options = { body: msg, icon: '/favicon.ico' }
+    // Android Chrome forbids `new Notification()` in a page ("Illegal constructor"); the
+    // service worker's showNotification works there and on desktop (01.11.2026)
+    const fallback = () => { try { new Notification('LinguaAI', options) } catch { /* not supported */ } }
+    if (navigator.serviceWorker?.getRegistration) {
+      // getRegistration, not .ready: .ready never settles without a service worker
+      navigator.serviceWorker.getRegistration()
+        .then(reg => (reg ? reg.showNotification('LinguaAI', options) : fallback()))
+        .catch(fallback)
+    } else {
+      fallback()
+    }
   }
 
   return null // no UI, runs in background
