@@ -7,6 +7,38 @@ from backend.services.gemini_service import generate_json, with_model
 logger = logging.getLogger(__name__)
 
 
+def lesson_grammar_text(lesson_content: dict) -> str:
+    """The lesson's grammar point for the test prompt. Lessons keep it under "grammar"
+    (topic, rule, explanation); a top-level "explanation" is the old shape. Until 01.11.2026
+    only the old key was read, so tests of daily lessons got no grammar at all."""
+    g = lesson_content.get("grammar")
+    if isinstance(g, dict):
+        parts = [g.get("topic"), g.get("rule"), g.get("explanation")]
+        text = "\n".join(str(p).strip() for p in parts if isinstance(p, str) and p.strip())
+        if text:
+            return text[:600]
+    return str(lesson_content.get("explanation") or "")[:600]
+
+
+def lesson_sentences_sample(lesson_content: dict, limit: int = 4) -> str:
+    """Target-language sentences of the lesson: dialogue lines when the lesson has a
+    dialogue, otherwise the grammar examples and the recall text (daily lessons have no
+    dialogue, so the "dialogue" questions used to rest on nothing)."""
+    dialogue = lesson_content.get("dialogue")
+    lines = dialogue.get("lines", []) if isinstance(dialogue, dict) else dialogue if isinstance(dialogue, list) else []
+    out = [f"{l.get('speaker', '')}: {l.get('text', '')}" for l in lines[:limit]
+           if isinstance(l, dict) and l.get("text")]
+    if out:
+        return "  ".join(out)
+    g = lesson_content.get("grammar")
+    examples = g.get("examples", []) if isinstance(g, dict) else []
+    out = [e.get("sentence", "").strip() for e in examples if isinstance(e, dict) and (e.get("sentence") or "").strip()]
+    of = lesson_content.get("output_forcing")
+    if isinstance(of, dict) and (of.get("text") or "").strip():
+        out.append(of["text"].strip())
+    return "  ".join(out[:limit + 1])
+
+
 @with_model("test")
 async def generate_daily_test(
     lesson_content: dict,
@@ -17,10 +49,8 @@ async def generate_daily_test(
     vocab = lesson_content.get("vocabulary", [])
     topic = lesson_content.get("topic", "general")
     title = lesson_content.get("title", "Today's Lesson")
-    grammar = lesson_content.get("explanation", "")[:600]
-    dialogue = lesson_content.get("dialogue", {})
-    dialogue_lines = dialogue.get("lines", [])[:4] if isinstance(dialogue, dict) else []
-    dialogue_sample = "  ".join(f"{l.get('speaker','')}: {l.get('text','')}" for l in dialogue_lines)
+    grammar = lesson_grammar_text(lesson_content)
+    dialogue_sample = lesson_sentences_sample(lesson_content)
 
     vocab_words = [f"{v.get('word','')} = {v.get('translation','')}" for v in vocab[:12]]
 
@@ -37,14 +67,14 @@ LESSON VOCABULARY (ALL must be tested):
 GRAMMAR TOPIC:
 {grammar}
 
-DIALOGUE EXCERPT:
+LESSON SENTENCES (dialogue or examples):
 {dialogue_sample}
 
 REQUIREMENTS — create EXACTLY:
 - 4 vocabulary questions: fill-in-the-blank sentences requiring the exact word from the lesson (NO multiple choice)
 - 3 grammar questions: multiple choice, test the specific grammar rule from the lesson (include plausible wrong answers)
 - 3 translation questions: {native_language}→{language}, student must write the full sentence (no options)
-- 2 dialogue questions: multiple choice based on the dialogue context
+- 2 context questions: multiple choice based on the lesson sentences above
 - 2 application questions: student writes a sentence using a grammar rule or vocabulary word from the lesson (no options)
 - 1 bonus error-correction question: give a sentence with 1 error, student writes the corrected version
 
