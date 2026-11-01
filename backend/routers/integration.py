@@ -25,6 +25,7 @@ from backend.models.test_result import TestResult
 from backend.models.user import User
 from backend.services.curriculum import DAY_TYPE_PL
 from backend.services.plan_day import as_dict, current_plan_day
+from backend.services.local_day import local_today, on_local_day, utc_range
 from backend.services.streak_service import calculate_streak, week_days
 
 router = APIRouter(prefix="/api/v1", tags=["Integration"])
@@ -37,7 +38,7 @@ LESSON_MINUTES = 30
 
 def _parse_date(raw: str | None) -> date_type:
     if not raw:
-        return datetime.utcnow().date()
+        return local_today()  # the learner's day (the hub asks with its local date)
     try:
         return datetime.strptime(raw, "%Y-%m-%d").date()
     except ValueError:
@@ -62,7 +63,7 @@ def get_ecosystem_summary(
         .filter(
             Lesson.user_id == user_id,
             Lesson.is_completed == True,  # noqa: E712
-            func.date(Lesson.completed_at) == target_iso,
+            on_local_day(Lesson.completed_at, target),
         )
         .all()
     )
@@ -71,7 +72,7 @@ def get_ecosystem_summary(
         db.query(TestResult)
         .filter(
             TestResult.user_id == user_id,
-            func.date(TestResult.created_at) == target_iso,
+            on_local_day(TestResult.created_at, target),
         )
         .all()
     )
@@ -84,7 +85,7 @@ def get_ecosystem_summary(
         .filter(
             Flashcard.user_id == user_id,
             Flashcard.is_active == True,  # noqa: E712
-            func.date(Flashcard.last_review_date) == target_iso,
+            on_local_day(Flashcard.last_review_date, target),
         )
         .scalar()
         or 0
@@ -95,7 +96,7 @@ def get_ecosystem_summary(
         .filter(
             Flashcard.user_id == user_id,
             Flashcard.is_active == True,  # noqa: E712
-            func.date(Flashcard.next_review_date) <= target_iso,
+            Flashcard.next_review_date < utc_range(target)[1],
         )
         .scalar()
         or 0
@@ -192,7 +193,7 @@ def _suggested_items(db: Session, user: User, target: date_type, done_today: boo
     lesson was already finished that day or there is no active plan."""
     # The hub asks with its local date, which can be a day ahead of UTC just
     # after midnight; older dates are history, nothing to plan there.
-    if done_today or target < datetime.utcnow().date() - timedelta(days=1):
+    if done_today or target < local_today() - timedelta(days=1):
         return []
     day = current_plan_day(db, user, target)
     if day is None:

@@ -5,7 +5,7 @@ Prompt zawiera: co użytkownik dzisiaj robił, problemy, słownictwo.
 import base64
 import json
 import logging
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -17,6 +17,7 @@ from backend.models.test_result import TestResult
 from backend.schemas.voice_chat import VoiceChatMessageRequest
 from backend.services import audio_service
 from backend.services.gemini_service import generate_text, with_model
+from backend.services.local_day import local_today, on_local_day
 from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
@@ -31,16 +32,15 @@ def generate_voice_chat_prompt(user_id: int, db: Session = Depends(get_db)):
     """
     user = get_user_or_404(db, user_id)
 
-    today = date.today()
+    today = local_today()
     language = user.target_language or "German"
 
     # 1. Dzisiejsza lekcja
-    from sqlalchemy import func
     today_lesson = db.query(Lesson).filter(
         Lesson.user_id == user_id,
         Lesson.is_completed == True,
         Lesson.completed_at != None,
-        func.date(Lesson.completed_at) == today
+        on_local_day(Lesson.completed_at, today)
     ).first()
 
     lesson_info = ""

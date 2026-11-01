@@ -1,6 +1,6 @@
 import logging
 import os
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -8,13 +8,14 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.exercise import Exercise
-from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
 from backend.services.audio_service import AUDIO_DIR, generate_audio
 from backend.services.dictation_service import (
     diff_transcription,
     generate_dictation_sentences,
 )
+from backend.services.local_day import local_today, on_local_day
+from backend.services.plan_day import todays_lesson
 from backend.utils import get_user_or_404
 
 logger = logging.getLogger(__name__)
@@ -34,13 +35,9 @@ async def get_quickmode_plan(user_id: int, db: Session = Depends(get_db)):
     activities = []
 
     # Check today's lesson (per language)
-    from sqlalchemy import func
-    today_date = date.today()
-    today_lesson = db.query(Lesson).filter(
-        Lesson.user_id == user_id,
-        Lesson.language == user.target_language,
-        func.date(Lesson.created_at) == today_date
-    ).first()
+    # The same lesson as "Lekcja dnia" (plan_day.todays_lesson), on the learner's local day
+    today_date = local_today()
+    today_lesson = todays_lesson(db, user)
 
     if today_lesson and not today_lesson.is_completed:
         activities.append({
@@ -57,7 +54,8 @@ async def get_quickmode_plan(user_id: int, db: Session = Depends(get_db)):
         # Check if test done today
         today_test = db.query(TestResult).filter(
             TestResult.user_id == user_id,
-            func.date(TestResult.created_at) == today_date
+            TestResult.test_type == "daily",
+            on_local_day(TestResult.created_at, today_date),
         ).first()
         if not today_test:
             activities.append({

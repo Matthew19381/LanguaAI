@@ -1,6 +1,6 @@
 """Tests for /api/quickmode/* endpoint."""
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
@@ -58,6 +58,7 @@ def test_quickmode_with_completed_lesson_and_no_test(client, sample_user, db):
         language="German",
         content=json.dumps({"vocabulary": []}),
         is_completed=True,
+        completed_at=datetime.now(timezone.utc),  # completion always sets it
         created_at=datetime.now(),
     )
     db.add(lesson)
@@ -83,6 +84,7 @@ def test_quickmode_with_completed_lesson_and_test(client, sample_user, db):
         language="German",
         content=json.dumps({"vocabulary": []}),
         is_completed=True,
+        completed_at=datetime.now(timezone.utc),  # completion always sets it
         created_at=datetime.now(),
     )
     db.add(lesson)
@@ -95,7 +97,7 @@ def test_quickmode_with_completed_lesson_and_test(client, sample_user, db):
         errors=json.dumps([]),
         cefr_level="A1",
         language="German",
-        created_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
     )
     db.add(test_result)
     db.commit()

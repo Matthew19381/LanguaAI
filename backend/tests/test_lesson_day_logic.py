@@ -247,3 +247,22 @@ def test_concepts_read_the_grammar_of_daily_lessons(client, sample_user, db):
                AsyncMock(return_value={"concepts": [{"name": "Dativ"}]})) as gen:
         r = client.get(f"/api/lessons/latest/{uid}/concepts").json()
     assert gen.await_count == 1 and r["concepts"]
+
+
+# ── the hub, quick mode ──
+
+def test_hub_summary_counts_the_lesson_on_the_learners_day(client, sample_user, db):
+    uid = sample_user["user_id"]
+    _lesson(db, uid, 1, done_at=_local_midnight_utc() + timedelta(minutes=20))
+    today = local_day.local_today().isoformat()
+    r = client.get("/api/v1/summary", params={"user_id": uid, "date": today}).json()
+    assert r["summary"]["lessons_completed"] == 1
+
+
+def test_quick_mode_offers_the_test_after_the_lesson_not_the_prepared_lesson(client, sample_user, db):
+    uid = sample_user["user_id"]
+    _lesson(db, uid, 1, done_at=NOW, created=NOW - timedelta(days=1))
+    _lesson(db, uid, 2)  # prepared (A10)
+    acts = {a["id"]: a for a in client.get(f"/api/quickmode/{uid}").json()["activities"]}
+    assert "test" in acts and acts["test"]["priority"] == 1
+    assert "lesson" not in acts
