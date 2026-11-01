@@ -8,7 +8,7 @@ import {
   getUserId, getPracticeSet, answerExercise, generateExerciseVariants, getExerciseStats,
   getOfflinePack,
 } from '../api/client'
-import { savePack, loadPack, gradeLocally, enqueueAnswer } from '../utils/offlineQueue'
+import { savePack, loadPack, gradeLocally, enqueueAnswer, newEventId } from '../utils/offlineQueue'
 import { PageLoader } from '../components/LoadingSpinner'
 import SpecialChars from '../components/SpecialChars'
 import { useLanguage } from '../hooks/useLanguage'
@@ -37,6 +37,8 @@ export default function Practice() {
   const userId = getUserId()
   const { t, targetLanguage } = useLanguage()
   const answerRef = useRef(null)
+  const checkingRef = useRef(false)
+  const [checkError, setCheckError] = useState('')
   const { pending, syncing, lastSynced, refresh: refreshPending } = useOfflineSync()
 
   /** Build a practice set out of the locally stored pack. */
@@ -95,11 +97,11 @@ export default function Practice() {
   const finished = exercises.length > 0 && index >= exercises.length
 
   /** Grade on the device and queue the answer for the next sync. */
-  const answerOffline = (exercise, answerText) => {
+  const answerOffline = (exercise, answerText, clientEventId) => {
     const expected = exercise.answer
     if (expected == null) return null // pack lacks the answer — cannot grade here
     const correct = gradeLocally(expected, answerText)
-    enqueueAnswer({ exerciseId: exercise.id, userId, answer: answerText, correct })
+    enqueueAnswer({ exerciseId: exercise.id, userId, answer: answerText, correct, clientEventId })
     refreshPending()
     return {
       correct,
@@ -113,17 +115,23 @@ export default function Practice() {
 
   const handleCheck = async () => {
     if (!typed.trim() || !current) return
+    if (checkingRef.current) return  // a second Enter while the answer is being checked
+    checkingRef.current = true
     setChecking(true)
+    setCheckError('')
+    // The same id for the online try and a queued replay (no double count)
+    const clientEventId = newEventId()
     try {
       let r
       if (!navigator.onLine) {
-        r = answerOffline(current, typed)
+        r = answerOffline(current, typed, clientEventId)
       } else {
         try {
-          r = await answerExercise(current.id, userId, typed)
-        } catch {
+          r = await answerExercise(current.id, userId, typed, undefined, clientEventId)
+        } catch (e) {
+          if (e?.status >= 400 && e?.status < 500 && e?.status !== 408 && e?.status !== 429) throw e
           // Network died mid-session — fall back to local grading
-          r = answerOffline(current, typed)
+          r = answerOffline(current, typed, clientEventId)
         }
       }
       setResult(r)
@@ -142,7 +150,10 @@ export default function Practice() {
             .replace('{skill}', r.auto_generated_skill || '')
         )
       }
+    } catch (e) {
+      setCheckError(e?.message || 'Nie udało się sprawdzić odpowiedzi.')  // was an unhandled rejection
     } finally {
+      checkingRef.current = false
       setChecking(false)
     }
   }
@@ -372,6 +383,11 @@ export default function Practice() {
         <p className="text-xs text-gray-400 -mt-2 mb-3">
           {t('practice.synced').replace('{n}', lastSynced)}
         </p>
+      )}
+      {checkError && (
+        <div role="alert" className="mb-4 px-3 py-2 rounded-lg bg-red-900/30 border border-red-700/40 text-red-200 text-sm">
+          {checkError}
+        </div>
       )}
       {autoNotice && (
         <div className="mb-4 px-3 py-2 rounded-lg bg-emerald-900/30 border border-emerald-700/40 text-emerald-200 text-sm flex items-start gap-2">

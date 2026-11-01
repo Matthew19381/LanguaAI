@@ -5,6 +5,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from backend.models.flashcard import Flashcard
+from backend.services.local_day import local_date
 
 # ── SCI-4: semantic spacing of related new words (Tinkham 1993) ──────────────
 # Semantically related words learned together interfere with each other. When a
@@ -62,7 +63,8 @@ def advance_relearning_criterion(
     if rating == 1:
         sessions = 0
     elif rating >= 3:
-        if last_recall_date is None or last_recall_date.date() < now.date():
+        # once per local calendar day (UTC days split the evening at 01:00/02:00)
+        if last_recall_date is None or local_date(last_recall_date) < local_date(now):
             sessions += 1
         new_last = now
     return sessions, sessions >= MASTERY_SESSIONS_REQUIRED, new_last

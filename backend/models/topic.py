@@ -116,14 +116,25 @@ class Topic(Base):
         Calculate memory strength 0.0-1.0 based on FSRS state.
         Uses retrievability as the primary signal, adjusted by stability and difficulty.
         """
-        from backend.services.fsrs_service import calculate_memory_strength_fsrs
-        return calculate_memory_strength_fsrs(
+        from backend.services.fsrs_service import calculate_memory_strength_fsrs, current_retrievability
+        # Recall probability today, not the ~1.0 stored at the last review (01.11.2026)
+        retrievability = current_retrievability(self.stability, self.last_review_date)
+        strength = calculate_memory_strength_fsrs(
             difficulty=self.difficulty,
             stability=self.stability,
-            retrievability=self.retrievability,
+            retrievability=retrievability,
             reps=self.repetitions,
             lapses=self.lapses,
         )
+        if (self.fsrs_state or "Learning") != "Review":
+            strength = min(strength, 0.6)  # forgotten or still learning: never a "strong" topic
+        return strength
+
+    def current_strength(self) -> float:
+        """Memory strength today. A reviewed topic is recalculated from the forgetting
+        curve (the stored memory_strength is the one at the last review and never falls);
+        a topic without reviews keeps its stored value."""
+        return topic_strength(self)
 
     def is_knowledge_row(self) -> bool:
         """An entry or umbrella row of the Bank wiedzy (services/knowledge.py)."""
@@ -217,3 +228,10 @@ class TopicItem(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     topic = relationship("Topic", back_populates="items")
+
+
+def topic_strength(topic) -> float:
+    """Memory strength of a topic today (see Topic.current_strength)."""
+    if getattr(topic, "last_review_date", None) is None:
+        return getattr(topic, "memory_strength", None) or 0.0
+    return topic.calculate_memory_strength()

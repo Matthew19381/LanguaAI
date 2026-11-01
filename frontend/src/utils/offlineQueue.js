@@ -94,6 +94,12 @@ export function clearCardPack() {
 
 // ── Outbox ──────────────────────────────────────────────────────────────────
 
+// Exported: an online answer carries the id it would be queued with, so a request that
+// reached the server but lost its response is not applied twice when replayed (01.11.2026)
+export function newEventId() {
+  return newId()
+}
+
 function newId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return `evt-${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -117,10 +123,10 @@ function writeQueue(items) {
   }
 }
 
-export function enqueueAnswer({ exerciseId, userId, answer, correct }) {
+export function enqueueAnswer({ exerciseId, userId, answer, correct, clientEventId }) {
   const event = {
     kind: KIND_EXERCISE,
-    client_event_id: newId(),
+    client_event_id: clientEventId || newId(),
     exercise_id: exerciseId,
     user_id: userId,
     answer,
@@ -145,10 +151,10 @@ export function enqueueLessonComplete({ lessonId, userId }) {
   return event
 }
 
-export function enqueueFlashcardReview({ flashcardId, userId, rating }) {
+export function enqueueFlashcardReview({ flashcardId, userId, rating, clientEventId }) {
   const event = {
     kind: KIND_FLASHCARD,
-    client_event_id: newId(),
+    client_event_id: clientEventId || newId(),
     flashcard_id: flashcardId,
     user_id: userId,
     rating,
@@ -209,7 +215,7 @@ export async function syncQueue(handlers) {
         remaining.push(...pending.slice(i))
         break
       }
-      if (status && status >= 400 && status < 500) {
+      if (status && status >= 400 && status < 500 && status !== 408 && status !== 429) {
         // Permanently rejected (deleted card, bad payload) — retrying forever
         // would block everything behind it.
         mirrorDelete(event.client_event_id)

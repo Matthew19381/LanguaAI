@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 from backend.models.flashcard import Flashcard
 from backend.models.lesson import Lesson
 from backend.models.test_result import TestResult
-from backend.models.topic import Topic
+from backend.models.topic import Topic, topic_strength
 from backend.models.user import User
 from backend.services.exercise_service import create_exercises_from_lesson
 from backend.services.flashcard_service import create_flashcards_from_vocab
@@ -144,6 +144,7 @@ def gather_lesson_context(db: Session, user: User) -> dict:
     week_ago = datetime.combine(date.today() - timedelta(days=7), datetime.min.time())
     recent_lessons = db.query(Lesson).filter(
         Lesson.user_id == user.id,
+        Lesson.language == user.target_language,  # other languages' topics were mixed in
         Lesson.created_at >= week_ago
     ).order_by(Lesson.created_at.desc()).limit(7).all()
     recent_topics = [l.topic for l in recent_lessons if l.topic] if recent_lessons else None
@@ -161,9 +162,10 @@ def gather_lesson_context(db: Session, user: User) -> dict:
     ).order_by(Topic.memory_strength.asc()).all()
     # Only reviewed topics have a memory strength; an unreviewed topic sits at 0.0
     # and is unknown, not weak (none of the 30 topics on 17.10.2026 was reviewed).
-    reviewed = [t for t in all_topics if (t.total_reviews or 0) > 0]
-    weak_topics = [t.name for t in reviewed if t.memory_strength < 0.5][:5] or None
-    strong_topics = [t.name for t in reversed(reviewed) if t.memory_strength >= 0.7][:3] or None
+    # Strength of today (the stored memory_strength is the one at the last review)
+    reviewed = sorted(((topic_strength(t), t.name) for t in all_topics if (t.total_reviews or 0) > 0))
+    weak_topics = [name for strength, name in reviewed if strength < 0.5][:5] or None
+    strong_topics = [name for strength, name in reversed(reviewed) if strength >= 0.7][:3] or None
 
     from backend.services.mastery import review_context
 

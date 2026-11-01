@@ -9,7 +9,7 @@ import { getUserId, getFlashcards, getDueFlashcards, reviewFlashcard, exportAnki
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
 import { useOfflineSync } from '../hooks/useOfflineSync'
-import { saveCardPack, loadCardPack, enqueueFlashcardReview } from '../utils/offlineQueue'
+import { saveCardPack, loadCardPack, enqueueFlashcardReview, newEventId } from '../utils/offlineQueue'
 import PlayButton from '../components/PlayButton'
 import { playSequence } from '../utils/tts'
 import { loadFlashcardAudio, autoPlayTexts } from '../utils/flashcardAudio'
@@ -264,6 +264,7 @@ export default function Flashcards() {
 
   // Use refs to avoid stale closures in keyboard handler
   const stateRef = useRef({ currentCard, isFlipped, currentIndex, displayCards, tab })
+  const reviewingRef = useRef(false)
   useEffect(() => {
     stateRef.current = { currentCard, isFlipped, currentIndex, displayCards, tab }
   }, [currentCard, isFlipped, currentIndex, displayCards, tab])
@@ -325,17 +326,26 @@ export default function Flashcards() {
     }
     // Offline (or the connection drops mid-session): queue the rating and move
     // on. Flashcards are self-rated, so nothing needs grading on the device.
+    // One id for the online try and the queued replay: a review that reached the server
+    // but lost its answer is then not counted twice.
+    const clientEventId = newEventId()
     const queueIt = () => {
-      enqueueFlashcardReview({ flashcardId: card.id, userId, rating })
+      enqueueFlashcardReview({ flashcardId: card.id, userId, rating, clientEventId })
       refreshPending()
       advance()
     }
+    if (reviewingRef.current) return  // a second tap before the next card shows
     if (!navigator.onLine) { queueIt(); return }
+    reviewingRef.current = true
     try {
-      await reviewFlashcard(card.id, rating, userId)
+      await reviewFlashcard(card.id, rating, userId, clientEventId)
       advance()
     } catch (e) {
-      queueIt()
+      // Rejected by the server (deleted card, newer review): a replay cannot succeed
+      if (e?.status >= 400 && e?.status < 500 && e?.status !== 408 && e?.status !== 429) advance()
+      else queueIt()
+    } finally {
+      reviewingRef.current = false
     }
   }, [userId])
 

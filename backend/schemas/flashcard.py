@@ -29,7 +29,9 @@ class HubReviewState(BaseModel):
 
 class HubReviewRequest(BaseModel):
     rating: int = Field(ge=1, le=4, description="1=Again, 2=Hard, 3=Good, 4=Easy")
-    client_event_id: Optional[str] = None
+    # Required: the hub always sends one ("hub-review-<id>"); without it a resent review
+    # was applied a second time (01.11.2026)
+    client_event_id: str = Field(min_length=1, max_length=200)
     reviewed_at: Optional[str] = None
     state: HubReviewState
 

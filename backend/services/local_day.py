@@ -38,3 +38,10 @@ def on_local_day(column, day: date):
     """SQLAlchemy filter: ``column`` (naive UTC) falls on local ``day``."""
     start, end = utc_range(day)
     return (column >= start) & (column < end)
+
+
+def local_date_hour(moment: datetime) -> int:
+    """Hour of the learner's clock for a stored or aware moment."""
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(LOCAL_TZ).hour

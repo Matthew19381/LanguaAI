@@ -205,6 +205,11 @@ async def answer_exercise(
         }
 
     occurred_at = parse_occurred_at(request.answered_at)
+    last = exercise.last_review_date
+    if last is not None and (last if last.tzinfo else last.replace(tzinfo=timezone.utc)) > occurred_at:
+        # A queued offline answer older than the item's last review (e.g. one from the hub):
+        # the newer review wins, as for flashcards (until 01.11.2026 it overwrote it)
+        raise HTTPException(status_code=409, detail="Exercise has a newer review")
     scheduling = review_exercise(db, exercise, rating, now=occurred_at)
     record_event(db, request.client_event_id, request.user_id,
                  "exercise_answer", exercise.id, occurred_at)
@@ -417,6 +422,7 @@ async def hub_review_exercise(
             raise HTTPException(status_code=422, detail="next_review_date must be ISO 8601")
         if next_review.tzinfo is None:
             next_review = next_review.replace(tzinfo=timezone.utc)
+        next_review = next_review.astimezone(timezone.utc)  # SQLite drops the offset
 
     exercise.fsrs_state = st.fsrs_state
     exercise.fsrs_step = None if st.fsrs_state == "Review" else (st.fsrs_step or 0)

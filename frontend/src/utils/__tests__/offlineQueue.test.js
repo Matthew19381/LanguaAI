@@ -266,3 +266,20 @@ describe('syncQueue', () => {
     expect(queueSize()).toBe(0)
   })
 })
+
+describe('audit 01.11.2026', () => {
+  it('queues an answer with the id its online try used', () => {
+    const ev = enqueueFlashcardReview({ flashcardId: 9, userId: 5, rating: 3, clientEventId: 'same-1' })
+    expect(ev.client_event_id).toBe('same-1')
+    expect(enqueueAnswer({ exerciseId: 1, userId: 5, answer: 'a', correct: true, clientEventId: 'same-2' })
+      .client_event_id).toBe('same-2')
+  })
+
+  it('keeps events rejected for a moment (408, 429)', async () => {
+    enqueueFlashcardReview({ flashcardId: 9, userId: 5, rating: 3 })
+    const err = Object.assign(new Error('Too Many Requests'), { status: 429 })
+    const res = await syncQueue(handlers(vi.fn(), vi.fn().mockRejectedValue(err)))
+    expect(res).toEqual({ synced: 0, failed: 1 })
+    expect(queueSize()).toBe(1)
+  })
+})

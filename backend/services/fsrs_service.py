@@ -219,8 +219,9 @@ def apply_fsrs(
     # Determine new state
     new_state = _STATE_TO_NAME.get(updated_card.state, "Learning")
 
-    # Update lapse count
-    new_lapses = lapses + 1 if rating == 1 else lapses
+    # Update lapse count: a lapse is forgetting a card in Review (FSRS, Anki); "Again"
+    # while still learning is no lapse (until 01.11.2026 it was counted)
+    new_lapses = lapses + 1 if rating == 1 and current_state == "Review" else lapses
 
     return FSRSResult(
         difficulty=round(updated_card.difficulty, 4) if updated_card.difficulty else difficulty,
@@ -233,6 +234,17 @@ def apply_fsrs(
         lapses=new_lapses,
         step=updated_card.step,
     )
+
+
+def current_retrievability(stability: float, last_review_date: Optional[datetime],
+                           now: Optional[datetime] = None) -> float:
+    """Probability of recall now (FSRS forgetting curve). The value stored after a review
+    is the one at the moment of the review, i.e. about 1.0, and never falls by itself."""
+    if not last_review_date or not stability or stability <= 0:
+        return 0.0
+    now = _as_utc(now or datetime.now(timezone.utc))
+    elapsed = max(0.0, (now - _as_utc(last_review_date)).total_seconds() / 86400)
+    return round((1 + _scheduler._FACTOR * elapsed / stability) ** _scheduler._DECAY, 4)
 
 
 def calculate_memory_strength_fsrs(

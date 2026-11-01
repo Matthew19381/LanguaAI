@@ -168,8 +168,8 @@ async def get_daily_tips(user_id: int, db: Session = Depends(get_db)):
     recent_topics = [t.name for t in sorted(
         topics, key=lambda x: x.created_at or datetime.min, reverse=True)[:8]]
     weak_topics = [t.name for t in sorted(
-        topics, key=lambda x: x.memory_strength or 0.0)
-        if (t.memory_strength or 0.0) < 0.5][:6]
+        topics, key=lambda x: x.current_strength())
+        if t.current_strength() < 0.5][:6]
 
     try:
         tips = await generate_daily_tips(

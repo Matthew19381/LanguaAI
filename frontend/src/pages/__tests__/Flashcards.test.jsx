@@ -29,6 +29,7 @@ vi.mock("../../utils/offlineQueue", () => ({
   saveCardPack: vi.fn(() => true),
   loadCardPack: vi.fn(() => null),
   enqueueFlashcardReview: vi.fn(),
+  newEventId: vi.fn(() => "evt-1"),
 }))
 
 function renderPage(initialEntry = "/flashcards") {
@@ -120,7 +121,7 @@ describe("Flashcards — session summary (P2-1)", () => {
     await waitFor(() => {
       expect(screen.getByText("flash.sessionDoneTitle")).toBeInTheDocument()
     })
-    expect(reviewFlashcard).toHaveBeenCalledWith(1, 4, 42)
+    expect(reviewFlashcard).toHaveBeenCalledWith(1, 4, 42, "evt-1")
     // Exactly one "Easy" rating given this session.
     expect(screen.getByText("1")).toBeInTheDocument()
   })
@@ -356,5 +357,26 @@ describe("Flashcards — visual mnemonic image (Wariant B, on demand)", () => {
     await waitFor(() => expect(screen.getByText("upstream broke")).toBeInTheDocument())
     // Button is still there — nothing was generated, so it should still be offered.
     expect(screen.getByText("flash.mnemonicImageButton")).toBeInTheDocument()
+  })
+
+  it("a lost answer is queued with the id of its online try, and a double tap sends once", async () => {
+    const { getDueFlashcards, reviewFlashcard } = await import("../../api/client")
+    const { enqueueFlashcardReview } = await import("../../utils/offlineQueue")
+    getDueFlashcards.mockResolvedValue({
+      due_cards: [{ id: 1, word: "Angst", translation: "fear", language: "German" }],
+    })
+    let fail
+    reviewFlashcard.mockImplementationOnce(() => new Promise((_, reject) => { fail = reject }))
+    renderPage()
+
+    await waitFor(() => expect(screen.getAllByText("Angst").length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText("flash.reveal"))
+    await waitFor(() => expect(screen.getByText("flash.easy")).toBeInTheDocument())
+    fireEvent.click(screen.getByText("flash.easy"))
+    fireEvent.click(screen.getByText("flash.easy"))
+    expect(reviewFlashcard).toHaveBeenCalledTimes(1)
+    fail(new Error("Network Error"))  // no status: the response was lost
+    await waitFor(() => expect(enqueueFlashcardReview).toHaveBeenCalledTimes(1))
+    expect(enqueueFlashcardReview.mock.calls[0][0].clientEventId).toBe("evt-1")
   })
 })

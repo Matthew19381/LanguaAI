@@ -170,8 +170,8 @@ export const bulkImportFlashcards = (userId, file) => {
 
 // The backend takes user_id as a QUERY param (like replayFlashcardReview); sending
 // it in the body 422s and silently drops the FSRS review. Keep them consistent.
-export const reviewFlashcard = (flashcardId, rating, userId) =>
-  api.post(`/flashcards/${flashcardId}/review`, { rating }, { params: { user_id: userId } })
+export const reviewFlashcard = (flashcardId, rating, userId, clientEventId) =>
+  api.post(`/flashcards/${flashcardId}/review`, { rating, client_event_id: clientEventId }, { params: { user_id: userId } })
 
 export const exportAnki = (userId) =>
   api.post(`/flashcards/${userId}/export-anki`, {}, { responseType: 'blob' })
@@ -323,8 +323,8 @@ export const getPracticeSet = (userId, { size = 10, topic, includeNew = false } 
     params: { size, topic, include_new: includeNew },
   })
 
-export const answerExercise = (exerciseId, userId, answer, rating) =>
-  api.post(`/exercises/${exerciseId}/answer`, { user_id: userId, answer, rating })
+export const answerExercise = (exerciseId, userId, answer, rating, clientEventId) =>
+  api.post(`/exercises/${exerciseId}/answer`, { user_id: userId, answer, rating, client_event_id: clientEventId })
 
 export const getOfflinePack = (userId, size = 40) =>
   api.get(`/exercises/${userId}/offline-pack`, { params: { size } })

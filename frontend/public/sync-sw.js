@@ -84,7 +84,10 @@ async function replayOutbox() {
         credentials: 'same-origin', // carry the access-gate cookie
         body: JSON.stringify(spec.body),
       })
-      if (res.ok || (res.status >= 400 && res.status < 500)) {
+      // 401 (device locked), 408 and 429 pass: keep them, as the page's syncQueue does.
+      // Until 01.11.2026 they were deleted here, so a locked device lost its answers.
+      const transient = res.status === 401 || res.status === 408 || res.status === 429
+      if (res.ok || (res.status >= 400 && res.status < 500 && !transient)) {
         // Delivered, or permanently rejected — either way stop retrying it.
         await outboxDelete(db, event.client_event_id)
       } else {

@@ -32,6 +32,7 @@ from backend.services.flashcard_service import (
 )
 from backend.services.fsrs_service import apply_fsrs as fsrs_apply
 from backend.services.gemini_service import generate_json, with_model
+from backend.services.local_day import local_date_hour
 from backend.services.sync_service import already_applied, parse_occurred_at, record_event
 from backend.utils import get_user_or_404
 
@@ -93,7 +94,9 @@ async def get_flashcards(
         query = query.filter(Flashcard.is_active == True)
 
     total = query.count()
-    flashcards = query.order_by(Flashcard.created_at.desc()).offset(offset).limit(limit).all()
+    # id breaks ties: cards saved together (import, backup restore) share created_at, and
+    # without a stable order pages repeated some cards and skipped others
+    flashcards = query.order_by(Flashcard.created_at.desc(), Flashcard.id.desc()).offset(offset).limit(limit).all()
 
     return {
         "flashcards": [
@@ -131,7 +134,7 @@ async def get_flashcards(
             for f in flashcards
         ],
         "total": total,
-        "mastered_count": sum(1 for f in flashcards if f.is_mastered),
+        "mastered_count": query.filter(Flashcard.is_mastered == True).count(),  # noqa: E712  all pages, not this one
     }
 
 
@@ -279,7 +282,7 @@ async def review_flashcard(
         # A queued offline review older than the card's last review (e.g. one from the hub):
         # FSRS has no review log to replay it into, so the newer review wins.
         raise HTTPException(status_code=409, detail="Flashcard has a newer review")
-    current_hour = now.hour
+    current_hour = local_date_hour(now)  # the learner's clock, not UTC
     if 6 <= current_hour <= 10:
         session_type = "morning"
     elif 20 <= current_hour <= 22:
@@ -483,7 +486,8 @@ def _parse_any(raw: str) -> datetime:
         parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         raise HTTPException(status_code=422, detail="next_review_date must be ISO 8601")
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    # in UTC: SQLite stores the wall clock and drops the offset
+    return (parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
 
 
 @with_model("lesson")
@@ -759,6 +763,9 @@ Return ONLY valid JSON:
         translation = ""
         example = ""
         example_translation = ""
+    if not translation:
+        # A card with an empty back was saved here until 01.11.2026
+        raise HTTPException(status_code=503, detail="Model AI nie podał tłumaczenia. Nic nie zapisano, spróbuj za chwilę.")
 
     flashcard = Flashcard(
         user_id=user_id,
@@ -1001,6 +1008,7 @@ async def batch_add_flashcards(
                 language=user.target_language,
                 cefr_level=user.cefr_level,
                 isImportant=bool(fc.isImportant),
+                gender=(fc.gender or None),  # sent but dropped until 01.11.2026
             )
         )
         existing_words.add(word)

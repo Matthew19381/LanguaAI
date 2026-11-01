@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from backend.models.exercise import Exercise
 from backend.models.skill_attempt import SkillAttempt
 from backend.services.curriculum import MODULES, SKILLS, find_skill_id, module_index, skill_name
+from backend.services.local_day import local_date, on_local_day
 
 MASTERY_ACCURACY = 0.8      # share of correct first tries among the last WINDOW
 WINDOW = 10                 # recent first tries that count
@@ -62,11 +63,9 @@ def record_attempt(
     occurred_at = _utc(occurred_at) or datetime.now(timezone.utc)
     first_try = True
     if exercise_id is not None:
-        day_start = occurred_at.replace(hour=0, minute=0, second=0, microsecond=0)
         earlier = db.query(SkillAttempt.id).filter(
             SkillAttempt.exercise_id == exercise_id,
-            SkillAttempt.occurred_at >= day_start.replace(tzinfo=None),
-            SkillAttempt.occurred_at < (day_start + timedelta(days=1)).replace(tzinfo=None),
+            on_local_day(SkillAttempt.occurred_at, local_date(occurred_at)),  # the learner's day
         ).first()
         first_try = earlier is None
     attempt = SkillAttempt(
@@ -101,7 +100,7 @@ def skill_mastery(db: Session, user_id: int, language: str) -> dict[str, dict]:
     for skill_id, attempts in by_skill.items():
         recent = attempts[-WINDOW:]
         accuracy = sum(1 for a in recent if a.correct) / len(recent)
-        correct_days = len({a.occurred_at.date() for a in attempts if a.correct})
+        correct_days = len({local_date(a.occurred_at) for a in attempts if a.correct})
         errors = [a.occurred_at for a in attempts if not a.correct]
         if len(attempts) < MIN_ATTEMPTS:
             status = "za_malo_danych"

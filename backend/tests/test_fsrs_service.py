@@ -199,5 +199,6 @@ def test_topic_again_counts_lapse():
     assert topic.lapses == 0
     topic.apply_fsrs(AGAIN)
     assert topic.lapses == 1
+    # Again while relearning is no new lapse (a lapse = forgetting in Review, 01.11.2026)
     topic.apply_fsrs(AGAIN)
-    assert topic.lapses == 2
+    assert topic.lapses == 1

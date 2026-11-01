@@ -98,6 +98,12 @@ def enqueue(db: Session, event: dict) -> Optional[HubOutbox]:
     return row
 
 
+# Kept for the next flush: a wrong or missing key (401/403) is fixed by setting it, and
+# 404/408/429 pass. Until 01.11.2026 every 4xx dropped the event for good, so a day's
+# ticks were lost when the hub's key was wrong for a while.
+RETRY_STATUSES = {401, 403, 404, 408, 429}
+
+
 def flush(db: Session, transport: Optional[httpx.BaseTransport] = None) -> dict:
     """Send pending events; returns counts. Never raises."""
     url, key = hub_config()
@@ -128,8 +134,8 @@ def flush(db: Session, transport: Optional[httpx.BaseTransport] = None) -> dict:
                     row.done_at = datetime.now(timezone.utc)
                     row.last_error = None
                     sent += 1
-                elif 400 <= resp.status_code < 500:
-                    # Wrong key (403) or payload (422): a resend cannot succeed
+                elif 400 <= resp.status_code < 500 and resp.status_code not in RETRY_STATUSES:
+                    # Bad payload (400/422) or a conflict (409): a resend cannot succeed
                     row.done_at = datetime.now(timezone.utc)
                     row.last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
                     rejected += 1

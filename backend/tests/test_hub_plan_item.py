@@ -163,6 +163,19 @@ def test_rejected_event_is_not_resent(client, sample_user, db, hub):
     assert len(calls) == 1
 
 
+def test_wrong_key_keeps_the_event_for_the_next_flush(client, sample_user, db, hub):
+    calls, replies = hub
+    replies.append(403)  # wrong module key: fixed by setting the key, then resent
+    uid = sample_user["user_id"]
+    lesson = _lesson(db, uid)
+    client.post(f"/api/lessons/{lesson.id}/complete", json={"user_id": uid})
+    db.expire_all()
+    row = db.query(HubOutbox).one()
+    assert row.done_at is None and row.last_error.startswith("HTTP 403")
+    assert hub_events.flush(db, transport=hub_events.transport)["sent"] == 1
+    assert len(calls) == 2
+
+
 def test_key_read_from_backend_env(tmp_path, monkeypatch):
     """The hub's provision_module_keys.py writes the key to backend/.env."""
     (tmp_path / "backend").mkdir()

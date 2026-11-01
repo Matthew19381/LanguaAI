@@ -56,12 +56,12 @@ def test_hub_review_rejects_older_review_wrong_user_and_bad_state(client, db, sa
     uid = sample_user["user_id"]
     ex = _ex(db, uid, exercise_type="error_correction",
              last_review_date=datetime.now(timezone.utc))
-    old = {"rating": 1, "reviewed_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+    old = {"client_event_id": "t-exe-58", "rating": 1, "reviewed_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
            "state": _state()}
     assert client.post(f"/api/exercises/{ex.id}/hub-review", params={"user_id": uid}, json=old).status_code == 409
     assert client.post(f"/api/exercises/{ex.id}/hub-review", params={"user_id": uid + 1},
                        json=old).status_code == 403
-    bad = {"rating": 3, "state": _state(fsrs_state="New")}
+    bad = {"client_event_id": "t-exe-63", "rating": 3, "state": _state(fsrs_state="New")}
     assert client.post(f"/api/exercises/{ex.id}/hub-review", params={"user_id": uid}, json=bad).status_code == 422
     assert client.post("/api/exercises/999999/hub-review", params={"user_id": uid}, json=bad).json()["detail"] \
         == "Exercise not found"

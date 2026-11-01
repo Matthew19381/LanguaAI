@@ -176,8 +176,9 @@ async def access_gate_middleware(request: Request, call_next):
     if any(path.startswith(p) for p in _GATE_EXEMPT_PREFIXES):
         return await call_next(request)
 
-    # Guard the API and the audio files; static frontend assets stay public
-    if path.startswith("/api") or path.startswith("/audio"):
+    # Guard the API, the audio files and the generated images (mnemonic pictures of the
+    # learner's cards, open to anyone until 01.11.2026); static frontend assets stay public
+    if path.startswith(("/api", "/audio", "/images")):
         if not request_is_authorized(request):
             return JSONResponse(
                 status_code=401,

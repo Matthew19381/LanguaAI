@@ -27,6 +27,9 @@ def parse_occurred_at(raw: Optional[str]) -> datetime:
         return now
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
+    # Stored columns hold naive UTC and SQLite drops the offset: 10:00+01:00 was saved
+    # as 10:00, one hour late (01.11.2026)
+    parsed = parsed.astimezone(timezone.utc)
     # A device clock running ahead must not push reviews into the future
     return min(parsed, now)
 

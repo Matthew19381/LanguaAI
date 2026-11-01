@@ -58,20 +58,20 @@ def test_hub_review_learning_step_and_validation(client, sample_user, db):
     uid = sample_user["user_id"]
     cid = _card(client, uid)
     r = client.post(f"/api/flashcards/{cid}/hub-review", params={"user_id": uid},
-                    json={"rating": 3, "state": _state(fsrs_state="Learning", fsrs_step=1, repetitions=1)})
+                    json={"client_event_id": "t-hub-60", "rating": 3, "state": _state(fsrs_state="Learning", fsrs_step=1, repetitions=1)})
     assert r.status_code == 200
     f = db.get(Flashcard, cid)
     db.refresh(f)
     assert f.fsrs_state == "Learning" and f.fsrs_step == 1
     bad = client.post(f"/api/flashcards/{cid}/hub-review", params={"user_id": uid},
-                      json={"rating": 3, "state": _state(fsrs_state="New")})
+                      json={"client_event_id": "t-hub-66", "rating": 3, "state": _state(fsrs_state="New")})
     assert bad.status_code == 422
 
 
 def test_hub_review_other_user_and_missing_card(client, sample_user):
     uid = sample_user["user_id"]
     cid = _card(client, uid)
-    body = {"rating": 3, "state": _state()}
+    body = {"client_event_id": "t-hub-73", "rating": 3, "state": _state()}
     assert client.post(f"/api/flashcards/{cid}/hub-review", params={"user_id": uid + 1}, json=body).status_code == 403
     r = client.post("/api/flashcards/99999/hub-review", params={"user_id": uid}, json=body)
     assert r.status_code == 404 and r.json()["detail"] == "Flashcard not found"
@@ -85,7 +85,7 @@ def test_hub_review_rejected_when_newer_review_in_linguaai(client, sample_user, 
     db.commit()
     older = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
     r = client.post(f"/api/flashcards/{cid}/hub-review", params={"user_id": uid},
-                    json={"rating": 3, "reviewed_at": older, "state": _state()})
+                    json={"client_event_id": "t-hub-87", "rating": 3, "reviewed_at": older, "state": _state()})
     assert r.status_code == 409
     db.refresh(f)
     assert f.repetitions == 0  # untouched
@@ -96,7 +96,7 @@ def test_hub_review_needs_app_token_when_gate_is_on(client, sample_user):
 
     uid = sample_user["user_id"]
     cid = _card(client, uid)
-    body = {"rating": 3, "state": _state()}
+    body = {"client_event_id": "t-hub-98", "rating": 3, "state": _state()}
     url = f"/api/flashcards/{cid}/hub-review"
     original = settings.APP_ACCESS_TOKEN
     settings.APP_ACCESS_TOKEN = "test-access-token-1234567890"
@@ -119,7 +119,7 @@ def test_offline_review_older_than_hub_review_is_rejected(client, sample_user, d
     cid = _card(client, uid)
     hub_at = datetime.now(timezone.utc) - timedelta(hours=1)
     assert client.post(f"/api/flashcards/{cid}/hub-review", params={"user_id": uid}, json={
-        "rating": 3, "reviewed_at": hub_at.isoformat(), "state": _state()}).status_code == 200
+        "client_event_id": "hub-review-a", "rating": 3, "reviewed_at": hub_at.isoformat(), "state": _state()}).status_code == 200
     # The phone answered before the hub but synced only now
     r = client.post(f"/api/flashcards/{cid}/review", params={"user_id": uid}, json={
         "rating": 1, "client_event_id": "phone-1",
@@ -136,7 +136,7 @@ def test_review_after_hub_review_is_scheduled_from_reviewed_at(client, sample_us
     cid = _card(client, uid)
     hub_at = datetime.now(timezone.utc) - timedelta(days=5)
     assert client.post(f"/api/flashcards/{cid}/hub-review", params={"user_id": uid}, json={
-        "rating": 3, "reviewed_at": hub_at.isoformat(), "state": _state()}).status_code == 200
+        "client_event_id": "hub-review-b", "rating": 3, "reviewed_at": hub_at.isoformat(), "state": _state()}).status_code == 200
     answered = hub_at + timedelta(days=3)
     r = client.post(f"/api/flashcards/{cid}/review", params={"user_id": uid}, json={
         "rating": 3, "client_event_id": "phone-2", "reviewed_at": answered.isoformat()})

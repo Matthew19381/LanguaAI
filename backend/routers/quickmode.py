@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 from datetime import datetime, timezone
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.exercise import Exercise
 from backend.models.test_result import TestResult
-from backend.services.audio_service import AUDIO_DIR, generate_audio
+from backend.services.audio_service import AUDIO_DIR, audio_ready, generate_audio
 from backend.services.dictation_service import (
     diff_transcription,
     generate_dictation_sentences,
@@ -194,14 +195,15 @@ async def get_dictation(user_id: int, count: int = 3, db: Session = Depends(get_
     )
 
     items = []
-    for i, sentence in enumerate(sentences):
+    for sentence in sentences:
         audio_path = None
-        # Filename derived from content so identical sentences reuse cached audio
-        safe = "".join(c for c in sentence[:24] if c.isalnum() or c == " ").strip().replace(" ", "_")
-        filename = f"dictation_{user_id}_{i}_{safe}.mp3"
+        # Named by a hash of the whole sentence: the first 24 characters alone gave two
+        # sentences that start alike the same recording (01.11.2026)
+        digest = hashlib.sha1(f"{user.target_language}|{sentence}".encode("utf-8")).hexdigest()[:12]
+        filename = f"dictation_{user_id}_{digest}.mp3"
         output_path = os.path.join(AUDIO_DIR, filename)
         try:
-            if not os.path.exists(output_path):
+            if not audio_ready(output_path):
                 await generate_audio(sentence, user.target_language, output_path)
             audio_path = f"/audio/{filename}"
         except Exception as e:
