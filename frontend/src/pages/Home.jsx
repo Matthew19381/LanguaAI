@@ -3,8 +3,8 @@ import { localDay } from '../utils/localDay'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BookOpen, FlaskConical, MessageSquare,
-  CalendarCheck, Star, TrendingUp, ChevronRight, Sparkles,
-  Target, Clock, CheckCircle, Brain, Mic, Newspaper, Youtube, Timer, AlertTriangle
+  Star, TrendingUp, ChevronRight, Sparkles,
+  Target, CheckCircle, Mic, Newspaper, Youtube, Timer, AlertTriangle, GraduationCap
 } from 'lucide-react'
 import { getUserId, getStats, getDailyTips } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
@@ -60,138 +60,116 @@ export default function Home() {
     return <WelcomeScreen t={t} />
   }
 
+  const weekDays = stats?.user?.week_days?.days ?? 0
+  const weekGoal = stats?.user?.week_days?.goal ?? 5
+  const level = stats?.level_info
+
   return (
     <div className="page-container">
       {/* Greeting */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-1">
-          {t('home.welcomeBack')} <span className="gradient-text">{stats?.user?.name || t('home.learner')}</span>!
+      <div className="mb-5">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-1">
+          {t('home.welcomeBack')} <span className="dark:text-indigo-300 text-indigo-700">{stats?.user?.name || t('home.learner')}</span>!
         </h1>
-        <p className="text-gray-400">
+        <p className="dark:text-gray-300 text-gray-600">
           {t('home.learning')} {LANG_DISPLAY[stats?.user?.target_language] || stats?.user?.target_language || t('home.yourLanguage')} — {t('home.level')} {stats?.user?.cefr_level || 'A1'}
         </p>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* Today: one main action first (the lesson), then the week goal */}
+      <section className="card mb-5" aria-labelledby="home-today">
+        <h2 id="home-today" className="sr-only">Dziś</h2>
+        <Link to="/lesson"
+          className="flex items-center gap-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white p-4 min-h-[72px] transition-colors">
+          <span className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/15 shrink-0">
+            <BookOpen className="w-6 h-6" aria-hidden="true" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-lg font-semibold leading-snug">{t('home.todayLesson')}</span>
+            <span className="block text-sm text-indigo-100">{t('home.todayLessonDesc')} · +25 XP</span>
+          </span>
+          <ChevronRight className="w-6 h-6 shrink-0" aria-hidden="true" />
+        </Link>
+
+        <div className="mt-4">
+          <div className="flex items-baseline justify-between mb-2">
+            <span className="text-sm dark:text-gray-300 text-gray-600">{t('home.weekDays')}</span>
+            <span className="text-lg font-bold tabular-nums dark:text-orange-300 text-orange-800">{`${weekDays} / ${weekGoal}`}</span>
+          </div>
+          <div className="flex gap-1.5" aria-hidden="true">
+            {Array.from({ length: weekGoal }, (_, i) => (
+              <span key={i} className={`h-2 flex-1 rounded-full ${i < weekDays ? 'bg-orange-500' : 'dark:bg-gray-800 bg-gray-200'}`} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Stats: compact, 3 per row on phones */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-5">
         <StatCard
-          icon={<CalendarCheck className="w-6 h-6 text-orange-400" />}
-          label={t('home.weekDays')}
-          value={`${stats?.user?.week_days?.days ?? 0} / ${stats?.user?.week_days?.goal ?? 5}`}
-          color="orange"
-        />
-        <StatCard
-          icon={<Star className="w-6 h-6 text-yellow-400" />}
+          icon={<Star className="w-5 h-5 dark:text-yellow-300 text-yellow-800" />}
           label={t('home.totalXP')}
           value={stats?.user?.total_xp || 0}
-          color="yellow"
+          valueClass="dark:text-yellow-300 text-yellow-800"
         />
         <StatCard
-          icon={<CheckCircle className="w-6 h-6 text-emerald-400" />}
+          icon={<CheckCircle className="w-5 h-5 dark:text-emerald-300 text-emerald-700" />}
           label={t('home.lessonsDone')}
           value={stats?.lessons?.completed || 0}
-          color="emerald"
+          valueClass="dark:text-emerald-300 text-emerald-700"
         />
         <StatCard
-          icon={<TrendingUp className="w-6 h-6 text-indigo-400" />}
+          icon={<TrendingUp className="w-5 h-5 dark:text-indigo-300 text-indigo-700" />}
           label={t('home.avgScore')}
           value={`${stats?.tests?.average_score || 0}%`}
-          color="indigo"
+          valueClass="dark:text-indigo-300 text-indigo-700"
         />
       </div>
 
       {/* Level Progress */}
-      {stats?.level_info && (
+      {level && (
         <div className="card mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <span className="text-gray-400 text-sm">{t('home.level')} {stats.level_info.level}</span>
-              <h3 className="text-lg font-semibold">{stats.level_info.level_name}</h3>
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="min-w-0">
+              <span className="dark:text-gray-400 text-gray-600 text-sm">{t('home.level')} {level.level}</span>
+              <h3 className="text-lg font-semibold">{level.level_name}</h3>
             </div>
-            <div className="text-right">
-              <span className="text-indigo-400 font-bold">{stats.level_info.xp} XP</span>
-              <p className="text-gray-500 text-xs">/{stats.level_info.next_level_xp} {t('home.forNextLevel')}</p>
+            <div className="text-right shrink-0">
+              <span className="dark:text-indigo-300 text-indigo-700 font-bold tabular-nums">{level.xp} XP</span>
+              <p className="dark:text-gray-400 text-gray-600 text-xs tabular-nums">/{level.next_level_xp} {t('home.forNextLevel')}</p>
             </div>
           </div>
-          <div className="progress-bar">
-            <div
-              className="progress-fill bg-indigo-500"
-              style={{ width: `${stats.level_info.progress_percent}%` }}
-            />
+          <div className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100}
+            aria-valuenow={level.progress_percent} aria-label="Postęp do następnego poziomu">
+            <div className="progress-fill bg-indigo-500" style={{ width: `${level.progress_percent}%` }} />
           </div>
         </div>
       )}
 
-      {/* Quick Actions */}
+      {/* Other activities. XP only where the backend awards it:
+          test min(50, score/2), conversation min(30, score·0.3) — Wymowa,
+          Newsy, Filmy, Timer and Błędy award none (checked 1.11.2026). */}
       <h2 className="section-title flex items-center gap-2">
-        <Target className="w-5 h-5 text-indigo-400" />
+        <Target className="w-5 h-5 dark:text-indigo-300 text-indigo-700" aria-hidden="true" />
         Aktywności
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <ActionCard
-          to="/lesson"
-          icon={<BookOpen className="w-8 h-8 text-blue-400" />}
-          title={t('home.todayLesson')}
-          description={t('home.todayLessonDesc')}
-          color="blue"
-          xp="+25 XP"
-        />
-        <ActionCard
-          to="/test"
-          icon={<FlaskConical className="w-8 h-8 text-purple-400" />}
-          title={t('home.dailyTest')}
-          description={t('home.dailyTestDesc')}
-          color="purple"
-          xp="+50 XP"
-        />
-        <ActionCard
-          to="/conversation"
-          icon={<MessageSquare className="w-8 h-8 text-emerald-400" />}
-          title={t('home.practiceSpeaking')}
-          description={t('home.practiceSpeakingDesc')}
-          color="emerald"
-          xp="+30 XP"
-        />
-        <ActionCard
-          to="/pronunciation"
-          icon={<Mic className="w-8 h-8 text-orange-400" />}
-          title="Wymowa"
-          description="Ćwicz wymowę z AI i analizą audio"
-          color="orange"
-          xp="+10 XP"
-        />
-        <ActionCard
-          to="/news"
-          icon={<Newspaper className="w-8 h-8 text-teal-400" />}
-          title="Newsy"
-          description="Czytaj uproszczone wiadomości po angielsku"
-          color="teal"
-          xp="+10 XP"
-        />
-        <ActionCard
-          to="/videos"
-          icon={<Youtube className="w-8 h-8 text-red-400" />}
-          title="Filmy YouTube"
-          description="Oglądaj filmy dopasowane do Twojego poziomu"
-          color="red"
-          xp="+10 XP"
-        />
-        <ActionCard
-          to="/quickmode"
-          icon={<Timer className="w-8 h-8 text-emerald-400" />}
-          title="Timer"
-          description="15-minutowy plan nauki ze stoperem"
-          color="emerald"
-          xp=""
-        />
-        <ActionCard
-          to="/errors"
-          icon={<AlertTriangle className="w-8 h-8 text-yellow-400" />}
-          title="Przegląd błędów"
-          description="Ucz się na własnych błędach z testów"
-          color="yellow"
-          xp=""
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 mb-8">
+        <ActionCard to="/test" icon={FlaskConical} tone="purple"
+          title={t('home.dailyTest')} description={t('home.dailyTestDesc')} xp="do 50 XP" />
+        <ActionCard to="/conversation" icon={MessageSquare} tone="emerald"
+          title={t('home.practiceSpeaking')} description={t('home.practiceSpeakingDesc')} xp="do 30 XP" />
+        <ActionCard to="/exam" icon={GraduationCap} tone="blue"
+          title="Próbny egzamin B1" description="Sprechen: 3 części, punkty jak na egzaminie Goethe" />
+        <ActionCard to="/pronunciation" icon={Mic} tone="orange"
+          title="Wymowa" description="Ćwicz wymowę z AI i analizą audio" />
+        <ActionCard to="/news" icon={Newspaper} tone="teal"
+          title="Newsy" description="Uproszczone wiadomości w języku, którego się uczysz" />
+        <ActionCard to="/videos" icon={Youtube} tone="red"
+          title="Filmy YouTube" description="Filmy dopasowane do Twojego poziomu" />
+        <ActionCard to="/quickmode" icon={Timer} tone="emerald"
+          title="Timer" description="15-minutowy plan nauki ze stoperem" />
+        <ActionCard to="/errors" icon={AlertTriangle} tone="yellow"
+          title="Przegląd błędów" description="Ucz się na własnych błędach z testów" />
       </div>
 
       {/* Daily Tips */}
@@ -249,30 +227,42 @@ function WelcomeScreen({ t }) {
   )
 }
 
-function StatCard({ icon, label, value, color }) {
+function StatCard({ icon, label, value, valueClass }) {
   return (
-    <div className="card text-center">
-      <div className="flex justify-center mb-2">{icon}</div>
-      <div className={`text-2xl font-bold text-${color}-400`}>{value}</div>
-      <div className="text-xs text-gray-500 mt-1">{label}</div>
+    <div className="card !p-3 sm:!p-5 text-center">
+      <div className="flex justify-center mb-1" aria-hidden="true">{icon}</div>
+      <div className={`text-xl sm:text-2xl font-bold tabular-nums ${valueClass}`}>{value}</div>
+      <div className="text-xs dark:text-gray-400 text-gray-600 mt-0.5 leading-tight">{label}</div>
     </div>
   )
 }
 
-function ActionCard({ to, icon, title, description, color, xp }) {
+// Full class names (not `bg-${color}-900`): Tailwind only generates classes it
+// finds written out, so the old dynamic badge/icon backgrounds were missing.
+const TONES = {
+  purple: 'dark:bg-purple-500/15 bg-purple-100 dark:text-purple-300 text-purple-700',
+  emerald: 'dark:bg-emerald-500/15 bg-emerald-100 dark:text-emerald-300 text-emerald-700',
+  blue: 'dark:bg-blue-500/15 bg-blue-100 dark:text-blue-300 text-blue-700',
+  orange: 'dark:bg-orange-500/15 bg-orange-100 dark:text-orange-300 text-orange-800',
+  teal: 'dark:bg-teal-500/15 bg-teal-100 dark:text-teal-300 text-teal-700',
+  red: 'dark:bg-red-500/15 bg-red-100 dark:text-red-300 text-red-700',
+  yellow: 'dark:bg-yellow-500/15 bg-yellow-100 dark:text-yellow-300 text-yellow-800',
+}
+
+function ActionCard({ to, icon: Icon, tone, title, description, xp }) {
   return (
-    <Link to={to} className="card-hover">
-      <div className="flex items-start gap-4">
-        <div className={`p-3 rounded-xl bg-${color}-900/30`}>
-          {icon}
-        </div>
-        <div className="flex-1">
-          <h3 className="font-semibold mb-1">{title}</h3>
-          <p className="text-gray-400 text-sm mb-2">{description}</p>
-          <span className={`badge bg-${color}-900 text-${color}-300`}>{xp}</span>
-        </div>
-        <ChevronRight className="w-5 h-5 text-gray-600 mt-1" />
-      </div>
+    <Link to={to} className="card-hover !p-3 sm:!p-4 flex items-center gap-3 min-h-[64px]">
+      <span className={`flex items-center justify-center w-11 h-11 rounded-xl shrink-0 ${TONES[tone]}`} aria-hidden="true">
+        <Icon className="w-6 h-6" />
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold">{title}</span>
+          {xp && <span className="badge dark:bg-gray-800 bg-gray-100 dark:text-gray-200 text-gray-700">{xp}</span>}
+        </span>
+        <span className="block dark:text-gray-400 text-gray-600 text-sm leading-snug">{description}</span>
+      </span>
+      <ChevronRight className="w-5 h-5 dark:text-gray-500 text-gray-400 shrink-0" aria-hidden="true" />
     </Link>
   )
 }

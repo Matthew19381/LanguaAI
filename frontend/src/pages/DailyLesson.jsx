@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   BookOpen, CheckCircle, ChevronDown, ChevronUp,
   AlertTriangle, MessageSquare, PenTool, Star, Download,
-  RefreshCw, Eye, EyeOff, FileText, BookmarkPlus, Loader2,
+  RefreshCw, Headphones, Eye, EyeOff, FileText, BookmarkPlus, Loader2,
   History, ArrowRight, HelpCircle
 } from 'lucide-react'
 import { getUserId, getUser, getTodayLesson, getLesson, completeLesson, addFlashcardAI, evaluateProduction, generateNextLesson, generateConceptFlashcards, getDailyTest, getNews, searchYouTube, exportLessonPDF, exportObsidian, resetTodayLesson, getLessonAudioPackage } from '../api/client'
@@ -34,7 +34,7 @@ function renderMarkdown(text) {
 function parseBold(text) {
   const parts = text.split(/\*\*(.*?)\*\*/g)
   return parts.map((p, j) =>
-    j % 2 === 1 ? <strong key={j} className="text-white font-semibold">{p}</strong> : p
+    j % 2 === 1 ? <strong key={j} className="dark:text-white text-gray-900 font-semibold">{p}</strong> : p
   )
 }
 
@@ -497,55 +497,59 @@ export default function DailyLesson() {
           <h1 className="text-2xl font-bold">{lesson.title}</h1>
           <p className="text-gray-400 mt-1">{lesson.topic}</p>
         </div>
+        {/* Every button keeps its text label on phones too: icon-only buttons
+            (history, new lesson, MD) were guesswork, and "new lesson" deletes
+            today's lesson after a confirm. */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             onClick={() => navigate('/lesson/history')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition-colors"
+            className="flex items-center justify-center gap-1.5 px-3 h-11 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 dark:bg-gray-800 bg-gray-100 dark:hover:bg-gray-700 hover:bg-gray-200 dark:text-gray-200 text-gray-700"
             title={t('history.title')}
           >
-            <History className="w-4 h-4" />
-            <span className="hidden sm:block">{t('history.title')}</span>
+            <History className="w-4 h-4" aria-hidden="true" />
+            <span>{t('history.title')}</span>
           </button>
           {!completed && (
             <button
               onClick={handleRegenerateLesson}
               disabled={regenerating}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-700 hover:bg-orange-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 px-3 h-11 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 dark:bg-gray-800 bg-gray-100 dark:hover:bg-gray-700 hover:bg-gray-200 dark:text-gray-200 text-gray-700"
               title={t('lesson.regenerate') || 'Wygeneruj nową lekcję'}
             >
-              <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:block">{t('lesson.regenerate') || 'Nowa lekcja'}</span>
+              <RefreshCw className={`w-4 h-4 dark:text-orange-300 text-orange-700 ${regenerating ? 'animate-spin' : ''}`} aria-hidden="true" />
+              <span>{t('lesson.regenerate') || 'Nowa lekcja'}</span>
             </button>
           )}
           <button
             onClick={handleDownloadPDF}
             disabled={pdfLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition-colors disabled:opacity-50"
-            title="Download PDF"
+            className="flex items-center justify-center gap-1.5 px-3 h-11 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 dark:bg-gray-800 bg-gray-100 dark:hover:bg-gray-700 hover:bg-gray-200 dark:text-gray-200 text-gray-700"
+            title="Pobierz PDF"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-4 h-4" aria-hidden="true" />
             {pdfLoading ? t('lesson.generating') : t('lesson.pdf')}
           </button>
           <button
             onClick={handleDownloadAudioPackage}
             disabled={audioPackageLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-indigo-700 bg-indigo-600 dark:hover:bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 px-3 h-11 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 dark:bg-gray-800 bg-gray-100 dark:hover:bg-gray-700 hover:bg-gray-200 dark:text-gray-200 text-gray-700"
             title="Pobierz audio na telefon (ZIP z MP3)"
           >
-            <Download className="w-4 h-4" />
-            {audioPackageLoading ? t('lesson.generating') : '🎧 Audio ZIP'}
+            <Headphones className="w-4 h-4" aria-hidden="true" />
+            {audioPackageLoading ? t('lesson.generating') : 'Audio ZIP'}
           </button>
 
           {/* Obsidian Export Dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowObsidianMenu(m => !m)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-gray-800 bg-gray-100 dark:hover:bg-gray-700 hover:bg-gray-200 dark:text-gray-300 text-gray-600 text-sm transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3 h-11 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 dark:bg-gray-800 bg-gray-100 dark:hover:bg-gray-700 hover:bg-gray-200 dark:text-gray-200 text-gray-700"
               title={t('lesson.exportObsidian')}
+              aria-expanded={showObsidianMenu}
             >
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:block">MD</span>
-              <ChevronDown className="w-3 h-3" />
+              <FileText className="w-4 h-4" aria-hidden="true" />
+              <span>MD</span>
+              <ChevronDown className="w-3 h-3" aria-hidden="true" />
             </button>
 
             {showObsidianMenu && (
@@ -599,8 +603,6 @@ export default function DailyLesson() {
               </div>
             )}
           </div>
-
-          <BookOpen className="w-8 h-8 text-indigo-400" />
         </div>
       </div>
 
@@ -1123,12 +1125,12 @@ export default function DailyLesson() {
         </div>
       )}
       {flashToast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-emerald-700 text-white px-4 py-2 rounded-xl shadow-lg text-sm font-medium animate-fade-in">
+        <div className="fixed bottom-safe-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-700 text-white px-4 py-2 rounded-xl shadow-lg text-sm font-medium animate-fade-in">
           {flashToast}
         </div>
       )}
       {exportError && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-red-700 text-white px-4 py-2 rounded-xl shadow-lg text-sm font-medium animate-fade-in">
+        <div className="fixed bottom-safe-6 left-1/2 -translate-x-1/2 z-50 bg-red-700 text-white px-4 py-2 rounded-xl shadow-lg text-sm font-medium animate-fade-in">
           {exportError}
         </div>
       )}
