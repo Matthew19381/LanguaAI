@@ -202,7 +202,7 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark, o
           {/* Right side: stats + dark mode + flash quick-add */}
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             {quickTimer && (
-              <Link to="/quickmode" className={`flex items-center gap-1.5 rounded-xl px-2.5 h-11 text-sm font-semibold tabular-nums ${quickTimer.active ? 'bg-indigo-900/60 text-indigo-200' : 'dark:bg-gray-800 bg-gray-100 dark:text-gray-300 text-gray-700'}`} title="QuickMode timer">
+              <Link to="/quickmode" className={`flex items-center gap-1.5 rounded-xl px-2.5 h-11 text-sm font-semibold tabular-nums ${quickTimer.active ? 'dark:bg-indigo-900/60 bg-indigo-100 dark:text-indigo-200 text-indigo-800' : 'dark:bg-gray-800 bg-gray-100 dark:text-gray-300 text-gray-700'}`} title="QuickMode timer">
                 <Timer className="w-4 h-4" />
                 <span>{fmtTimer(quickTimer.seconds)}</span>
               </Link>

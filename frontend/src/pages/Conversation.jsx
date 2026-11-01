@@ -505,7 +505,9 @@ export default function Conversation() {
       // otherwise the page scrolled 80px too far (chat top under the header)
       // and the translator button sat on top of the message input.
       // dvh so the input stays above the mobile browser's collapsing toolbar.
-      <div className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-68px-5rem)]">
+      // Phones (since 1.11.2026): 60px header (h-14 + 4px bar) and the
+      // 8.5rem bottom room Layout keeps above the bottom nav.
+      <div className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-60px-8.5rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh-68px-5rem)]">
         <div className="bg-gray-900 border-b border-gray-800 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="basis-full sm:basis-0 sm:flex-1 min-w-0">

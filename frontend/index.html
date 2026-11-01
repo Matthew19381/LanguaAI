@@ -13,6 +13,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LinguaAI">
   <meta name="mobile-web-app-capable" content="yes">
+  <!-- Theme class before first paint, also on pages outside Layout (/placement,
+       /login-as), which never ran useDarkMode and showed dark text on a dark page. -->
+  <script>
+    (function () {
+      var dark = true
+      try { dark = localStorage.getItem('linguaai_dark_mode') !== 'false' } catch (e) {}
+      document.documentElement.classList.add(dark ? 'dark' : 'light')
+    })()
+  </script>
 </head>
 <body>
   <div id="root"></div>

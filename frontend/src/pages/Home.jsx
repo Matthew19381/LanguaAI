@@ -158,8 +158,11 @@ export default function Home() {
           title={t('home.dailyTest')} description={t('home.dailyTestDesc')} xp="do 50 XP" />
         <ActionCard to="/conversation" icon={MessageSquare} tone="emerald"
           title={t('home.practiceSpeaking')} description={t('home.practiceSpeakingDesc')} xp="do 30 XP" />
-        <ActionCard to="/exam" icon={GraduationCap} tone="blue"
-          title="Próbny egzamin B1" description="Sprechen: 3 części, punkty jak na egzaminie Goethe" />
+        {/* The mock exam is German-only (backend/routers/exam.py returns 400 otherwise) */}
+        {stats?.user?.target_language === 'German' && (
+          <ActionCard to="/exam" icon={GraduationCap} tone="blue"
+            title="Próbny egzamin B1" description="Sprechen: 3 części, punkty jak na egzaminie Goethe" />
+        )}
         <ActionCard to="/pronunciation" icon={Mic} tone="orange"
           title="Wymowa" description="Ćwicz wymowę z AI i analizą audio" />
         <ActionCard to="/news" icon={Newspaper} tone="teal"

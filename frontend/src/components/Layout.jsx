@@ -151,7 +151,7 @@ export default function Layout() {
         <button
           onClick={() => navigate('/quickmode')}
           // Compact on phones — the header already shows the countdown there.
-          className={`fixed bottom-safe-6 right-4 z-50 flex items-center gap-2 px-3 py-2 sm:px-5 sm:py-3 rounded-xl shadow-lg transition-colors ${
+          className={`fixed bottom-safe-6 right-4 z-50 hidden md:flex items-center gap-2 px-3 py-2 sm:px-5 sm:py-3 rounded-xl shadow-lg transition-colors ${
             timerSeconds <= 5 ? 'bg-red-700 hover:bg-red-600 animate-blink' :
             timerSeconds < 60 ? 'bg-red-700 hover:bg-red-600' :
             timerSeconds < 300 ? 'bg-yellow-600 hover:bg-yellow-500' :

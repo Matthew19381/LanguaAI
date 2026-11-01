@@ -181,7 +181,7 @@ export default function PlacementTest() {
   const answeredCount = Object.keys(answers).length
 
   return (
-    <div className="min-h-screen bg-gray-950 py-8 px-4">
+    <div className="min-h-screen dark:bg-gray-950 py-8 px-4">
       <div className="max-w-2xl mx-auto">
 
         {/* Header */}
@@ -266,6 +266,7 @@ export default function PlacementTest() {
                 </label>
                 <select
                   className="input-field"
+                  aria-label={t('place.nativeLanguage')}
                   value={nativeLanguage}
                   onChange={e => setNativeLanguage(e.target.value)}
                 >

@@ -49,7 +49,7 @@ export default function LoginAs() {
             <p className="text-gray-800 dark:text-gray-100 font-medium">Link logowania jest nieprawidłowy lub wygasł.</p>
             <button
               onClick={() => navigate('/', { replace: true })}
-              className="text-blue-500 underline"
+              className="dark:text-blue-300 text-blue-700 underline min-h-[44px]"
             >
               Wróć do strony głównej
             </button>
