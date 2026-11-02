@@ -1,8 +1,8 @@
 """Test generation and error analysis."""
 import logging
-import re
 
 from backend.services.gemini_service import generate_json, with_model
+from backend.services.lesson_generator.answers import MC_TYPES, grade_open_answers, normalize, shuffle_options
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ Return ONLY valid JSON:
 Points should total 100. Types: fill_blank, multiple_choice, translation, application, error_correction."""
 
     try:
-        return await generate_json(prompt)
+        return _with_shuffled_options(await generate_json(prompt))
     except Exception as e:
         logger.error(f"Error generating daily test: {e}")
         return {
@@ -128,6 +128,15 @@ Points should total 100. Types: fill_blank, multiple_choice, translation, applic
         }
 
 
+def _with_shuffled_options(result):
+    """The model's test with multiple-choice options in random order (answers.py)."""
+    if isinstance(result, list):
+        result = {"questions": result}
+    if isinstance(result, dict):
+        shuffle_options(result.get("questions") or [])
+    return result
+
+
 @with_model("test")
 async def analyze_test_errors(
     questions: list,
@@ -139,20 +148,31 @@ async def analyze_test_errors(
     total_points = 0
     earned_points = 0
 
-    def _normalize_answer(ans: str, q_type: str) -> str:
-        s = str(ans).strip()
-        if q_type in ("multiple_choice", "mc"):
-            return s.upper()
-        s = s.lower()
-        s = re.sub(r'[.!?;:]+$', '', s)
-        s = re.sub(r'\s+', ' ', s)
-        return s.strip()
+    def _answer(q):
+        return answers.get(str(q["id"]), answers.get(q["id"], ""))
+
+    def _expected(q):
+        return q.get("correct") or q.get("correct_answer") or ""
+
+    # Written answers that differ from the one sample answer are checked by the model
+    # (answers.py); an unavailable model leaves the exact comparison
+    to_check = [
+        {"id": q["id"], "type": q.get("type", "unknown"), "question": q.get("question", ""),
+         "expected": _expected(q), "answer": _answer(q)}
+        for q in questions
+        if q.get("type", "unknown") not in MC_TYPES and not q.get("options")
+        and str(_answer(q)).strip()
+        and normalize(_answer(q), q.get("type")) != normalize(_expected(q), q.get("type"))
+    ]
+    verdicts = await grade_open_answers(to_check, language, native_language)
 
     for q in questions:
-        user_ans = answers.get(str(q["id"]), answers.get(q["id"], ""))
+        user_ans = _answer(q)
         q_type = q.get("type", "unknown")
-        correct_ans = q.get("correct") or q.get("correct_answer") or ""
-        is_correct = _normalize_answer(user_ans, q_type) == _normalize_answer(correct_ans, q_type)
+        correct_ans = _expected(q)
+        is_correct = normalize(user_ans, q_type) == normalize(correct_ans, q_type)
+        if not is_correct and str(q["id"]) in verdicts:
+            is_correct = verdicts[str(q["id"])]
         points = q.get("points", 10)
         total_points += points
         if is_correct:
@@ -289,7 +309,7 @@ Return JSON:
 Points should total 100."""
 
     try:
-        return await generate_json(prompt)
+        return _with_shuffled_options(await generate_json(prompt))
     except Exception as e:
         logger.error(f"Error generating weekly test: {e}")
         return await generate_daily_test({}, cefr_level, language, native_language)
@@ -355,7 +375,7 @@ Return JSON with MIXED question types — fill_blank has NO options, multiple_ch
 Use at least 5 fill_blank and at most 5 multiple_choice questions. Points total 100."""
 
     try:
-        return await generate_json(prompt)
+        return _with_shuffled_options(await generate_json(prompt))
     except Exception as e:
         logger.error(f"Error generating errors test: {e}")
         return await generate_daily_test({}, cefr_level, language, native_language)

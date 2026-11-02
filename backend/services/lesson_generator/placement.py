@@ -2,6 +2,7 @@
 import logging
 
 from backend.services.gemini_service import generate_json, json_object, with_model
+from backend.services.lesson_generator.answers import shuffle_options
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +97,11 @@ Return ONLY valid JSON:
         # Ensure sequential IDs
         for i, q in enumerate(questions):
             q["id"] = i + 1
-        return {"questions": questions}
+        # The model puts the right option first (13 of 20 were "A" on 2.11.2026)
+        return {"questions": shuffle_options(questions)}
     except Exception as e:
         logger.error(f"Error generating placement test: {e}")
-        return {"questions": _generate_fallback_questions(language, native_language)}
+        return {"questions": shuffle_options(_generate_fallback_questions(language, native_language))}
 
 
 def _ensure_20_questions(existing: list, language: str, native_language: str) -> list:
