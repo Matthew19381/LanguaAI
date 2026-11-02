@@ -80,10 +80,50 @@ async def test_placement_level_and_score_come_from_the_answers():
     with patch.object(placement_gen, "generate_json",
                       AsyncMock(return_value={"cefr_level": "B1+", "score": 88})):
         r = await placement_gen.analyze_placement_results(questions, answers, "German", "Polish")
-    assert r["score"] == 50.0 and r["cefr_level"] == "A2"
+    # 50 % of the A1 questions: below the 60 % A1 rule, whatever the model says
+    assert r["score"] == 50.0 and r["cefr_level"] == "A1"
     with patch.object(placement_gen, "generate_json", AsyncMock(return_value={"cefr_level": "b1"})):
         r = await placement_gen.analyze_placement_results(questions, answers, "German", "Polish")
-    assert r["cefr_level"] == "B1"
+    assert r["cefr_level"] == "A1"
+
+
+def _fallback_answers(right_ids):
+    qs = placement_gen._generate_fallback_questions("German", "Polish")
+    wrong = {"A": "B", "B": "C", "C": "D", "D": "A"}
+    return qs, {str(q["id"]): (q["correct"] if q["id"] in right_ids else wrong[q["correct"]]) for q in qs}
+
+
+async def test_placement_level_is_computed_not_taken_from_the_model():
+    """Review B7: the same answers must give the same level, whatever the model returns."""
+    a1 = {1, 2, 3, 4}
+    a2 = {5, 6, 7, 8, 16}
+    b1 = {9, 10, 11, 12, 13}
+    b2 = {14, 15, 17}
+    cases = [
+        (set(), "A1"),
+        (a1, "A1"),                              # 20 % overall
+        (a1 | a2, "A2"),                         # 45 %: never B1
+        (a1 | a2 | {9, 10, 11}, "B1"),           # 60 %, A1+A2 100 %, B1 60 %
+        (a1 | a2 | b1 | {14, 15}, "B2"),         # B1 100 %, B2 67 %, no C1
+        (a1 | a2 | b1 | b2 | {18, 19}, "C1"),    # C1 100 %, C1+C2 67 %
+        (set(range(1, 21)), "C2"),
+    ]
+    for right, expected in cases:
+        qs, answers = _fallback_answers(right)
+        for model_says in ("C2", "A1", "nonsense"):
+            with patch.object(placement_gen, "generate_json",
+                              AsyncMock(return_value={"cefr_level": model_says})):
+                r = await placement_gen.analyze_placement_results(qs, answers, "German", "Polish")
+            assert r["cefr_level"] == expected, (sorted(right), model_says, r["cefr_level"])
+        with patch.object(placement_gen, "generate_json", AsyncMock(side_effect=RuntimeError("down"))):
+            r = await placement_gen.analyze_placement_results(qs, answers, "German", "Polish")
+        assert r["cefr_level"] == expected
+
+
+def test_level_needs_questions_of_that_level():
+    """A level the test has no questions for cannot be passed."""
+    only_a = [{"cefr_hint": h, "is_correct": True} for h in ("A1",) * 4 + ("A2",) * 4]
+    assert placement_gen.level_from_answers(only_a, 100.0) == "A2"
 
 
 def test_fallback_placement_keys():

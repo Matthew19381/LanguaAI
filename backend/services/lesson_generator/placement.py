@@ -175,6 +175,36 @@ def _generate_fallback_questions(language: str, native_language: str) -> list:
         ]
 
 
+def _accuracy(summary: list, levels: tuple) -> float | None:
+    """Share of correct answers (0-100) among questions marked with ``levels``; None if none."""
+    items = [q for q in summary if str(q.get("cefr_hint", "")).strip().upper() in levels]
+    if not items:
+        return None
+    return 100 * sum(1 for q in items if q["is_correct"]) / len(items)
+
+
+def level_from_answers(summary: list, score: float) -> str:
+    """CEFR level computed from the answers by the rules the prompt gave the model
+    (01.11.2026, review B7): the model used to pick the level itself, so the same
+    answers could give different levels. A level with no questions cannot be passed."""
+    def at_least(levels: tuple, limit: float) -> bool:
+        acc = _accuracy(summary, levels)
+        return acc is not None and acc >= limit
+
+    if score < 25 or not at_least(("A1",), 60):
+        return "A1"
+    # 30-50 % overall is A2 at most; B1 needs 70 % on A1+A2 and 50 % on B1
+    if score <= 50 or not (at_least(("A1", "A2"), 70) and at_least(("B1",), 50)):
+        return "A2"
+    if not (at_least(("B1",), 80) and at_least(("B2",), 60)):
+        return "B1"
+    if not at_least(("C1",), 70):
+        return "B2"
+    if not at_least(("C1", "C2"), 90):
+        return "C1"
+    return "C2"
+
+
 @with_model("placement")
 async def analyze_placement_results(questions: list, answers: dict, language: str, native_language: str = "Polish") -> dict:
     questions_summary = []
@@ -192,6 +222,7 @@ async def analyze_placement_results(questions: list, answers: dict, language: st
     correct_count = sum(1 for q in questions_summary if q["is_correct"])
     total = len(questions)
     score = (correct_count / total * 100) if total > 0 else 0
+    level = level_from_answers(questions_summary, score)
 
     prompt = f"""Analyze placement test results for a {native_language} speaker learning {language}.
 
@@ -200,6 +231,8 @@ Test summary:
 - Correct answers: {correct_count}
 - Score: {score:.1f}%
 - Question breakdown (with CEFR hints): {questions_summary}
+- CEFR level computed from these answers by the rules below: {level} (fixed; return it as cefr_level
+  and write strong_areas, weak_areas and recommendations for this level)
 
 CEFR LEVEL DETERMINATION RULES — BE STRICT AND CONSERVATIVE:
 - Assign A1 if student gets fewer than 60% of A1 questions correct OR overall score < 25%
@@ -231,12 +264,14 @@ Return JSON:
         # The score is counted from the answers; the model's own number and a level
         # outside A1-C2 (e.g. "B1+", which no plan knows) are not trusted (01.11.2026)
         result["score"] = round(score, 1)
-        level = str(result.get("cefr_level") or "").strip().upper()
-        result["cefr_level"] = level if level in CEFR_LEVELS else level_from_score(score)
+        # The level too: computed from the answers, the model only writes the comments
+        model_level = str(result.get("cefr_level") or "").strip().upper()
+        result["cefr_level"] = level
+        if model_level != result["cefr_level"]:
+            logger.info("Placement: model said %s, answers give %s", model_level, result["cefr_level"])
         return result
     except Exception as e:
         logger.error(f"Error analyzing placement results: {e}")
-        level = level_from_score(score)
         return {
             "cefr_level": level,
             "score": score,
