@@ -155,7 +155,7 @@ export default function News() {
                 <div>
                   <h3 className="text-sm font-semibold text-gray-400 mb-2 flex items-center gap-1">
                     <BookOpen className="w-4 h-4" /> {t('news.simplified')}
-                    <span className="text-xs text-gray-600 font-normal ml-1">· kliknij słowo → fiszka</span>
+                    <span className="text-xs text-gray-600 font-normal ml-1">· kliknij słowo → fiszka, „+ zdanie” → całe zdanie</span>
                   </h3>
                   <div className="flex items-start gap-2">
                     <ClickableText text={article.simplified_text} userId={userId} language={targetLanguage} />
@@ -241,18 +241,21 @@ function ClickableText({ text, userId, language }) {
     ? text.match(/[^.!?]+[.!?]*/g)?.map(s => s.trim()).filter(Boolean) || [text]
     : []
 
-  const cleanOf = w => w.replace(/[^a-zA-ZäöüßÄÖÜáéíóúñàâêîôùûçœ]/gi, '').toLowerCase()
+  const lettersOf = w => w.replace(/[^a-zA-ZäöüßÄÖÜáéíóúñàâêîôùûçœ]/gi, '')
+  const cleanOf = w => lettersOf(w).toLowerCase()
 
-  const toggleWord = async (token) => {
+  // 3.11: the card keeps the word's own spelling ("Haus", not "haus" — German
+  // nouns are capitalised) and the sentence it came from as its example.
+  const toggleWord = async (token, sentence) => {
     const clean = cleanOf(token)
     if (!clean || clean.length < 2 || added[clean]) return
     if (selected[clean]) {
       setSelected(prev => { const n = { ...prev }; delete n[clean]; return n })
       return
     }
-    setSelected(prev => ({ ...prev, [clean]: { display: clean, translation: '', loading: true } }))
+    setSelected(prev => ({ ...prev, [clean]: { display: lettersOf(token), sentence, translation: '', loading: true } }))
     try {
-      const res = await translateWord(clean, language, 'Polish', userId)
+      const res = await translateWord(lettersOf(token), language, 'Polish', userId)
       setSelected(prev => prev[clean] ? { ...prev, [clean]: { ...prev[clean], translation: res.translation || '—', loading: false } } : prev)
     } catch {
       setSelected(prev => prev[clean] ? { ...prev, [clean]: { ...prev[clean], translation: '—', loading: false } } : prev)
@@ -267,17 +270,38 @@ function ClickableText({ text, userId, language }) {
     setBatchAdding(true)
     for (const clean of words) {
       try {
-        const tr = selected[clean].translation
+        const { translation: tr, display, sentence } = selected[clean]
         if (tr && tr !== '—') {
-          await addFlashcard(userId, { word: clean, translation: tr, example_sentence: '' })
+          await addFlashcard(userId, { word: display || clean, translation: tr, example_sentence: sentence || '' })
         } else {
-          await addFlashcardAI(userId, clean)
+          await addFlashcardAI(userId, display || clean)
         }
         setAdded(prev => ({ ...prev, [clean]: true }))
       } catch { /* skip the ones that fail; keep going */ }
     }
     setSelected({})
     setBatchAdding(false)
+  }
+
+  // 3.11: a whole sentence as one card (sentence on the front, Polish on the back)
+  const [sentenceAdded, setSentenceAdded] = useState({})   // idx -> 'adding' | 'added' | message
+  const addSentence = async (sentence, idx) => {
+    if (sentenceAdded[idx] === 'adding' || sentenceAdded[idx] === 'added') return
+    setSentenceAdded(prev => ({ ...prev, [idx]: 'adding' }))
+    try {
+      let tr = translations[idx]
+      if (!tr || tr === '—') {
+        const res = await translateWord(sentence, language, 'Polish', userId)
+        tr = res?.translation
+        if (tr) setTranslations(prev => ({ ...prev, [idx]: tr }))
+      }
+      const res = tr && tr !== '—'
+        ? await addFlashcard(userId, { word: sentence, translation: tr })
+        : await addFlashcardAI(userId, sentence)
+      setSentenceAdded(prev => ({ ...prev, [idx]: res?.success === false ? (res.message || 'Ta fiszka już jest.') : 'added' }))
+    } catch (e) {
+      setSentenceAdded(prev => ({ ...prev, [idx]: 'Nie udało się dodać: ' + (e?.message || 'błąd') }))
+    }
   }
 
   const handleTranslate = async (sentence, idx) => {
@@ -308,7 +332,7 @@ function ClickableText({ text, userId, language }) {
               return (
                 <span
                   key={ti}
-                  onClick={() => toggleWord(token)}
+                  onClick={() => toggleWord(token, sentence)}
                   className={`cursor-pointer rounded px-0.5 transition-colors ${
                     isAdded ? 'text-emerald-500 bg-emerald-900/30' :
                     isSel ? 'text-emerald-300 bg-emerald-800/40 ring-1 ring-emerald-600/50' :
@@ -329,6 +353,17 @@ function ClickableText({ text, userId, language }) {
           >
             {loadingTrans[idx] ? '...' : translations[idx] ? '▲' : 'PL'}
           </button>
+          <button
+            onClick={() => addSentence(sentence, idx)}
+            disabled={sentenceAdded[idx] === 'adding' || sentenceAdded[idx] === 'added'}
+            className={`ml-1.5 text-xs align-middle transition-colors ${sentenceAdded[idx] === 'added' ? 'text-emerald-500' : 'text-gray-600 hover:text-indigo-400'}`}
+            aria-label={`Dodaj całe zdanie do fiszek: ${sentence}`}
+          >
+            {sentenceAdded[idx] === 'adding' ? '...' : sentenceAdded[idx] === 'added' ? '✓ zdanie' : '+ zdanie'}
+          </button>
+          {sentenceAdded[idx] && !['adding', 'added'].includes(sentenceAdded[idx]) && (
+            <p className="text-xs text-gray-400 mt-0.5 ml-1">{sentenceAdded[idx]}</p>
+          )}
           {translations[idx] && (
             <p className="text-yellow-300/80 text-xs italic mt-0.5 ml-1">{translations[idx]}</p>
           )}
