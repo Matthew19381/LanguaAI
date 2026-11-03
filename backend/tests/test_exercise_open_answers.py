@@ -90,3 +90,9 @@ def test_closed_and_replayed_answers_never_call_the_model(client, db, sample_use
         assert r.status_code == 200
     assert not model.called
     assert exercise_service.OPEN_TYPES
+
+
+def test_unspaced_slash_is_part_of_the_answer():
+    assert grade_answer("der/die Kollege/-in", "der") is False
+    assert grade_answer("der/die Kollege/-in", "der/die Kollege/-in") is True
+    assert grade_answer("kaufe | kaufen", "kaufen") is True

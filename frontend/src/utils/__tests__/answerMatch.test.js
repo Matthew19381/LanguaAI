@@ -17,4 +17,8 @@ describe('answer matching', () => {
     expect(matchesAnswer('schön', 'schon')).toBe(false)
     expect(matchesAnswer('', 'x')).toBe(false)
   })
+  it('a slash without spaces belongs to the answer', () => {
+    expect(matchesAnswer('der/die Kollege/-in', 'der')).toBe(false)
+    expect(matchesAnswer('kaufe | kaufen', 'kaufen')).toBe(true)
+  })
 })

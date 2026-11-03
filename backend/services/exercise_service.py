@@ -333,8 +333,9 @@ def _norm_answer(s: str) -> str:
 
 
 def _alternatives(expected: str) -> list[str]:
-    """ "a / b" or "a | b" lists accepted answers (as in the lesson page)."""
-    return [a for a in re.split(r"\s*[/|]\s*", _SAMPLE_PREFIX.sub("", expected or "")) if a.strip()]
+    """ "a / b" or "a | b" lists accepted answers. A slash without spaces is part of the
+    answer ("der/die Kollege/-in"): split there, "der" alone would count as right."""
+    return [a for a in re.split(r"\s+/\s+|\s*\|\s*", _SAMPLE_PREFIX.sub("", expected or "")) if a.strip()]
 
 
 def has_slot(expected: str) -> bool:
