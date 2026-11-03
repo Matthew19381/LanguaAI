@@ -15,6 +15,7 @@ import SpecialChars from '../components/SpecialChars'
 import DayTypeCard from '../components/DayTypeCard'
 import LessonQualityNote from '../components/LessonQualityNote'
 import { useLanguage } from '../hooks/useLanguage'
+import { matchesAnswer } from '../utils/answerMatch'
 
 function renderMarkdown(text) {
   if (!text) return null
@@ -1480,13 +1481,9 @@ function limitRecallSentences(of) {
 // punctuation. The old check accepted any substring in either direction
 // ("e" for "kaufe"), so nearly anything counted as correct. "a / b" or
 // "a | b" in the answer lists accepted alternatives.
-function normalizeAnswer(s) {
-  return String(s || '').toLowerCase().replace(/[.,!?;:„”“"'«»()]/g, '').replace(/\s+/g, ' ').trim()
-}
+// Same rules as the server (utils/answerMatch.js), incl. "[...]" slots (3.11).
 function isAnswerCorrect(given, expected) {
-  const g = normalizeAnswer(given)
-  if (!g) return false
-  return String(expected || '').split(/\s*[/|]\s*/).some(alt => normalizeAnswer(alt) === g)
+  return matchesAnswer(expected, given)
 }
 // A blank is any run of 3+ underscores — prompts use "___" and "________".
 // Splitting on exactly "___" cut 8-underscore blanks apart and dropped the
@@ -1636,9 +1633,37 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
     }
   }
 
-  const handleCheck = () => {
-    if (!userAnswer.trim() || answerLocked) return
-    setIsCorrect(isAnswerCorrect(userAnswer, exercise.answer))
+  const [modelChecking, setModelChecking] = useState(false)
+  const handleCheck = async () => {
+    if (!userAnswer.trim() || answerLocked || modelChecking) return
+    if (isAnswerCorrect(userAnswer, exercise.answer)) {
+      setIsCorrect(true)
+      setChecked(true)
+      return
+    }
+    // A translation can be right in other words than the one sample (3.11):
+    // before it counts as wrong the model checks it. Model down = stays wrong.
+    if (exercise.type === 'translation' && lessonId) {
+      setModelChecking(true)
+      try {
+        const r = await evaluateProduction(lessonId, {
+          userId,
+          user_answer: userAnswer,
+          instruction: `Przetłumacz na ${language || 'German'}: ${exercise.content || ''} (przykładowe poprawne tłumaczenie: ${exercise.answer}). Inne poprawne tłumaczenie też jest dobre.`,
+          language: language || 'German',
+          cefr_level: cefrLevel || 'A1',
+        })
+        const ok = r?.success !== false && (r?.score ?? 0) >= 70 && !(r?.corrections?.length)
+        setIsCorrect(ok)
+      } catch {
+        setIsCorrect(false)
+      } finally {
+        setModelChecking(false)
+        setChecked(true)
+      }
+      return
+    }
+    setIsCorrect(false)
     setChecked(true)
   }
 
@@ -1903,10 +1928,10 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
             {!answerLocked && !isAllRevealed && !checked && (
               <button
                 onClick={handleCheck}
-                disabled={!userAnswer.trim()}
+                disabled={!userAnswer.trim() || modelChecking}
                 className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium disabled:opacity-50 transition-colors"
               >
-                Sprawdź
+                {modelChecking ? 'Sprawdzanie...' : 'Sprawdź'}
               </button>
             )}
           </div>

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.exercise import Exercise
+from backend.models.user import User
 from backend.schemas.exercise import AnswerExerciseRequest, GenerateVariantsRequest
 from backend.schemas.flashcard import HubReviewRequest
 from backend.services.curriculum import find_skill_id, skill_name
@@ -18,12 +19,14 @@ from backend.services.exercise_service import (
     build_practice_set,
     find_weak_skills,
     grade_answer,
+    needs_model_check,
     review_exercise,
     serialize_exercise,
     skill_memorized_needs_variant,
     skill_needs_auto_variant,
 )
 from backend.services.lesson_generator import generate_exercise_variants
+from backend.services.lesson_generator.answers import grade_open_answers
 from backend.services.mastery import (
     MASTERY_ACCURACY,
     MASTERY_DAYS,
@@ -181,6 +184,20 @@ async def answer_exercise(
         raise HTTPException(status_code=403, detail="Not authorized to answer this exercise")
 
     correct = grade_answer(exercise.answer, request.answer)
+    graded_by_model = False
+    # An own sentence or translation can be right in other words than the sample
+    # (3.11.2026). Only a live answer is sent to the model: a queued offline answer
+    # (answered_at set) keeps the device's result, so a reconnect spends nothing.
+    if (not correct and request.answered_at is None and request.rating is None
+            and request.answer.strip() and needs_model_check(exercise.exercise_type, exercise.answer)):
+        user = db.get(User, request.user_id)
+        task = ": ".join(x for x in (exercise.instruction, exercise.prompt) if x)
+        verdicts = await grade_open_answers(
+            [{"id": exercise.id, "type": exercise.exercise_type or "translation", "question": task,
+              "expected": exercise.answer, "answer": request.answer}],
+            exercise.language, (user.native_language if user else None) or "Polish")
+        if verdicts.get(str(exercise.id)) is True:
+            correct = graded_by_model = True
     rating = request.rating if request.rating in (1, 2, 3, 4) else (3 if correct else 1)
 
     base = {
@@ -189,6 +206,7 @@ async def answer_exercise(
         "expected_answer": exercise.answer,
         "feedback": exercise.feedback,
         "skill_tag": exercise.skill_tag,
+        "graded_by_model": graded_by_model,
     }
 
     # ── Offline replay: the same queued answer must never count twice ──

@@ -11,6 +11,7 @@
  * closed — see outboxDB.js and public/sync-sw.js.
  */
 import { mirrorPut, mirrorDelete, requestBackgroundSync } from './outboxDB'
+import { normalizeAnswer, matchesAnswer } from './answerMatch'
 
 const PACK_KEY = 'offlinePack'            // exercises
 const CARD_PACK_KEY = 'offlineCardPack'   // flashcards
@@ -28,20 +29,12 @@ function afterEnqueue(event) {
 }
 
 // ── Local grading ───────────────────────────────────────────────────────────
-// Must mirror grade_answer() in backend/services/exercise_service.py, which does
-//   re.sub(r"[^\w\s]", "", s.strip().lower())  and compares for equality.
-// Python's \w is Unicode-aware, JavaScript's is ASCII-only — so we use explicit
-// Unicode classes here, otherwise "schön" and "Å¼Ã³Å‚w" would grade differently
-// on the device than on the server.
-const PUNCT = /[^\p{L}\p{N}_\s]/gu
-
-export function normalizeAnswer(text) {
-  return (text || '').trim().toLowerCase().replace(PUNCT, '')
-}
+// Must mirror grade_answer() in backend/services/exercise_service.py; the rules
+// live in utils/answerMatch.js (shared with the lesson page).
+export { normalizeAnswer }
 
 export function gradeLocally(expected, given) {
-  const e = normalizeAnswer(expected)
-  return e.length > 0 && e === normalizeAnswer(given)
+  return matchesAnswer(expected, given)
 }
 
 // ── Pack storage ────────────────────────────────────────────────────────────

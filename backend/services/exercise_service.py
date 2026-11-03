@@ -12,6 +12,7 @@ Design notes:
 """
 import hashlib
 import logging
+import re
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -274,11 +275,51 @@ def skill_memorized_needs_variant(
     return not _has_fresh_variants(db, user_id, language, skill_tag)
 
 
+# The model sometimes writes a sample answer with a slot for the learner's own
+# words: "Ich wohne in [Twoje miasto]", "Ich bin [liczba] Jahre alt" (seen 3.11.2026,
+# "Ich wohne in Leipzig" was marked wrong). A slot accepts any words.
+_SLOT = re.compile(r"\[[^\]]*\]")
+_SAMPLE_PREFIX = re.compile(r"^\s*(przyk[lł]ad|np|example|z\.?\s*b)\s*[.:]\s*", re.I)
+OPEN_TYPES = {"translation", "sentence_creation", "sentence-creation"}
+
+
+def _norm_answer(s: str) -> str:
+    s = (s or "").strip().lower().replace("ß", "ss")
+    s = re.sub(r"[^\w\s]", "", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _alternatives(expected: str) -> list[str]:
+    """ "a / b" or "a | b" lists accepted answers (as in the lesson page)."""
+    return [a for a in re.split(r"\s*[/|]\s*", _SAMPLE_PREFIX.sub("", expected or "")) if a.strip()]
+
+
+def has_slot(expected: str) -> bool:
+    return bool(_SLOT.search(expected or ""))
+
+
 def grade_answer(expected: str, given: str) -> bool:
-    """Lenient exact-match grading: case-, whitespace- and punctuation-insensitive."""
-    import re
-    norm = lambda s: re.sub(r"[^\w\s]", "", (s or "").strip().lower())  # noqa: E731
-    return bool(norm(expected)) and norm(expected) == norm(given)
+    """Lenient exact-match grading: case-, whitespace- and punctuation-insensitive,
+    "ss" for "ß"; a "[...]" slot in the expected answer accepts any words."""
+    g = _norm_answer(given)
+    if not g:
+        return False
+    for alt in _alternatives(expected):
+        if _SLOT.search(alt):
+            fixed = [_norm_answer(part) for part in _SLOT.split(alt)]
+            pattern = r"\s*\S.*?\s*".join(re.escape(f) for f in fixed)
+            if re.fullmatch(pattern, g):
+                return True
+        elif _norm_answer(alt) and _norm_answer(alt) == g:
+            return True
+    return False
+
+
+def needs_model_check(exercise_type: str | None, expected: str) -> bool:
+    """Open answers (own sentence, translation, a slot) have more than one correct
+    wording, so a mismatch is checked by the model before it counts as wrong."""
+    t = (exercise_type or "").strip().lower()
+    return t in OPEN_TYPES or has_slot(expected) or bool(_SAMPLE_PREFIX.match(expected or ""))
 
 
 def review_exercise(

@@ -214,6 +214,9 @@ async def generate_daily_lesson(
        you think the verb moves to the end here?" — plus your own short answer to that question
        for them to compare against after they've tried. This is ungraded self-explanation, not a quiz.
     4. Practice exercises (15-20 min): Mix of filling gaps, translation, and sentence creation.
+       Every answer is a complete sentence or word with real content: no placeholders in brackets
+       such as "[Twoje miasto]" or "[liczba]"; for "say where you live" give a concrete city in the
+       prompt (e.g. "Mieszkam w Gdańsku") so the answer has one checkable form.
        Tag each exercise block with the underlying skill it practises ("skill_tag"), so the same skill
        can later be re-practised through fresh variants rather than the identical sentence.
     5. Cultural note (2-3 min): Interesting cultural fact related to the language
@@ -266,7 +269,7 @@ async def generate_daily_lesson(
             "skill_tag": "the underlying skill being practised, e.g. 'Perfekt with haben' or 'accusative articles'",
             "items": [{{
                 "prompt": "prompt or question",
-                "answer": "correct answer"
+                "answer": "one complete correct answer with real words, never a slot like [your city] or [number]"
             }}],
             "feedback": "explanation of correct answer"
         }}],
@@ -495,7 +498,7 @@ Generate {per_skill} NEW exercises for EACH of these skills: {', '.join(skill_ta
 
 Each exercise must practise the same underlying skill but with DIFFERENT vocabulary and
 sentence content than typical textbook examples. Keep prompts short and unambiguous with
-exactly one correct answer.{avoid_block}
+exactly one correct answer. Never put a placeholder in brackets ("[your city]", "[number]") in an answer.{avoid_block}
 
 Return ONLY valid JSON:
 {{"exercises": [{{

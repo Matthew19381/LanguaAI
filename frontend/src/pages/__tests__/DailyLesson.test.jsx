@@ -448,4 +448,35 @@ describe("DailyLesson", () => {
       delete Element.prototype.scrollIntoView
     }
   })
+
+  it("exercise: a [..] slot accepts own words; a translation in other words is checked by the model (3.11)", async () => {
+    const { evaluateProduction } = await import("../../api/client")
+    evaluateProduction.mockReset()
+    evaluateProduction.mockResolvedValue({ success: true, score: 90, corrections: [] })
+    const { fireEvent, waitFor } = await openExercises([
+      { type: "fill-in-the-blank", instruction: "Uzupełnij", items: [{ prompt: "Ich wohne in ___.", answer: "[Twoje miasto]" }] },
+    ])
+    fireEvent.change(screen.getByPlaceholderText("lesson.yourAnswer"), { target: { value: "Leipzig" } })
+    fireEvent.click(screen.getByText("Sprawdź"))
+    await waitFor(() => expect(screen.getByText("✓ Dobrze!")).toBeInTheDocument())
+    expect(evaluateProduction).not.toHaveBeenCalled()
+  })
+
+  it("translation: other correct wording counts after the model check, model 'wrong' stays wrong (3.11)", async () => {
+    const { evaluateProduction } = await import("../../api/client")
+    evaluateProduction.mockReset()
+    evaluateProduction.mockResolvedValueOnce({ success: true, score: 90, corrections: [] })
+    const { fireEvent, waitFor } = await openExercises([
+      { type: "translation", instruction: "Przetłumacz", items: [{ prompt: "Nazywam się Anna i pochodzę z Polski.", answer: "Ich heiße Anna und ich komme aus Polen." }] },
+    ])
+    const input = screen.getByPlaceholderText("lesson.yourAnswer")
+    fireEvent.change(input, { target: { value: "Ich heiße Anna und komme aus Polen." } })
+    fireEvent.click(screen.getByText("Sprawdź"))
+    await waitFor(() => expect(screen.getByText("✓ Dobrze!")).toBeInTheDocument())
+    expect(evaluateProduction.mock.calls[0][1].instruction).toMatch(/Nazywam się Anna/)
+    evaluateProduction.mockResolvedValueOnce({ success: true, score: 30, corrections: [{ error: "heißen", correction: "heiße" }] })
+    fireEvent.change(input, { target: { value: "Ich heißen Anna." } })
+    fireEvent.click(screen.getByText("Sprawdź"))
+    await waitFor(() => expect(screen.getByText(/Nie do końca/)).toBeInTheDocument())
+  })
 })
