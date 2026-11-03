@@ -432,6 +432,28 @@ export default function Flashcards() {
     }
   }
 
+  // 3.11: the example sentence of a card becomes its own card (sentence on the
+  // front, its translation on the back). The server refuses a duplicate.
+  const [exampleAdding, setExampleAdding] = useState(false)
+  const [exampleMsg, setExampleMsg] = useState('')
+  useEffect(() => { setExampleMsg('') }, [currentIndex])
+  const handleAddExampleCard = async (card) => {
+    const sentence = (card?.example_sentence || '').trim()
+    if (!sentence || exampleAdding) return
+    setExampleAdding(true)
+    setExampleMsg('')
+    try {
+      const res = card.example_translation
+        ? await addFlashcard(userId, { word: sentence, translation: card.example_translation.trim() })
+        : await addFlashcardAI(userId, sentence)
+      setExampleMsg(res?.success ? 'Dodano zdanie jako fiszkę.' : (res?.message || 'Ta fiszka już jest.'))
+    } catch (e) {
+      setExampleMsg('Nie udało się dodać: ' + (e?.message || 'błąd'))
+    } finally {
+      setExampleAdding(false)
+    }
+  }
+
   const handleAddCard = async () => {
     if (!newWord || !newTranslation || addLoading) return
     setAddLoading(true)
@@ -758,9 +780,13 @@ export default function Flashcards() {
                     {/* Front */}
                     <div className="flashcard-front">
                       <div className="text-center">
-                        <p className="text-gray-400 text-xs mb-2 uppercase tracking-wider">
-                          {reversed ? 'Polski' : clozeText ? (t('flash.clozeSide') || 'kontekst') : t('flash.wordSide')}
-                        </p>
+                        {/* 3.11: no "SŁOWO" / "Polski" label and no "Kliknij…" hint;
+                            only the context mode says what is shown */}
+                        {clozeText && !reversed && (
+                          <p className="text-gray-400 text-xs mb-2 uppercase tracking-wider">
+                            {t('flash.clozeSide') || 'kontekst'}
+                          </p>
+                        )}
                         {reversed ? (
                           <p className="text-3xl font-bold text-emerald-300">{currentCard.translation}</p>
                         ) : clozeText ? (
@@ -774,15 +800,11 @@ export default function Flashcards() {
                             </div>
                           </div>
                         )}
-                        <p className="text-gray-500 text-xs mt-3">{t('flash.clickReveal')}</p>
                       </div>
                     </div>
                     {/* Back */}
                     <div className="flashcard-back">
                       <div className="text-center">
-                        <p className="text-gray-400 text-xs mb-2 uppercase tracking-wider">
-                          {reversed ? t('flash.wordSide') : t('flash.translationSide')}
-                        </p>
                         {reversed ? (
                           <div className="flex items-center justify-center gap-2 mb-1">
                             <GenderBadge gender={currentCard.gender} />
@@ -811,6 +833,20 @@ export default function Flashcards() {
                         )}
                         {currentCard.example_sentence && currentCard.example_translation && (
                           <p className="text-gray-500 text-xs mt-1 max-w-xs mx-auto">{currentCard.example_translation}</p>
+                        )}
+                        {currentCard.example_sentence && currentCard.example_sentence.trim() !== (currentCard.word || '').trim() && (
+                          <div className="mt-1" onClick={e => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleAddExampleCard(currentCard)}
+                              disabled={exampleAdding}
+                              className="text-xs px-2 py-0.5 rounded border border-indigo-500/40 text-indigo-300 hover:bg-indigo-900/40 disabled:opacity-50"
+                              aria-label="Dodaj zdanie przykładowe jako fiszkę"
+                            >
+                              {exampleAdding ? '…' : '+ zdanie jako fiszka'}
+                            </button>
+                            {exampleMsg && <p className="text-xs text-gray-400 mt-1">{exampleMsg}</p>}
+                          </div>
                         )}
                         {currentCard.mnemonic && (
                           <p className="text-amber-300/80 text-xs mt-2 max-w-xs mx-auto">

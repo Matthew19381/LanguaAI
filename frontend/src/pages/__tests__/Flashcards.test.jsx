@@ -380,3 +380,45 @@ describe("Flashcards — visual mnemonic image (Wariant B, on demand)", () => {
     expect(enqueueFlashcardReview.mock.calls[0][0].clientEventId).toBe("evt-1")
   })
 })
+
+describe("Flashcards — card labels and the example as its own card (3.11.2026)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    localStorage.setItem("userId", "42")
+  })
+
+  async function showCard(card) {
+    const { getDueFlashcards } = await import("../../api/client")
+    getDueFlashcards.mockResolvedValue({ due_cards: [card] })
+    renderPage()
+    await waitFor(() => expect(screen.getAllByText(card.word).length).toBeGreaterThan(0))
+  }
+
+  it("shows no 'słowo', 'Kliknij…' or 'tłumaczenie' labels", async () => {
+    await showCard({ id: 1, word: "der Hunger", translation: "głód", example_sentence: "Ich habe Hunger.", example_translation: "Jestem głodny." })
+    expect(screen.queryByText("flash.wordSide")).not.toBeInTheDocument()
+    expect(screen.queryByText("flash.clickReveal")).not.toBeInTheDocument()
+    expect(screen.queryByText("flash.translationSide")).not.toBeInTheDocument()
+  })
+
+  it("adds the example sentence as a new card with its translation; a duplicate is reported", async () => {
+    const { addFlashcard } = await import("../../api/client")
+    addFlashcard.mockResolvedValueOnce({ success: true, id: 9 })
+      .mockResolvedValueOnce({ success: false, message: "Fiszka 'Ich habe Hunger.' już istnieje w Twojej kolekcji." })
+    await showCard({ id: 1, word: "der Hunger", translation: "głód", example_sentence: "Ich habe Hunger.", example_translation: "Jestem głodny." })
+    fireEvent.click(screen.getByLabelText("Dodaj zdanie przykładowe jako fiszkę"))
+    await waitFor(() => expect(screen.getByText("Dodano zdanie jako fiszkę.")).toBeInTheDocument())
+    expect(addFlashcard).toHaveBeenCalledWith(42, { word: "Ich habe Hunger.", translation: "Jestem głodny." })
+    fireEvent.click(screen.getByLabelText("Dodaj zdanie przykładowe jako fiszkę"))
+    await waitFor(() => expect(screen.getByText(/już istnieje/)).toBeInTheDocument())
+  })
+
+  it("without a stored translation the sentence card is made by the AI endpoint", async () => {
+    const { addFlashcardAI } = await import("../../api/client")
+    addFlashcardAI.mockResolvedValueOnce({ success: true })
+    await showCard({ id: 2, word: "kochen", translation: "gotować", example_sentence: "Ich koche gern." })
+    fireEvent.click(screen.getByLabelText("Dodaj zdanie przykładowe jako fiszkę"))
+    await waitFor(() => expect(addFlashcardAI).toHaveBeenCalledWith(42, "Ich koche gern."))
+  })
+})
