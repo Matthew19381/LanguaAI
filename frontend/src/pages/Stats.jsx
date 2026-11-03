@@ -3,11 +3,11 @@ import { useNavigate, Link } from 'react-router-dom'
 import { localDay } from '../utils/localDay'
 import {
   BarChart3, Flame, Star, Trophy, BookOpen, CalendarCheck,
-  FlaskConical, Brain, TrendingUp, Target, Calendar,
-  Download, Lightbulb, CheckCircle, Loader2, Clock
+  FlaskConical, TrendingUp, Target, Calendar,
+  Download, Lightbulb, CheckCircle, Clock
 } from 'lucide-react'
 import { exportProgressCSV } from '../api/client'
-import { getUserId, getStats, getDailyTips, getStudyPlan, getLessonConcepts, generateConceptFlashcards, getVoiceChatPrompt, getBestStudyTime } from '../api/client'
+import { getUserId, getStats, getDailyTips, getStudyPlan, getLessonConcepts, generateConceptFlashcards, getBestStudyTime } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
 
@@ -19,8 +19,6 @@ export default function Stats() {
   const [studyPlan, setStudyPlan] = useState(null)
   const [csvLoading, setCsvLoading] = useState(false)
   const [showAllLessons, setShowAllLessons] = useState(false)
-  const [voiceChatPrompt, setvoiceChatPrompt] = useState(null)
-  const [voiceChatLoading, setVoiceChatLoading] = useState(false)
   const [bestTime, setBestTime] = useState(null)
   const [manualAnkiDone, setManualAnkiDone] = useState(() => {
     const today = localDay()
@@ -79,20 +77,6 @@ export default function Stats() {
       console.error('CSV download failed:', e)
     } finally {
       setCsvLoading(false)
-    }
-  }
-
-  const handleGetVoiceChatPrompt = async () => {
-    if (!userId) return
-    setVoiceChatLoading(true)
-    setvoiceChatPrompt(null)
-    try {
-      const res = await getVoiceChatPrompt(userId)
-      setvoiceChatPrompt(res.prompt || res)
-    } catch (e) {
-      console.error('Voice chat prompt generation failed:', e)
-    } finally {
-      setVoiceChatLoading(false)
     }
   }
 
@@ -394,57 +378,6 @@ export default function Stats() {
           </label>
         </div>
       )}
-
-      {/* Voice Chat Prompt Generator */}
-      <div className="card mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Brain className="w-5 h-5 text-purple-400" />
-            <h2 className="section-title">{t('stats.voiceChatPrompt') || 'Prompt dla Voice Chat'}</h2>
-          </div>
-          <button
-            onClick={handleGetVoiceChatPrompt}
-            disabled={voiceChatLoading}
-            className="btn-primary text-sm flex items-center gap-1"
-          >
-            {voiceChatLoading ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <Brain className="w-3 h-3" />
-            )}
-            {voiceChatLoading ? 'Generowanie...' : 'Wygeneruj prompt'}
-          </button>
-        </div>
-        {voiceChatPrompt?.prompt && (
-          <div>
-            <div className="bg-gray-800 rounded-lg p-3 mb-3">
-              <pre className="text-xs text-gray-300 whitespace-pre-wrap font-mono leading-relaxed">
-                {voiceChatPrompt.prompt}
-              </pre>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(voiceChatPrompt.prompt)
-                  alert('Prompt skopiowany do schowka!')
-                }}
-                className="btn-secondary text-sm flex items-center gap-1"
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M8 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-0z" />
-                </svg>
-                Kopiuj do schowka
-              </button>
-              {voiceChatPrompt.has_lesson_today && (
-                <span className="text-xs text-emerald-400">✓ Lekcja dzisiaj ukończona</span>
-              )}
-              {voiceChatPrompt.due_flashcards > 0 && (
-                <span className="text-xs text-yellow-400">Fiszki do powtórki: {voiceChatPrompt.due_flashcards}</span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Lesson Plan / Study Plan */}
       {studyPlan?.plan && (
