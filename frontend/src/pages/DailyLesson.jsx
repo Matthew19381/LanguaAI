@@ -72,6 +72,14 @@ export default function DailyLesson() {
   const [loading, setLoading] = useState(() => lessonId ? true : !readLessonCache())
   const [error, setError] = useState('')
   const [completing, setCompleting] = useState(false)
+  const [completedXp, setCompletedXp] = useState(null)
+  const summaryRef = useRef(null)
+  const [justCompleted, setJustCompleted] = useState(false)
+  useEffect(() => {
+    if (justCompleted && summaryRef.current?.scrollIntoView) {
+      summaryRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [justCompleted])
   const [completed, setCompleted] = useState(() => {
     if (lessonId) return false
     const cached = readLessonCache()
@@ -212,6 +220,7 @@ export default function DailyLesson() {
     // locally; useOfflineSync drains the outbox on reconnect.
     enqueueLessonComplete({ lessonId: lesson.lesson_id, userId })
     setCompleted(true)
+    setJustCompleted(true)
     markLessonTabDone()
     markLessonCacheCompleted()
   }
@@ -226,13 +235,17 @@ export default function DailyLesson() {
       return
     }
     try {
-      await completeLesson(lesson.lesson_id, userId)
+      const res = await completeLesson(lesson.lesson_id, userId)
+      // No page reload (3.11): reloading threw away every answer typed in the
+      // lesson and jumped to the top. The page stays as it is and scrolls to
+      // the summary card below the lesson.
+      setCompletedXp(typeof res?.xp_awarded === 'number' ? res.xp_awarded : null)
       setCompleted(true)
+      setLesson(l => (l ? { ...l, is_completed: true } : l))
+      setJustCompleted(true)
       // Clear lesson cache so next day fetches fresh lesson
       clearLessonCache()
       markLessonTabDone()
-      // Reload to reflect new lesson state
-      window.location.reload()
     } catch (e) {
       // No HTTP status = the request never reached the server (network drop):
       // fall back to the offline queue instead of surfacing an error.
@@ -1095,10 +1108,14 @@ export default function DailyLesson() {
           )}
         </button>
       ) : (
-        <div className="card border-emerald-700/30 bg-emerald-900/10 text-center mt-4">
+        <div ref={summaryRef} data-testid="lesson-summary" className="card border-emerald-700/30 bg-emerald-900/10 text-center mt-4">
           <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
           <p className="text-emerald-300 font-semibold">{t('lesson.lessonCompleted')}</p>
-          <p className="text-gray-400 text-sm mt-1">{t('lesson.earnedXP')}</p>
+          <p className="text-gray-400 text-sm mt-1">
+            {completedXp === null
+              ? 'Gotowy na dzienny test?'
+              : completedXp > 0 ? `+${completedXp} XP. Gotowy na dzienny test?` : 'Lekcja była już zaliczona. Gotowy na dzienny test?'}
+          </p>
           <div className="flex flex-wrap gap-2 justify-center mt-3">
             <button
               className="btn-primary flex items-center gap-2"

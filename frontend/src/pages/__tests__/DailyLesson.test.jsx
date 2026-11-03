@@ -381,4 +381,33 @@ describe("DailyLesson", () => {
     fireEvent.click(screen.getAllByLabelText("lesson.addToFlash")[0])
     await waitFor(() => expect(addFlashcardAI).toHaveBeenCalledWith(42, "Ich koche heute Suppe."))
   })
+
+  it("completing the lesson keeps typed answers and shows the summary without reloading (3.11)", async () => {
+    const { completeLesson } = await import("../../api/client")
+    completeLesson.mockReturnValue(Promise.resolve({ success: true, is_completed: true, xp_awarded: 25 }))
+    const reload = vi.fn()
+    const realLocation = window.location
+    Object.defineProperty(window, "location", { configurable: true, value: { ...realLocation, reload } })
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    try {
+      const { fireEvent, waitFor } = await openExercises([{
+        type: "fill-in-the-blank", instruction: "Uzupełnij",
+        items: [{ prompt: "Ich ___ heute Gemüse.", answer: "kaufe" }],
+      }])
+      const input = screen.getByPlaceholderText("lesson.yourAnswer")
+      fireEvent.change(input, { target: { value: "kaufe" } })
+      fireEvent.click(screen.getByText("Sprawdź"))
+      fireEvent.click(screen.getByText("lesson.markComplete"))
+      await waitFor(() => expect(screen.getByTestId("lesson-summary")).toBeInTheDocument())
+      expect(reload).not.toHaveBeenCalled()
+      expect(screen.getByPlaceholderText("lesson.yourAnswer")).toHaveValue("kaufe")
+      expect(screen.getByText("✓ Dobrze!")).toBeInTheDocument()
+      expect(screen.getByText(/\+25 XP/)).toBeInTheDocument()
+      expect(scroll).toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: realLocation })
+      delete Element.prototype.scrollIntoView
+    }
+  })
 })
