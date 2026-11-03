@@ -60,6 +60,35 @@ def request_is_authorized(request: Request) -> bool:
     return False
 
 
+# The one endpoint the System-Glowny hub polls. Exact path only: the /api/v1
+# alias middleware makes every /api/* route reachable under /api/v1/*, so a
+# prefix rule here would open the whole API.
+HUB_SUMMARY_PATH = "/api/v1/summary"
+
+
+def module_key_matches(request: Request) -> bool:
+    """True only when MODULE_KEY is configured AND X-Module-Key equals it.
+    An empty configured key never matches anything."""
+    expected = settings.MODULE_KEY
+    if not expected:
+        return False
+    supplied = request.headers.get("X-Module-Key") or ""
+    return secrets.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8"))
+
+
+def hub_summary_allowed(request: Request) -> bool:
+    """Gate decision for the hub's summary poll (GET /api/v1/summary only).
+
+    - MODULE_KEY empty: allowed without credentials (the hub sends none today).
+    - MODULE_KEY set: requires a matching X-Module-Key, or the normal app token.
+    """
+    if request.method != "GET" or request.url.path != HUB_SUMMARY_PATH:
+        return False
+    if not settings.MODULE_KEY:
+        return True
+    return module_key_matches(request) or request_is_authorized(request)
+
+
 @router.get("/api/auth/status")
 async def auth_status(request: Request):
     """Whether the gate is on and whether this device is already unlocked."""

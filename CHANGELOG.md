@@ -4,6 +4,19 @@ Format: newest first. Każdy wpis: wersja (jeśli dotyczy) + data + opis.
 
 ---
 
+## 2026-11-03 — Bramka dostępu przepuszcza poll summary huba
+
+- Problem: przy ustawionym `APP_ACCESS_TOKEN` `GET /api/v1/summary` dostawał 401, bo System-Glowny
+  odpytuje summary bez nagłówków (`analytics.py`, `overview.py`, `planner.py`, `summary.py`) — hub
+  po cichu wyrzucał LinguaAI z przeglądu i planu dnia.
+- `routers/auth.py` `hub_summary_allowed`, wołane z `access_gate_middleware`: tylko `GET` na dokładną
+  ścieżkę `/api/v1/summary`. Nowe ustawienie `MODULE_KEY` (domyślnie puste): puste = summary bez
+  poświadczeń; ustawione = wymagany `X-Module-Key` (`secrets.compare_digest`, pusty nigdy nie pasuje)
+  albo token aplikacji. Klucz nie otwiera żadnego innego endpointu (też nie przez alias `/api/v1/*`).
+- Aby wymagać klucza: ustaw `MODULE_KEY` tu i ten sam klucz dla `lingua-ai` w `MODULE_KEYS` huba,
+  a hub musi wysyłać `X-Module-Key` także przy pollu summary (dziś tylko na `/directives`).
+- Testy: `backend/tests/test_auth_gate.py` (6 nowych).
+
 ## 2026-10-08 — B1+B5: skrypt scalania kont (NIE wykonany, czeka na zgodę właściciela)
 
 - `scripts/merge_users.py --db … --target … --sources … [--apply]` przenosi wszystkie wiersze z `user_id`

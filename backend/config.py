@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     # (tunnel, cloud) — otherwise anyone with the URL can read/modify your data
     # and spend your AI credits.
     APP_ACCESS_TOKEN: str = ""
+    # Key System-Glowny sends as X-Module-Key (its MODULE_KEYS entry "lingua-ai").
+    # Empty (default) = GET /api/v1/summary passes the access gate without
+    # credentials (read-only, no AI calls). Set it — together with the hub sending
+    # the header on summary polls — to require the key there too. It never opens
+    # any other endpoint.
+    MODULE_KEY: str = ""
     TARGET_LANGUAGE: str = "German"
     NATIVE_LANGUAGE: str = "Polish"
     DISCORD_WEBHOOK_URL: str = ""

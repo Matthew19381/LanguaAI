@@ -333,7 +333,17 @@ Kolejność (od zewnątrz): **v1-alias → rate-limit → gate → CORS → rout
   segmenty v1 (`users`, `voice-chat`, `summary`) auto-wykrywane z `app.routes`.
 - **Bramka dostępu:** gdy `APP_ACCESS_TOKEN` ustawiony, każde `/api/*` i
   `/audio/*` wymaga sekretu. `POST /api/auth/unlock` wymienia go na ciasteczko
-  **HttpOnly** (`secrets.compare_digest`). Otwarte: `/api/health`, `/api/auth/*`.
+  **HttpOnly** (`secrets.compare_digest`). Otwarte: `/api/health`, `/api/auth/*`,
+  `/api/settings/gdrive/callback`.
+- **Poll huba (`GET /api/v1/summary`):** System-Glowny odpytuje summary bez
+  nagłówków, więc ma osobną regułę (`hub_summary_allowed` w `routers/auth.py`):
+  tylko **dokładna ścieżka** i tylko `GET`. Pusty `MODULE_KEY` = przepuszczane bez
+  poświadczeń (read-only, bez AI, ale ujawnia statystyki nauki każdemu, kto zna
+  URL i `user_id`). Ustawiony `MODULE_KEY` = wymagany `X-Module-Key` równy kluczowi
+  (`compare_digest`, pusty klucz nigdy nie pasuje) albo zwykły token aplikacji —
+  wtedy hub musi wysyłać ten nagłówek także przy pollu summary (dziś wysyła go
+  tylko na `/directives`). `X-Module-Key` nie otwiera nic poza tą ścieżką;
+  reguła prefiksowa `/api/v1/` byłaby dziurą, bo alias v1 udostępnia pod nim całe API.
   Pusty token = bramka wyłączona (localhost bez zmian). **Warunek wystawienia na
   internet** — inaczej obcy czyta/zmienia dane i pali kredyty AI.
 - **Rate limit:** 30 żądań / 60 s / IP na endpointy AI (pomijany w testach).
@@ -361,6 +371,7 @@ cefr_level}, events, wellbeing_contribution:null}`. Pozostałe kroki integracji
 | `OPENROUTER_API_KEY` / `GEMINI_API_KEY` | Klucze dostawców |
 | `DATABASE_URL` | `sqlite:///./lingua_ai.db` lub PostgreSQL |
 | `APP_ACCESS_TOKEN` | Bramka dostępu (puste = wyłączona) |
+| `MODULE_KEY` | Klucz `X-Module-Key` huba dla `GET /api/v1/summary` przy włączonej bramce (puste = summary bez poświadczeń) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push |
 | `TARGET_LANGUAGE` / `NATIVE_LANGUAGE` | Domyślne języki |
 | `DISCORD_WEBHOOK_URL`, `NOTIFY_LESSON_HOUR`, `NOTIFY_REVIEW_HOUR` | Notifier |
