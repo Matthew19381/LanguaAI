@@ -216,13 +216,51 @@ describe("DailyLesson", () => {
     })
     fireEvent.click(screen.getByText("Sprawdź z AI"))
 
+    // 3.11: a good sentence shows only "Dobrze", no explanation
     await waitFor(() => {
-      expect(screen.getByText("82/100")).toBeInTheDocument()
+      expect(screen.getByText("✓ Dobrze!")).toBeInTheDocument()
     })
+    expect(screen.queryByText("Dobra praca, drobny błąd rodzajnika.")).not.toBeInTheDocument()
+    expect(screen.queryByText("Wyjaśnij")).not.toBeInTheDocument()
     expect(evaluateProduction).toHaveBeenCalledWith(7, expect.objectContaining({
       user_answer: "Die Frau ist alt und die Wohnung ist gross.",
-      instruction: "Ułóż zdanie",
+      instruction: "Ułóż zdanie: Zdanie 1: opisz kogoś",
     }))
+  })
+
+  it("sentence_creation: a wrong sentence is red, can be corrected and explained on request (3.11)", async () => {
+    const { getTodayLesson, evaluateProduction } = await import("../../api/client")
+    getTodayLesson.mockReturnValue(Promise.resolve({
+      lesson_id: 7, day_number: 1, language: "German", cefr_level: "A1", is_completed: false,
+      content: { exercises: [{ type: "sentence_creation", instruction: "Ułóż zdanie",
+        items: [{ prompt: "Powiedz, gdzie mieszkasz", answer: "Przykład: Ich wohne in Berlin." }] }] },
+    }))
+    evaluateProduction.mockResolvedValueOnce({
+      success: true, score: 40, feedback: "Czasownik musi być w 1. osobie.",
+      corrections: [{ error: "wohnen", correction: "wohne" }], improved_version: "Ich wohne in Leipzig.",
+    }).mockResolvedValueOnce({ success: true, score: 95, feedback: "Super.", corrections: [] })
+    renderLesson()
+    const { waitFor, fireEvent } = await import("@testing-library/react")
+    await waitFor(() => expect(screen.getByText("lesson.exercises (1)")).toBeInTheDocument())
+    fireEvent.click(screen.getByText("lesson.exercises (1)"))
+    const input = await screen.findByPlaceholderText("lesson.yourAnswer")
+    fireEvent.change(input, { target: { value: "Ich wohnen in Leipzig." } })
+    fireEvent.click(screen.getByText("Sprawdź z AI"))
+    await waitFor(() => expect(screen.getByTestId("sentence-wrong")).toBeInTheDocument())
+    expect(input.className).toMatch(/border-red-500/)
+    expect(screen.getByText("wohne")).toBeInTheDocument()
+    // the explanation only after asking for it
+    expect(screen.queryByText("Czasownik musi być w 1. osobie.")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText("Wyjaśnij"))
+    expect(screen.getByText("Czasownik musi być w 1. osobie.")).toBeInTheDocument()
+    expect(screen.getByText("Poprawnie: Ich wohne in Leipzig.")).toBeInTheDocument()
+    // correct it and check again
+    fireEvent.click(screen.getByText("Popraw odpowiedź"))
+    expect(input).not.toBeDisabled()
+    fireEvent.change(input, { target: { value: "Ich wohne in Leipzig." } })
+    fireEvent.click(screen.getByText("Sprawdź z AI"))
+    await waitFor(() => expect(screen.getByText("✓ Dobrze!")).toBeInTheDocument())
+    expect(evaluateProduction).toHaveBeenLastCalledWith(7, expect.objectContaining({ user_answer: "Ich wohne in Leipzig." }))
   })
 
   it("P1-3: drops exercise items with empty content or answer instead of rendering a blank card", async () => {

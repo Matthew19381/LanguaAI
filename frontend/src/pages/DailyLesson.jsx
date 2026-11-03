@@ -1612,15 +1612,19 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
   // evaluator the dedicated Production Task section uses, not a substring match.
   const [aiChecking, setAiChecking] = useState(false)
   const [aiResult, setAiResult] = useState(null)
+  const [showExplain, setShowExplain] = useState(false)
   const handleAICheck = async () => {
     if (!userAnswer.trim()) return
     setAiChecking(true)
     setAiResult(null)
+    setShowExplain(false)
     try {
       const result = await evaluateProduction(lessonId, {
         userId,
         user_answer: userAnswer,
-        instruction: exercise.instruction || exercise.content || '',
+        // The model needs the item's own task too ("Zdanie 1: opisz kogoś"),
+        // not only the block's general "Ułóż zdanie".
+        instruction: [exercise.instruction, exercise.content].filter(Boolean).join(': '),
         language: language || 'German',
         cefr_level: cefrLevel || 'A1',
       })
@@ -1806,7 +1810,7 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
             <input
               ref={inputRef}
               type="text"
-              className="input-field text-sm flex-1"
+              className={`input-field text-sm flex-1 ${aiResult && aiResult.success !== false ? (((aiResult.score ?? 0) >= 70 && !(aiResult.corrections?.length)) ? 'border-emerald-500' : 'border-red-500') : ''}`}
               placeholder={t('lesson.yourAnswer')}
               value={userAnswer}
               onChange={e => { setUserAnswer(e.target.value); setAiResult(null) }}
@@ -1832,25 +1836,56 @@ function ExerciseCard({ exercise, number, language, cefrLevel, userId, lessonId,
               onChange={(v) => { setUserAnswer(v); setAiResult(null) }}
             />
           )}
-          {aiResult && (
-            <div className={`mt-2 rounded-lg p-3 text-sm ${aiResult.success === false ? 'bg-red-900/10 border border-red-700/30' : 'bg-gray-900/60 border border-gray-700'}`}>
-              {aiResult.score != null && (
-                <p className={`font-semibold mb-1 ${aiResult.score >= 70 ? 'text-emerald-400' : aiResult.score >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
-                  {aiResult.score}/100
-                </p>
-              )}
-              {aiResult.feedback && <p className="text-gray-300">{aiResult.feedback}</p>}
-              {aiResult.corrections?.length > 0 && (
-                <ul className="mt-1.5 space-y-0.5">
-                  {aiResult.corrections.map((c, i) => (
-                    <li key={i} className="text-gray-400">
-                      <span className="text-red-400 line-through">{c.error}</span> → <span className="text-emerald-400">{c.correction}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+          {aiResult && aiResult.success === false && (
+            <p className="mt-2 text-xs font-medium text-red-400">✗ {aiResult.feedback || 'Nie udało się ocenić odpowiedzi.'} Spróbuj jeszcze raz.</p>
           )}
+          {aiResult && aiResult.success !== false && (() => {
+            // 3.11: a good sentence gets only "Dobrze" — no explanation nobody
+            // asked for. A wrong one is red, shows what is wrong and lets the
+            // learner correct it or ask for the explanation.
+            const corrections = Array.isArray(aiResult.corrections) ? aiResult.corrections : []
+            const good = (aiResult.score ?? 0) >= 70 && corrections.length === 0
+            if (good) return <p className="text-xs mt-1 font-medium text-emerald-400">✓ Dobrze!</p>
+            return (
+              <div className="mt-2 rounded-lg p-3 text-sm bg-red-900/10 border border-red-700/40" data-testid="sentence-wrong">
+                <p className="font-medium text-red-400">✗ Jest błąd{aiResult.score != null ? ` (${aiResult.score}/100)` : ''}</p>
+                {corrections.length > 0 && (
+                  <ul className="mt-1.5 space-y-0.5">
+                    {corrections.map((c, i) => (
+                      <li key={i} className="text-gray-400">
+                        <span className="text-red-400 line-through">{c.error}</span> → <span className="text-emerald-400">{c.correction}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <button
+                    type="button"
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium"
+                    onClick={() => { setAiResult(null); setShowExplain(false); inputRef.current?.focus() }}
+                  >
+                    Popraw odpowiedź
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-xs font-medium"
+                    onClick={() => setShowExplain(v => !v)}
+                    aria-expanded={showExplain}
+                  >
+                    {showExplain ? 'Ukryj wyjaśnienie' : 'Wyjaśnij'}
+                  </button>
+                </div>
+                {showExplain && (
+                  <div className="mt-2 text-gray-300 space-y-1">
+                    {aiResult.feedback && <p>{aiResult.feedback}</p>}
+                    {aiResult.improved_version && (
+                      <p className="text-emerald-300">Poprawnie: {aiResult.improved_version}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
       ) : (
         <div>
