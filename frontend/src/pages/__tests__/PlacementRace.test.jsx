@@ -7,7 +7,7 @@ import PlacementTest from "../PlacementTest"
 vi.mock("../../api/client", () => ({
   createUser: vi.fn(async () => ({ user_id: 2 })), getUser: vi.fn(),
   startPlacementTest: vi.fn(async () => ({ questions: [] })), submitPlacementTest: vi.fn(),
-  setUserId: vi.fn(), getUserId: vi.fn(() => 1),
+  setUserId: vi.fn(), getUserId: vi.fn(() => 1), listAccounts: vi.fn(async () => ({ accounts: [] })),
 }))
 vi.mock("../../hooks/useLanguage", () => ({ useLanguage: () => ({ t: k => k }) }))
 

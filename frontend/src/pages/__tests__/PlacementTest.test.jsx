@@ -12,6 +12,7 @@ vi.mock("../../api/client", () => ({
   submitPlacementTest: vi.fn(),
   setUserId: vi.fn(),
   getUserId: vi.fn(() => null),
+  listAccounts: vi.fn(async () => ({ accounts: [] })),
 }))
 
 // Mock useLanguage hook
@@ -42,9 +43,34 @@ describe("PlacementTest", () => {
     getUserId.mockReturnValue(null)
   })
 
-  it("without an account on this device tells how to sign in instead", () => {
+  it("without an account on this device tells how to sign in instead", async () => {
     renderPlacement()
-    expect(screen.getByTestId("placement-have-account")).toHaveTextContent("Pokaż link logowania")
+    expect(await screen.findByTestId("placement-have-account")).toHaveTextContent("Pokaż link logowania")
+  })
+
+  it("a device that does not know its learner offers the existing accounts, no test needed", async () => {
+    const { listAccounts, setUserId, createUser, startPlacementTest } = await import("../../api/client")
+    listAccounts.mockResolvedValueOnce({ accounts: [
+      { user_id: 1, name: "Anna", target_language: "German", cefr_level: "A2", total_xp: 102 },
+    ] })
+    renderPlacement()
+    const button = await screen.findByRole("button", { name: /Kontynuuj jako Anna/ })
+    expect(screen.queryByTestId("placement-have-account")).toBeNull()
+    await userEvent.click(button)
+    expect(setUserId).toHaveBeenCalledWith(1)
+    expect(localStorage.getItem("userName")).toBe("Anna")
+    expect(await screen.findByText("Home Page")).toBeInTheDocument()
+    expect(createUser).not.toHaveBeenCalled()
+    expect(startPlacementTest).not.toHaveBeenCalled()
+  })
+
+  it("signed in on this device: no account list, the test re-levels the account", async () => {
+    const { listAccounts, getUser, getUserId } = await import("../../api/client")
+    getUserId.mockReturnValue(1)
+    getUser.mockResolvedValue({ user_id: 1, name: "Anna", target_language: "German" })
+    renderPlacement()
+    expect(await screen.findByTestId("placement-account")).toBeInTheDocument()
+    expect(listAccounts).not.toHaveBeenCalled()
   })
 
   it("signed in: re-levels the same account and never creates a new one", async () => {

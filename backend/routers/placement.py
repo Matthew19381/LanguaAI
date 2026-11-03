@@ -241,6 +241,20 @@ async def get_user(user_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/api/placement/accounts")
+async def list_accounts(db: Session = Depends(get_db)):
+    """Accounts in this app, for a device that does not know its learner yet (another
+    browser or address, cleared storage). Until 03.11.2026 such a device was sent to the
+    placement test, which then made a new, empty account. The app is behind the access
+    gate when it is reachable from outside (APP_ACCESS_TOKEN)."""
+    users = db.query(User).order_by(User.total_xp.desc(), User.id).all()
+    return {"accounts": [
+        {"user_id": u.id, "name": u.name, "target_language": u.target_language,
+         "cefr_level": u.cefr_level, "total_xp": u.total_xp or 0}
+        for u in users
+    ]}
+
+
 SUPPORTED_LANGUAGES = ["German", "English", "Spanish", "Russian", "Chinese"]
 
 

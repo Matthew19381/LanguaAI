@@ -73,6 +73,10 @@ export const createUser = (data) =>
 export const getUser = (userId) =>
   api.get(`/placement/user/${userId}`)
 
+// Accounts already in the app, for a device that does not know its learner yet
+export const listAccounts = () =>
+  api.get('/placement/accounts')
+
 export const startPlacementTest = (data = {}) =>
   api.post('/placement/start', data)
 

@@ -127,3 +127,13 @@ def test_submit_placement_with_user(client, sample_user):
     # CEFR level should be updated to B1
     user_r = client.get(f"/api/placement/user/{uid}")
     assert user_r.json()["cefr_level"] == "B1"
+
+
+def test_accounts_list_for_a_device_without_its_learner(client, sample_user):
+    """03.11.2026: another browser or address was sent to the placement test, which made a new account."""
+    r = client.get("/api/placement/accounts")
+    assert r.status_code == 200
+    ids = [a["user_id"] for a in r.json()["accounts"]]
+    assert sample_user["user_id"] in ids
+    acc = next(a for a in r.json()["accounts"] if a["user_id"] == sample_user["user_id"])
+    assert set(acc) == {"user_id", "name", "target_language", "cefr_level", "total_xp"}

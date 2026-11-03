@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import {
-  startPlacementTest, submitPlacementTest, createUser, getUser, setUserId, getUserId
+  startPlacementTest, submitPlacementTest, createUser, getUser, setUserId, getUserId, listAccounts
 } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
 
@@ -90,6 +90,26 @@ export default function PlacementTest() {
       })
     return () => { cancelled = true }
   }, [existingUserId, isLanguageChange])
+
+  // A device that does not know its learner (another address such as 127.0.0.1 instead
+  // of localhost, another browser, cleared storage) offers the accounts that exist.
+  // Until 03.11.2026 it showed only the test, which made a new, empty account.
+  const [existingAccounts, setExistingAccounts] = useState(null)
+  useEffect(() => {
+    if (existingUserId || isLanguageChange) return
+    let cancelled = false
+    listAccounts()
+      .then(r => { if (!cancelled) setExistingAccounts(r?.accounts || []) })
+      .catch(() => { if (!cancelled) setExistingAccounts([]) })
+    return () => { cancelled = true }
+  }, [existingUserId, isLanguageChange])
+
+  const continueAs = (acc) => {
+    setUserId(acc.user_id)
+    localStorage.setItem('userName', acc.name || '')
+    localStorage.setItem('userLanguage', acc.target_language || '')
+    navigate('/', { replace: true })
+  }
 
   const handleStartTest = async () => {
     if (accountCheck === 'checking') return
@@ -216,7 +236,25 @@ export default function PlacementTest() {
                 Fiszki i ich historia zostają, test ustawi tylko poziom i plan nauki.
               </div>
             )}
-            {!isLanguageChange && !account && (
+            {!isLanguageChange && !account && existingAccounts?.length > 0 && (
+              <div data-testid="placement-accounts" className="bg-indigo-900/20 border border-indigo-700/30 rounded-lg p-3 mb-4 text-sm text-indigo-200">
+                <p className="mb-2"><strong>Masz już konto?</strong> Wybierz je, test nie jest potrzebny.</p>
+                <div className="space-y-2">
+                  {existingAccounts.map(acc => (
+                    <button
+                      key={acc.user_id}
+                      type="button"
+                      onClick={() => continueAs(acc)}
+                      className="btn-primary w-full min-h-11 text-left"
+                    >
+                      Kontynuuj jako {acc.name} ({LANG_DISPLAY[acc.target_language] || acc.target_language}, {acc.cefr_level}, {acc.total_xp} XP)
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-gray-400">Nowe konto zakładasz tylko testem poniżej.</p>
+              </div>
+            )}
+            {!isLanguageChange && !account && !(existingAccounts?.length > 0) && (
               <div data-testid="placement-have-account" className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 mb-4 text-sm text-gray-300">
                 <strong>Masz już konto?</strong> Nie rób testu, bo powstanie nowe, puste konto.
                 Otwórz LinguaAI tam, gdzie jesteś zalogowany, wejdź w Profil → „Pokaż link logowania”
