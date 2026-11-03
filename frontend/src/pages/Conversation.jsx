@@ -9,6 +9,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import PlayButton from '../components/PlayButton'
 import { getUserId, startConversation, getConversationModuleTask, sendMessageStream, analyzeConversation, askQuestion, getVoiceChatPrompt, analyzePastedConversation, generateTTS } from '../api/client'
 import { useLanguage } from '../hooks/useLanguage'
+import SpecialChars from '../components/SpecialChars'
 
 const TOPICS = [
   { value: 'everyday conversation', labelKey: 'conv.topic.everyday' },
@@ -72,6 +73,7 @@ export default function Conversation() {
   const [recognitionError, setRecognitionError] = useState('')
   const [moduleTask, setModuleTask] = useState(null)
   const messagesEndRef = useRef(null)
+  const chatInputRef = useRef(null)
   const recognitionRef = useRef(null)
   const sendingRef = useRef(false)
   const navigate = useNavigate()
@@ -615,6 +617,7 @@ export default function Conversation() {
         <div className="bg-gray-900 border-t border-gray-800 p-4">
           <div className="flex gap-3">
             <input
+              ref={chatInputRef}
               className="input-field flex-1"
               placeholder={t('conv.typeMessage')}
               value={inputText}
@@ -647,7 +650,9 @@ export default function Conversation() {
           {recognitionError && (
             <p className="text-red-400 text-xs mt-1 text-center">{recognitionError}</p>
           )}
-          <ConvSpecialChars language={targetLanguage} onInsert={ch => setInputText(t => t + ch)} />
+          {/* 3.11: the shared helper keeps the cursor in the field, so typing goes on
+              after a special character without tapping the field again */}
+          <SpecialChars language={targetLanguage} inputRef={chatInputRef} value={inputText} onChange={setInputText} className="mt-2" />
           <p className="text-gray-600 text-xs mt-2 text-center">
             {messages.filter(m => m.role === 'user').length} {t('conv.messagesSent')}
           </p>
@@ -741,30 +746,4 @@ export default function Conversation() {
   return null
 }
 
-const CONV_SPECIAL_CHARS = {
-  German: ['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'],
-  Spanish: ['á', 'é', 'í', 'ó', 'ú', 'ñ', '¿', '¡'],
-  French: ['à', 'â', 'é', 'è', 'ê', 'î', 'ô', 'ù', 'û', 'ç'],
-  Portuguese: ['ã', 'â', 'á', 'à', 'ê', 'é', 'í', 'ó', 'ô', 'ú', 'ç'],
-  Italian: ['à', 'è', 'é', 'ì', 'ò', 'ó', 'ù'],
-}
-
-function ConvSpecialChars({ language, onInsert }) {
-  const chars = CONV_SPECIAL_CHARS[language]
-  if (!chars) return null
-  return (
-    <div className="flex flex-wrap gap-1 mt-2">
-      {chars.map(ch => (
-        <button
-          key={ch}
-          type="button"
-          onClick={() => onInsert(ch)}
-          className="px-2 py-0.5 rounded bg-gray-700 hover:bg-indigo-700 text-gray-200 text-sm font-mono transition-colors"
-        >
-          {ch}
-        </button>
-      ))}
-    </div>
-  )
-}
 

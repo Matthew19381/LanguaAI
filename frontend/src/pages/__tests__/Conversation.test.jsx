@@ -187,3 +187,27 @@ describe("Conversation — one turn at a time (audit 01.11.2026)", () => {
     expect(sendMessageStream).toHaveBeenCalledTimes(1)
   })
 })
+
+describe("Conversation — special characters (3.11.2026)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    localStorage.setItem("userId", "42")
+  })
+
+  it("inserts the character at the cursor and keeps the field focused", async () => {
+    await startChat()
+    const input = screen.getByPlaceholderText("conv.typeMessage")
+    fireEvent.change(input, { target: { value: "Ich bin mde" } })
+    input.focus()
+    input.setSelectionRange(9, 9)
+    const btn = screen.getByRole("button", { name: "ü" })
+    // the button must not take the focus away from the field
+    const down = fireEvent.mouseDown(btn)
+    expect(down).toBe(false)               // default (focus move) prevented
+    fireEvent.click(btn)
+    expect(input).toHaveValue("Ich bin müde")
+    await waitFor(() => expect(input.selectionStart).toBe(10))
+    expect(document.activeElement).toBe(input)
+  })
+})
