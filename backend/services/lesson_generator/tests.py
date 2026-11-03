@@ -1,5 +1,6 @@
 """Test generation and error analysis."""
 import logging
+import re
 
 from backend.services.gemini_service import generate_json, with_model
 from backend.services.lesson_generator.answers import MC_TYPES, grade_open_answers, normalize, shuffle_options
@@ -73,7 +74,11 @@ LESSON SENTENCES (dialogue or examples):
 {dialogue_sample}
 
 REQUIREMENTS — create EXACTLY:
-- 4 vocabulary questions: fill-in-the-blank sentences requiring the exact word from the lesson (NO multiple choice)
+- 4 vocabulary questions: fill-in-the-blank (NO multiple choice). Each is one natural, everyday sentence
+  a person would really say, about the lesson topic, where the context makes only ONE word fit the gap.
+  The missing word is one word from LESSON VOCABULARY above (inflected if the sentence needs it).
+  For a noun the article stays in the sentence before the gap ("Nach der Arbeit habe ich großen ___."
+  is wrong because many words fit; "Ich esse ein Brot, weil ich ___ habe." with answer "Hunger" is right).
 - 3 grammar questions: multiple choice, test the specific grammar rule from the lesson (include plausible wrong answers)
 - 3 translation questions: {native_language}→{language}, student must write the full sentence (no options)
 - 2 context questions: multiple choice based on the lesson sentences above
@@ -84,7 +89,8 @@ DIFFICULTY: High. Wrong options must be plausible. Fill-blank and translation qu
 CRITICAL: The answer must NEVER appear literally in the question text.
 CRITICAL: For fill_blank type, use ___ (three underscores) exactly ONCE per question. Never two blanks.
 CRITICAL: For multiple_choice type, the question stem must be a complete sentence or clear question — NOT a sentence with blanks. Put the blank only if absolutely needed, and then ONLY ONE blank. The options must be single words or short forms (e.g. "A. hat" not "A. hat...geschehen").
-CRITICAL: For fill_blank type, add a "hint" field with a short {native_language} hint for the missing word (e.g. the translation or grammar hint like "czas przeszły 'sein'").
+CRITICAL: For fill_blank type, the "hint" field is the {native_language} translation of the WHOLE sentence, so the
+student knows what the sentence means (e.g. "Jem chleb, bo jestem głodny."); "correct" is only the missing word.
 
 Return ONLY valid JSON:
 {{
@@ -93,8 +99,8 @@ Return ONLY valid JSON:
             "id": 1,
             "type": "fill_blank",
             "question": "Sentence with ___ to fill in.",
-            "hint": "Short {native_language} hint for the missing word",
-            "correct": "exact word",
+            "hint": "{native_language} translation of the whole sentence",
+            "correct": "the missing word only",
             "points": 7
         }},
         {{
@@ -111,7 +117,8 @@ Return ONLY valid JSON:
 Points should total 100. Types: fill_blank, multiple_choice, translation, application, error_correction."""
 
     try:
-        return _with_shuffled_options(await generate_json(prompt))
+        result = _with_shuffled_options(await generate_json(prompt))
+        return clean_fill_blanks(result, vocab_words=[v.get("word", "") for v in vocab if isinstance(v, dict)])
     except Exception as e:
         logger.error(f"Error generating daily test: {e}")
         return {
@@ -126,6 +133,95 @@ Points should total 100. Types: fill_blank, multiple_choice, translation, applic
                 }
             ]
         }
+
+
+_BLANK = re.compile(r"_{3,}")
+_ARTICLES = ("der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem", "einer", "eines")
+_DETERMINER = re.compile(
+    r"^(der|die|das|den|dem|des|k?ein|k?eine[nmrs]?|(mein|dein|sein|ihr|unser|eur|euer|ihr)(e[nmrs]?)?"
+    r"|dies(e[nmrs]?)?|jed(e[nmrs]?)|welch(e[nmrs]?)|im|am|zum|zur|vom|beim|ins)$")
+
+
+def _plain(text: str) -> str:
+    t = _BLANK.sub(" ", str(text or "")).lower().replace("ß", "ss")
+    t = re.sub(r"[^\w\s]", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _core(word: str) -> str:
+    """A vocabulary word without its article ("das Büro" -> "büro")."""
+    parts = _plain(word).split()
+    if len(parts) > 1 and parts[0] in _ARTICLES:
+        parts = parts[1:]
+    return " ".join(parts)
+
+
+_FOLD = str.maketrans("äöü", "aou")
+
+
+def _from_vocabulary(answer: str, cores: list[str]) -> bool:
+    """The answer is a lesson word, also inflected ("arbeite" for "arbeiten als",
+    "Kollegen" for "der Kollege", "fährt" for "fahren"): the same stem. Irregular
+    forms ("isst" for "essen") do not pass; such a question is dropped, not shown wrong."""
+    a = _core(answer).translate(_FOLD)
+    for c in cores:
+        words = c.translate(_FOLD).split()
+        if not words:
+            continue
+        if a == " ".join(words):
+            return True
+        head = words[0]
+        if a.startswith(head[:max(4, len(head) - 2)]):
+            return True
+    return False
+
+
+def clean_fill_blanks(result, vocab_words: list | None = None, avoid_questions: list | None = None):
+    """Gap questions that make sense (3.11.2026, "Nach der Arbeit ist ... groß" with
+    the hint "głód"): one gap, a hint, the answer not given away in the sentence, an
+    article in the answer moved into the sentence, the answer a lesson word (daily
+    test) and no copy of a question the student already had (errors test).
+    Other question types are left as they are."""
+    if not isinstance(result, dict) or not isinstance(result.get("questions"), list):
+        return result
+    cores = [_core(w) for w in (vocab_words or []) if w]
+    avoid = {_plain(q) for q in (avoid_questions or []) if _plain(q)}
+    kept = []
+    for q in result["questions"]:
+        if not isinstance(q, dict):
+            continue
+        if q.get("type") == "fill_blank":
+            text = str(q.get("question") or "")
+            key = "correct" if q.get("correct") else "correct_answer"
+            answer = str(q.get(key) or "").strip()
+            # the hint is the translation of the whole sentence, not one word
+            if len(_BLANK.findall(text)) != 1 or not answer or len(str(q.get("hint") or "").split()) < 3:
+                logger.info("Gap question dropped (gap/answer/hint): %s", text)
+                continue
+            words = answer.split()
+            if len(words) == 2 and words[0].lower() in _ARTICLES:
+                before = _BLANK.split(text)[0].split()
+                if before and _DETERMINER.match(_plain(before[-1])):
+                    answer = words[1]          # "Meine ___" + "die Firma" -> "Firma"
+                else:
+                    art = words[0].capitalize() if not before else words[0].lower()
+                    text = _BLANK.sub(art + " ___", text, count=1)
+                    answer = words[1]
+                q["question"], q[key] = text, answer
+            if re.search(r"\b" + re.escape(_plain(answer)) + r"\b", _plain(text)):
+                logger.info("Gap question dropped (answer in the sentence): %s", text)
+                continue
+            if cores and not _from_vocabulary(answer, cores):
+                logger.info("Gap question dropped (not a lesson word): %s -> %s", text, answer)
+                continue
+        if avoid and q.get("type") not in MC_TYPES and _plain(q.get("question")) in avoid:
+            logger.info("Question dropped (copy of an old question): %s", q.get("question"))
+            continue
+        kept.append(q)
+    for i, q in enumerate(kept, start=1):
+        q["id"] = i
+    result["questions"] = kept
+    return result
 
 
 def _with_shuffled_options(result):
@@ -341,13 +437,14 @@ async def generate_errors_test(
 CEFR Level: {cefr_level}
 Native language: {native_language}
 
-Make each question directly target one of the error patterns above. Focus on:
-- Correct forms of words the student got wrong
-- Similar constructions to what was answered incorrectly
+Make each question directly target one of the error patterns above with a NEW sentence:
+- NEVER copy or lightly reword a question listed above; practise the same rule or word in a different sentence
+- Correct forms of words the student got wrong, in new contexts
 - Fill-in-the-blank with the correct forms
 
 Rules:
-- Each fill_blank question has EXACTLY ONE ___ blank
+- Each fill_blank question has EXACTLY ONE ___ blank, one natural sentence where only one word fits
+- Each fill_blank question has a "hint": the {native_language} translation of the whole sentence
 - Do NOT include the answer in the question text
 - Options A/B/C/D for multiple choice questions
 
@@ -357,8 +454,9 @@ Return JSON with MIXED question types — fill_blank has NO options, multiple_ch
         {{
             "id": 1,
             "type": "fill_blank",
-            "question": "Sentence with ___ to fill.",
-            "correct": "exact word",
+            "question": "New sentence with ___ to fill.",
+            "hint": "{native_language} translation of the whole sentence",
+            "correct": "the missing word only",
             "points": 10
         }},
         {{
@@ -375,7 +473,8 @@ Return JSON with MIXED question types — fill_blank has NO options, multiple_ch
 Use at least 5 fill_blank and at most 5 multiple_choice questions. Points total 100."""
 
     try:
-        return _with_shuffled_options(await generate_json(prompt))
+        result = _with_shuffled_options(await generate_json(prompt))
+        return clean_fill_blanks(result, avoid_questions=[e.get("question", "") for e in errors if isinstance(e, dict)])
     except Exception as e:
         logger.error(f"Error generating errors test: {e}")
         return await generate_daily_test({}, cefr_level, language, native_language)
