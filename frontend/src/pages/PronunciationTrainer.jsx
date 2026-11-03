@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { localDay } from '../utils/localDay'
 import { Link, useNavigate } from 'react-router-dom'
 import { Mic, MicOff, RotateCcw, ChevronRight, BarChart3, Trophy, CheckCircle } from 'lucide-react'
-import { getUserId, addFlashcard, askQuestion, getPronunciationPhrases, analyzePronunciation } from '../api/client'
+import { getUserId, addFlashcard, addFlashcardAI, generatePronunciationPhrases, getPronunciationPhrases, analyzePronunciation } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
 import { useLanguage } from '../hooks/useLanguage'
 import PlayButton from '../components/PlayButton'
@@ -127,26 +127,32 @@ export default function PronunciationTrainer() {
     const phrase = useCustom ? customPhrase.trim() : (phrases[currentIdx]?.text || '')
     if (!phrase || !userId) return
     try {
-      const res = await addFlashcard(userId, { word: phrase, translation: '' })
+      // a card needs its translation: the stored one, else the AI makes it
+      const translation = useCustom ? '' : (phrases[currentIdx]?.translation || '')
+      const res = translation
+        ? await addFlashcard(userId, { word: phrase, translation })
+        : await addFlashcardAI(userId, phrase)
       setFlashMsg(res.success === false ? res.message : 'Dodano do fiszek!')
       setTimeout(() => setFlashMsg(''), 3000)
     } catch { setFlashMsg('Błąd.') }
   }
 
+  const [genError, setGenError] = useState('')
   const handleGeneratePhrases = async () => {
     if (!userId) return
     setGeneratingPhrases(true)
+    setGenError('')
     try {
-      const res = await askQuestion(
-        `Wygeneruj 5 zdań do ćwiczenia wymowy w języku ${targetLanguage} na poziomie B1. Podaj tylko same zdania, jedno per linia, bez numeracji.`,
-        userId
-      )
-      const lines = (res.answer || '').split('\n').map(l => l.trim()).filter(Boolean).slice(0, 5)
-      const newPhrases = lines.map(text => ({ text, source: 'AI' }))
-      setPhrases(prev => [...newPhrases, ...prev])
+      const res = await generatePronunciationPhrases(userId, 5)
+      const newPhrases = (res?.phrases || []).filter(p => p?.text)
+      if (!newPhrases.length) throw new Error('AI nie zwróciło zdań.')
+      setPhrases(prev => [...newPhrases, ...prev.filter(p => !newPhrases.some(n => n.text === p.text))])
       setCurrentIdx(0)
-    } catch {}
-    finally { setGeneratingPhrases(false) }
+      setResult(null)
+    } catch (e) {
+      // was swallowed (catch {}), so a failure looked like "nothing happens"
+      setGenError(e?.message || 'Nie udało się wygenerować zdań.')
+    } finally { setGeneratingPhrases(false) }
   }
 
   const nextPhrase = () => {
@@ -236,6 +242,9 @@ export default function PronunciationTrainer() {
                       <p className="text-lg font-semibold text-indigo-200">{currentPhrase}</p>
                       <PlayButton text={currentPhrase} language={targetLanguage} />
                     </div>
+                    {phrases[currentIdx]?.translation && (
+                      <p className="text-sm text-gray-400 mt-0.5">{phrases[currentIdx].translation}</p>
+                    )}
                     {phrases[currentIdx]?.source && (
                       <p className="text-xs text-gray-500 mt-0.5">{phrases[currentIdx].source}</p>
                     )}
@@ -286,6 +295,7 @@ export default function PronunciationTrainer() {
                 </button>
               )}
             </div>
+            {genError && <p role="alert" className="text-xs text-red-400 mt-1">{genError}</p>}
           </div>
         )}
       </div>

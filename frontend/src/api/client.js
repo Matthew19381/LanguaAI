@@ -381,6 +381,10 @@ export const getNews = (userId, limit = 5) =>
 export const getPronunciationPhrases = (userId) =>
   api.get(`/pronunciation/phrases/${userId}`)
 
+// New practice sentences as checked JSON (3.11.2026; was the tutor chat split into lines)
+export const generatePronunciationPhrases = (userId, count = 5) =>
+  api.post(`/pronunciation/generate/${userId}`, null, { params: { count } })
+
 export const analyzePronunciation = (formData) =>
   axios.post('/api/pronunciation/analyze', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
