@@ -7,8 +7,8 @@ import {
   RefreshCw, Headphones, Eye, EyeOff, FileText, BookmarkPlus, Loader2,
   History, ArrowRight, HelpCircle
 } from 'lucide-react'
-import { getUserId, getUser, getTodayLesson, getLesson, completeLesson, addFlashcardAI, evaluateProduction, generateNextLesson, generateConceptFlashcards, getDailyTest, getNews, searchYouTube, exportLessonPDF, exportObsidian, resetTodayLesson, getLessonAudioPackage } from '../api/client'
-import { enqueueLessonComplete } from '../utils/offlineQueue'
+import { getUserId, getUser, getTodayLesson, getLesson, completeLesson, addFlashcardAI, evaluateProduction, generateNextLesson, generateConceptFlashcards, getDailyTest, getNews, searchYouTube, exportLessonPDF, exportObsidian, resetTodayLesson, getLessonAudioPackage, answerExercise } from '../api/client'
+import { enqueueLessonComplete, newEventId } from '../utils/offlineQueue'
 import PlayButton from '../components/PlayButton'
 import { PageLoader } from '../components/LoadingSpinner'
 import SpecialChars from '../components/SpecialChars'
@@ -1064,10 +1064,10 @@ export default function DailyLesson() {
         >
           <p className="text-gray-400 text-sm mb-3">{t('lesson.reviewPrevious')}</p>
           <div className="space-y-3">
-            {content.interleaved_review.map((item, i) => (
+            {content.interleaved_review.filter(item => item?.answer && (item.question || item.prompt)).map((item, i) => (
               <div key={i} className="bg-orange-900/10 border border-orange-700/30 rounded-lg p-3">
-                <p className="text-xs text-orange-400 mb-1">{t('lesson.topic')} {item.topic}</p>
-                <ComprehensionQ question={item.question || item.prompt} answer={item.answer} t={t} />
+                {item.topic && <p className="text-xs text-orange-400 mb-1">{t('lesson.topic')} {item.topic}</p>}
+                <MixedReviewQ item={item} userId={userId} language={lesson.language} t={t} />
               </div>
             ))}
           </div>
@@ -1177,6 +1177,61 @@ function Section({ title, icon, expanded, onToggle, children }) {
         <div className="mt-4 pt-4 border-t border-gray-800">
           {children}
         </div>
+      )}
+    </div>
+  )
+}
+
+// 3.11.2026: the mixed review is answered, not just revealed. An exercise from an
+// earlier lesson is graded by the server (counts for its skill, FSRS); a word is
+// checked here with the same rules (its schedule is the hub's deck, decision D1).
+function MixedReviewQ({ item, userId, language, t }) {
+  const [typed, setTyped] = useState('')
+  const [state, setState] = useState(null)   // null | 'checking' | { correct, expected }
+  const ref = useRef(null)
+  const done = state && state !== 'checking'
+  const check = async () => {
+    if (!typed.trim() || state) return
+    setState('checking')
+    let correct = matchesAnswer(item.answer, typed)
+    let expected = item.answer
+    if (item.type === 'exercise' && item.exercise_id && userId) {
+      try {
+        const r = await answerExercise(item.exercise_id, userId, typed, undefined, newEventId())
+        if (typeof r?.correct === 'boolean') correct = r.correct
+        if (r?.expected_answer) expected = r.expected_answer
+      } catch { /* offline or server error: the local check stands */ }
+    }
+    setState({ correct, expected })
+  }
+  return (
+    <div className="bg-gray-800 rounded p-3">
+      {item.instruction && <p className="text-gray-400 text-xs mb-1">{item.instruction}</p>}
+      <p className="text-gray-200 text-sm">{item.question || item.prompt}</p>
+      <div className="flex gap-2 mt-2">
+        <input
+          ref={ref}
+          type="text"
+          className={`input-field text-sm flex-1 ${done ? (state.correct ? 'border-emerald-500' : 'border-red-500') : ''}`}
+          placeholder={t('lesson.yourAnswer')}
+          value={typed}
+          onChange={e => !done && setTyped(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && check()}
+          disabled={!!done}
+          aria-label="Odpowiedź w przeglądzie mieszanym"
+        />
+        {!done && (
+          <button onClick={check} disabled={!typed.trim() || state === 'checking'}
+            className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium disabled:opacity-50">
+            {state === 'checking' ? '...' : 'Sprawdź'}
+          </button>
+        )}
+      </div>
+      {!done && <SpecialChars language={language} inputRef={ref} value={typed} onChange={setTyped} />}
+      {done && (
+        <p className={`text-xs mt-1 font-medium ${state.correct ? 'text-emerald-400' : 'text-red-400'}`}>
+          {state.correct ? '✓ Dobrze!' : `✗ Poprawnie: ${state.expected}`}
+        </p>
       )}
     </div>
   )

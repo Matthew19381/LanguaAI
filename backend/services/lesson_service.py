@@ -52,7 +52,39 @@ _TARGET_LANGUAGE_PL = {
     "German": "niemiecku", "English": "angielsku", "Spanish": "hiszpańsku",
     "French": "francusku", "Italian": "włosku", "Portuguese": "portugalsku",
 }
-MIXED_REVIEW_SIZE = 4
+MIXED_REVIEW_SIZE = 4          # words
+MIXED_REVIEW_EXERCISES = 3     # exercises from earlier lessons, answered wrong first (3.11.2026)
+
+
+def _review_exercises(db: Session, lesson: Lesson) -> list:
+    """Closed exercises (gap, translation) from the learner's earlier lessons, the ones
+    answered wrong first. The page sends the answer to /api/exercises/{id}/answer, so it
+    counts for the skill like any exercise."""
+    from backend.models.exercise import Exercise
+    from backend.services.exercise_service import has_slot
+
+    rows = db.query(Exercise).filter(
+        Exercise.user_id == lesson.user_id,
+        Exercise.language == lesson.language,
+        Exercise.is_active.is_(True),
+        Exercise.source_lesson_id.isnot(None),
+        Exercise.source_lesson_id < lesson.id,
+        Exercise.exercise_type.in_(("fill-in-the-blank", "translation")),
+    ).order_by(
+        Exercise.first_attempt_incorrect.desc(),
+        Exercise.times_correct.asc(),
+        Exercise.id.asc(),
+    ).limit(MIXED_REVIEW_EXERCISES * 4).all()
+    out = []
+    for ex in rows:
+        if len(out) >= MIXED_REVIEW_EXERCISES:
+            break
+        if not (ex.prompt or "").strip() or not (ex.answer or "").strip() or has_slot(ex.answer):
+            continue
+        out.append({"topic": ex.topic or ex.skill_tag or "", "question": ex.prompt.strip(),
+                    "instruction": ex.instruction or "", "answer": ex.answer.strip(),
+                    "type": "exercise", "exercise_id": ex.id})
+    return out
 
 
 def build_mixed_review(db: Session, lesson: Lesson) -> list:
@@ -90,12 +122,13 @@ def build_mixed_review(db: Session, lesson: Lesson) -> list:
             seen.add(key)
             candidates.append((label, item["word"].strip(), item["translation"].strip()))
 
+    exercises = _review_exercises(db, lesson)
     if not candidates:
-        return []
+        return exercises
     picked = random.Random(lesson.id).sample(candidates, min(MIXED_REVIEW_SIZE, len(candidates)))
     language_pl = _TARGET_LANGUAGE_PL.get(lesson.language)
     ask = f"Jak po {language_pl}" if language_pl else "Przetłumacz"
-    return [
+    return exercises + [
         {"topic": label, "question": f"{ask}: „{translation}”?", "answer": word, "type": "vocab"}
         for label, word, translation in picked
     ]
@@ -105,7 +138,8 @@ def lesson_payload(db: Session, lesson: Lesson) -> dict:
     """lesson_to_dict() plus the mixed review built from the learner's history."""
     data = lesson_to_dict(lesson)
     review = build_mixed_review(db, lesson)
-    if review and isinstance(data["content"], dict):
+    if isinstance(data["content"], dict):
+        # always replaced: stored items are answerless "recall" prompts (3.11.2026)
         data["content"]["interleaved_review"] = review
     return data
 

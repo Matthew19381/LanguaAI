@@ -324,7 +324,10 @@ async def generate_daily_lesson(
             if section not in candidate:
                 candidate[section] = {} if section not in ["vocabulary", "exercises", "speaking_practice"] else []
 
-        candidate["interleaved_review"] = _build_interleaved_review(recent_topics)
+        # 3.11.2026: the questions come from GET /api/lessons/{id}/mixed-review when the
+        # lesson is opened (services/mixed_review.py); the old answerless "recall" prompts
+        # are no longer stored.
+        candidate["interleaved_review"] = []
 
         # Output forcing must come from the model (lesson-specific, in the target
         # language). If missing or malformed, drop the section entirely — the
@@ -638,23 +641,3 @@ def _sanitize_grammar_elaboration(grammar) -> dict:
         grammar["elaboration_prompt"] = prompt
         grammar["elaboration_answer"] = answer
     return grammar
-
-
-def _build_interleaved_review(recent_topics: list[str] | None) -> list:
-    """Build a 'Mixed Review' section from the user's recent lesson topics.
-
-    Combines two well-documented effects: retrieval practice / testing effect
-    (Roediger & Karpicke 2006) and interleaving of prior topics with new
-    material (Rohrer & Taylor 2007; Kornell & Bjork 2008). Returns 2-3
-    lightweight recall prompts.
-    """
-    if not recent_topics:
-        return []
-    prompts = []
-    for topic in recent_topics[:3]:
-        prompts.append({
-            "topic": topic,
-            "prompt": f"Przypomnij sobie 3 słowa lub zwroty z tematu: {topic}",
-            "type": "recall",
-        })
-    return prompts

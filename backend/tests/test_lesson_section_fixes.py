@@ -95,3 +95,29 @@ def test_recall_prompt_asks_for_at_most_three_sentences():
     source = inspect.getsource(daily_lesson)
     assert "Exactly 5 connected sentences" not in source
     assert "2-3 short connected sentences" in source
+
+
+def test_mixed_review_has_earlier_exercises_wrong_ones_first_and_drops_recall_prompts(client, db):
+    """3.11.2026: real questions to answer; old answerless "recall" prompts never shown."""
+    from backend.models.exercise import Exercise
+    user = _user(db)
+    first = _lesson(db, user, 1, {"vocabulary": [{"word": "kochen", "translation": "gotować"}]})
+    for i, (prompt, answer, wrong) in enumerate([
+        ("Ich ___ müde.", "bin", False), ("Du ___ Brot gegessen.", "hast", True),
+        ("Ich wohne in ___.", "[Twoje miasto]", True), ("Ułóż zdanie o sobie", "Przykład: ...", True),
+    ]):
+        db.add(Exercise(user_id=user.id, language="German", prompt=prompt, answer=answer,
+                        exercise_type="sentence_creation" if i == 3 else "fill-in-the-blank",
+                        source_lesson_id=first.id, first_attempt_incorrect=wrong))
+    db.commit()
+    current = _lesson(db, user, 2, {
+        "interleaved_review": [{"topic": "General", "prompt": "Przypomnij sobie 3 słowa", "type": "recall"}],
+    })
+    review = client.get(f"/api/lessons/{current.id}", params={"user_id": user.id}).json()["content"]["interleaved_review"]
+    assert [(i["type"], i["answer"]) for i in review] == [("exercise", "hast"), ("exercise", "bin"), ("vocab", "kochen")]
+    assert review[0]["exercise_id"] and review[0]["question"] == "Du ___ Brot gegessen."
+    assert not any(i.get("type") == "recall" for i in review)
+
+    lonely = _user(db)
+    only = _lesson(db, lonely, 1, {"interleaved_review": [{"topic": "General", "prompt": "Przypomnij", "type": "recall"}]})
+    assert client.get(f"/api/lessons/{only.id}", params={"user_id": lonely.id}).json()["content"]["interleaved_review"] == []

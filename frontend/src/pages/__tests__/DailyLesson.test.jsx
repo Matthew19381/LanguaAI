@@ -15,6 +15,7 @@ vi.mock("../../api/client", () => ({
   generateTTS: vi.fn(() => Promise.resolve({})),
   addFlashcardAI: vi.fn(() => Promise.resolve({})),
   generateConceptFlashcards: vi.fn(() => Promise.resolve({ success: true, created: 2, skipped: 0 })),
+  answerExercise: vi.fn(() => Promise.resolve({})),
 }))
 
 // Mock useLanguage hook
@@ -360,13 +361,15 @@ describe("DailyLesson", () => {
     expect(screen.getByText(/Podejrzano odpowiedź/)).toBeInTheDocument()
   })
 
-  it("mixed review: renders backend items that carry a prompt or a question/answer pair", async () => {
-    const { getTodayLesson } = await import("../../api/client")
+  it("mixed review: answers are typed and checked; exercises go to the server (3.11)", async () => {
+    const { getTodayLesson, answerExercise } = await import("../../api/client")
+    answerExercise.mockResolvedValue({ correct: false, expected_answer: "hast" })
     getTodayLesson.mockReturnValue(Promise.resolve({
       lesson_id: 1, day_number: 2, language: "German", is_completed: false,
       content: {
         interleaved_review: [
           { topic: "Einkaufen", question: "Jak po niemiecku: „gotować”?", answer: "kochen", type: "vocab" },
+          { topic: "Perfekt", question: "Du ___ Brot gegessen.", answer: "hast", type: "exercise", exercise_id: 7 },
           { topic: "General", prompt: "Przypomnij sobie 3 słowa z tematu: General", type: "recall" },
         ],
       },
@@ -375,10 +378,18 @@ describe("DailyLesson", () => {
     const { waitFor, fireEvent } = await import("@testing-library/react")
     await waitFor(() => expect(screen.getByText(/^lesson\.mixedReview/)).toBeInTheDocument())
     fireEvent.click(screen.getByText(/^lesson\.mixedReview/))
-    expect(screen.getByText("Jak po niemiecku: „gotować”?")).toBeInTheDocument()
-    expect(screen.getByText("Przypomnij sobie 3 słowa z tematu: General")).toBeInTheDocument()
-    fireEvent.click(screen.getByText("lesson.showAnswer"))
-    expect(screen.getByText("kochen")).toBeInTheDocument()
+    // the answerless recall prompt is not shown any more
+    expect(screen.queryByText("Przypomnij sobie 3 słowa z tematu: General")).not.toBeInTheDocument()
+    expect(screen.queryByText("lesson.showAnswer")).not.toBeInTheDocument()
+    const inputs = screen.getAllByLabelText("Odpowiedź w przeglądzie mieszanym")
+    fireEvent.change(inputs[0], { target: { value: "Kochen" } })
+    fireEvent.click(screen.getAllByText("Sprawdź")[0])
+    await waitFor(() => expect(screen.getByText("✓ Dobrze!")).toBeInTheDocument())
+    expect(answerExercise).not.toHaveBeenCalled()
+    fireEvent.change(inputs[1], { target: { value: "habe" } })
+    fireEvent.click(screen.getAllByText("Sprawdź")[0])
+    await waitFor(() => expect(screen.getByText("✗ Poprawnie: hast")).toBeInTheDocument())
+    expect(answerExercise).toHaveBeenCalledWith(7, 42, "habe", undefined, expect.any(String))
   })
 
   it("recall (output forcing): an older 5-sentence text is trimmed to 3 sentences", async () => {
