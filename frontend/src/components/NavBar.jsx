@@ -100,8 +100,9 @@ export default function NavBar({ dailyTabs: dailyTabsProp, dark, onToggleDark, o
         { to: '/flashcards', label: t('nav.flashcards'), icon: Brain },
         { to: '/practice', label: t('nav.practice'), icon: Dumbbell },
         { to: '/dictation', label: t('nav.dictation'), icon: Headphones },
-        { to: '/read-aloud', label: 'Czytaj', icon: Volume2 },
-        { to: '/quickmode', label: t('nav.quickmode'), icon: Timer },
+        // 3.11: "Czytaj" is now the news reader, so reading aloud is "Na głos";
+        // the timer left the menu and starts from the home page (badge in the header).
+        { to: '/read-aloud', label: 'Na głos', icon: Volume2 },
       ],
     },
     {

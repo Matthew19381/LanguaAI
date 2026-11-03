@@ -159,4 +159,26 @@ describe("Home", () => {
     expect(screen.getByText("Tip 1")).toBeInTheDocument()
     expect(screen.getByText("Tip 2")).toBeInTheDocument()
   })
+
+  it("starts the study timer from the home page with the same keys as /quickmode (3.11)", async () => {
+    const { getUserId, getStats } = await import("../../api/client")
+    getUserId.mockReturnValue(42)
+    getStats.mockResolvedValue({
+      user: { name: "Anna", target_language: "German", cefr_level: "A2", streak_days: 1, total_xp: 10 },
+      lessons: { completed: 1 }, tests: { average_score: 0 },
+      level_info: { level: 1, level_name: "Beginner", xp: 10, next_level_xp: 100, progress_percent: 10 },
+    })
+    renderHome()
+    await waitFor(() => expect(screen.getByTestId("start-timer")).toBeInTheDocument())
+    expect(screen.getByText("Czytaj")).toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: "10 min" }))
+    const before = Date.now()
+    await user.click(screen.getByRole("button", { name: "Start timera 10 min" }))
+    expect(localStorage.getItem("quickmode_duration")).toBe("10")
+    expect(parseInt(localStorage.getItem("quickmode_start"))).toBeGreaterThanOrEqual(before)
+    expect(screen.getByText(/Trwa: zostało (10:00|9:5\d)/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Zatrzymaj timer" }))
+    expect(localStorage.getItem("quickmode_start")).toBeNull()
+  })
 })

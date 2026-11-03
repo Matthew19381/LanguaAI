@@ -107,7 +107,7 @@ async def get_quickmode_plan(user_id: int, db: Session = Depends(get_db)):
     # News reading
     activities.append({
         "id": "news",
-        "title": "Newsy w języku docelowym",
+        "title": "Czytaj: wiadomości w języku docelowym",
         "description": f"Czytaj uproszczone wiadomości po {user.target_language}",
         "estimated_minutes": 3,
         "priority": 4,

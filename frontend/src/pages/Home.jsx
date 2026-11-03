@@ -4,10 +4,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   BookOpen, FlaskConical, MessageSquare,
   Star, TrendingUp, ChevronRight, Sparkles,
-  Target, CheckCircle, Mic, Newspaper, Youtube, Timer, AlertTriangle, GraduationCap
+  Target, CheckCircle, Mic, Newspaper, Youtube, AlertTriangle, GraduationCap
 } from 'lucide-react'
 import { getUserId, getStats, getDailyTips } from '../api/client'
 import { PageLoader } from '../components/LoadingSpinner'
+import StartTimerCard from '../components/StartTimerCard'
 import { useLanguage } from '../hooks/useLanguage'
 
 const LANG_DISPLAY = {
@@ -149,6 +150,7 @@ export default function Home() {
       {/* Other activities. XP only where the backend awards it:
           test min(50, score/2), conversation min(30, score·0.3) — Wymowa,
           Newsy, Filmy, Timer and Błędy award none (checked 1.11.2026). */}
+      <StartTimerCard />
       <h2 className="section-title flex items-center gap-2">
         <Target className="w-5 h-5 dark:text-indigo-300 text-indigo-700" aria-hidden="true" />
         Aktywności
@@ -166,11 +168,9 @@ export default function Home() {
         <ActionCard to="/pronunciation" icon={Mic} tone="orange"
           title="Wymowa" description="Ćwicz wymowę z AI i analizą audio" />
         <ActionCard to="/news" icon={Newspaper} tone="teal"
-          title="Newsy" description="Uproszczone wiadomości w języku, którego się uczysz" />
+          title="Czytaj" description="Uproszczone wiadomości w języku, którego się uczysz" />
         <ActionCard to="/videos" icon={Youtube} tone="red"
           title="Filmy YouTube" description="Filmy dopasowane do Twojego poziomu" />
-        <ActionCard to="/quickmode" icon={Timer} tone="emerald"
-          title="Timer" description="15-minutowy plan nauki ze stoperem" />
         <ActionCard to="/errors" icon={AlertTriangle} tone="yellow"
           title="Przegląd błędów" description="Ucz się na własnych błędach z testów" />
       </div>

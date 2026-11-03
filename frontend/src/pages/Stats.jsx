@@ -794,7 +794,7 @@ function TodayCompletion({ stats }) {
     { key: 'test', label: 'Test', icon: '📝', done: testDoneToday },
     { key: 'conversation', label: 'Rozmowa', icon: '💬', done: tabs.includes('conversation') },
     { key: 'flashcards', label: 'Fiszki', icon: '🎴', done: tabs.includes('flashcards') },
-    { key: 'news', label: 'Newsy/Wymowa', icon: '📰', done: tabs.includes('news') || tabs.includes('pronunciation') || tabs.includes('videos') },
+    { key: 'news', label: 'Czytaj/Wymowa', icon: '📰', done: tabs.includes('news') || tabs.includes('pronunciation') || tabs.includes('videos') },
   ]
 
   const doneCount = activities.filter(a => a.done).length

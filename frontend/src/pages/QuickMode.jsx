@@ -51,7 +51,7 @@ export default function QuickMode() {
     if (!startTime) return false
     const duration = parseInt(localStorage.getItem(STORAGE_KEY_DURATION) || '15') * 60
     const elapsed = Math.floor((Date.now() - parseInt(startTime)) / 1000)
-    return elapsed > 0 && elapsed < duration
+    return elapsed >= 0 && elapsed < duration
   })
   const [secondsLeft, setSecondsLeft] = useState(() => {
     const startTime = localStorage.getItem(STORAGE_KEY_START)

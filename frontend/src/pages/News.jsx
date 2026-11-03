@@ -111,12 +111,12 @@ export default function News() {
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-700/30 hover:bg-emerald-700/50 border border-emerald-700/40 text-emerald-300 text-sm font-medium transition-colors mb-4"
         >
           <CheckCircle className="w-4 h-4" />
-          Oznacz Newsy jako ukończone (+10 XP)
+          Oznacz czytanie jako ukończone
         </button>
       ) : (
         <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-900/30 border border-emerald-700/40 text-emerald-400 text-sm font-medium mb-4">
           <CheckCircle className="w-4 h-4" />
-          Newsy ukończone dziś ✓
+          Czytanie ukończone dziś ✓
         </div>
       )}
 

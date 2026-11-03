@@ -54,7 +54,7 @@ describe('NavBar', () => {
     expect(screen.getByText('Test')).toBeInTheDocument()
     expect(screen.getByText('Flashcards')).toBeInTheDocument()
     expect(screen.getByText('Speak')).toBeInTheDocument()
-    expect(screen.getByText('15 min')).toBeInTheDocument()
+    expect(screen.queryByText('15 min')).not.toBeInTheDocument()   // timer left the menu (3.11)
     expect(screen.getByText('News')).toBeInTheDocument()
     expect(screen.getByText('Pronounce')).toBeInTheDocument()
     expect(screen.getByText('Stats')).toBeInTheDocument()
@@ -94,7 +94,7 @@ describe('NavBar', () => {
   // lists must contain every route in App.jsx's Layout, each with its label.
   const allLabels = [
     'Home', 'Lesson', 'Test', 'Speak', 'Pronounce', 'Egzamin B1', 'News', 'Bank wiedzy',
-    'Flashcards', 'nav.practice', 'nav.dictation', 'Czytaj', '15 min', 'Videos',
+    'Flashcards', 'nav.practice', 'nav.dictation', 'Na głos', 'Videos',
     'Stats', 'Błędy', 'Historia', 'Profil', 'Ustawienia',
   ]
 
@@ -170,5 +170,14 @@ describe('NavBar translator button (A10)', () => {
   it('has no translator button without the handler', () => {
     renderNavBar()
     expect(screen.queryByTestId('nav-translator')).toBeNull()
+  })
+
+  it('3.11: news is "Czytaj", reading aloud is "Na głos", no timer entry in the menu', async () => {
+    const { default: translations } = await import('../../i18n/translations')
+    expect(translations.pl['nav.news']).toBe('Czytaj')
+    renderNavBar()
+    const desktop = within(screen.getByTestId('nav-desktop'))
+    expect(desktop.getByText('Na głos').closest('a')).toHaveAttribute('href', '/read-aloud')
+    expect(document.querySelector('[data-testid="nav-desktop"] a[href="/quickmode"]')).toBeNull()
   })
 })
