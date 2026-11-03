@@ -300,12 +300,17 @@ const MASTERY_LABELS = {
   opanowana: 'Opanowana',
 };
 
-function KnowledgeSection({ knowledge }) {
+function KnowledgeSection({ knowledge, onPractice }) {
   const { plan, mastery, recent_errors: errors } = knowledge;
   const shownDays = plan.days.filter(d => !d.done).slice(0, 5);
   return (
     <div className="space-y-3 mb-3" data-testid="knowledge-entry">
       <div className="text-xs text-gray-500 dark:text-gray-400">{knowledge.group} · {knowledge.skill_id}</div>
+      {onPractice && knowledge.exercises > 0 && (
+        <button type="button" onClick={onPractice} className="btn-primary text-sm" data-testid="practice-skill-button">
+          Ćwicz tę umiejętność ({knowledge.exercises})
+        </button>
+      )}
       <section>
         <h4 className="text-sm font-semibold mb-1">Zasada</h4>
         <p className="text-sm text-gray-700 dark:text-gray-200">{knowledge.rule}</p>
@@ -494,7 +499,7 @@ function TopicDetail({ topicId, onClose }) {
         <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-xl">&times;</button>
       </div>
 
-      {knowledge ? <KnowledgeSection knowledge={knowledge} /> : (<>
+      {knowledge ? <KnowledgeSection knowledge={knowledge} onPractice={() => navigate(`/practice?skill=${encodeURIComponent(knowledge.skill_id)}&name=${encodeURIComponent(shortName(topic.name))}`)} /> : (<>
       {topic.description && (
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{topic.description}</p>
       )}
@@ -712,16 +717,20 @@ export default function TopicsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // 3.11.2026: the language goes with every call; without it the server
+      // counted no accuracy, so every skill was at 0 % and there were no stats.
+      const language = localStorage.getItem('userLanguage') || undefined;
       const params = {};
+      if (language) params.language = language;
       if (categoryFilter) params.category = categoryFilter;
       if (sortBy) params.sort = sortBy;
 
       const [topicsRes, treeRes, hierarchyRes, dueRes, statsRes] = await Promise.all([
         getTopics(userId, params).catch(() => ({ topics: [] })),
-        getTopicTree(userId).catch(() => ({ tree: {} })),
-        getTopicHierarchy(userId).catch(() => ({ topics: [] })),
-        getDueTopics(userId).catch(() => ({ topics: [] })),
-        getTopicStats(userId).catch(() => ({})),
+        getTopicTree(userId, language).catch(() => ({ tree: {} })),
+        getTopicHierarchy(userId, language).catch(() => ({ topics: [] })),
+        getDueTopics(userId, language).catch(() => ({ topics: [] })),
+        getTopicStats(userId, language).catch(() => ({})),
       ]);
 
       setTopics(topicsRes.topics || []);
@@ -905,10 +914,17 @@ export default function TopicsPage() {
                       {topic.description && (
                         <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{topic.description}</p>
                       )}
+                      {topic.review_reason && (
+                        <p className="text-xs text-orange-600 dark:text-orange-300 mt-0.5">{topic.review_reason}</p>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 ml-4">
                       <div className="text-right">
-                        <div className="text-xs text-gray-400 dark:text-gray-500">{topic.items_count} materiałów</div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500">
+                          {topic.skill_id
+                            ? (topic.mastery ? `${topic.mastery.attempts} prób` : 'bez prób')
+                            : `${topic.items_count} materiałów`}
+                        </div>
                         <div className="text-sm font-medium">{Math.round(topic.memory_strength * 100)}%</div>
                       </div>
                       <MemoryBar strength={topic.memory_strength} size="sm" />
@@ -1043,7 +1059,7 @@ export default function TopicsPage() {
                         </span>
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {topic.days_until_review < 0
+                        {topic.review_reason ? topic.review_reason : topic.days_until_review < 0
                           ? `Przeterminowany o ${Math.abs(topic.days_until_review)} dni`
                           : 'Do powtórki dziś'}
                       </div>

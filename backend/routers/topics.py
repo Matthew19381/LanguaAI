@@ -18,6 +18,7 @@ from backend.database import get_db
 from backend.models.topic import Topic, TopicItem
 from backend.models.user import User
 from backend.services import topic_service
+from backend.services.exercise_service import skills_to_review
 from backend.services.knowledge import entry_details, entry_strength, sync_knowledge_base
 from backend.services.mastery import skill_mastery
 
@@ -42,6 +43,26 @@ class ReviewResponse(BaseModel):
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
+
+def _language(db: Session, user_id: int, language: Optional[str]) -> Optional[str]:
+    """The learner's target language when the page sends none. Until 3.11.2026 the
+    Bank wiedzy page sent none, so no skill got its accuracy (all at 0 %, no stats)."""
+    if language:
+        return language
+    user = db.get(User, user_id)
+    return user.target_language if user else None
+
+
+def _review_reason(info: dict | None) -> str | None:
+    if not info:
+        return None
+    parts = []
+    if info.get("due_exercises"):
+        parts.append(f"ćwiczenia do powtórki: {info['due_exercises']}")
+    if info.get("weak"):
+        parts.append("słaba trafność pierwszych prób")
+    return ", ".join(parts) or None
+
 
 def _sync(db: Session, user_id: int) -> None:
     """Bank wiedzy entries exist and are current before any list is shown."""
@@ -68,11 +89,17 @@ async def list_topics(
         query = query.filter(Topic.category == category)
 
     topics = query.all()
-    mastery = skill_mastery(db, user_id, language) if language else {}
+    # accuracy of skill entries in the learner's language, also when the page sends
+    # no language (the list itself stays unfiltered then)
+    mlang = _language(db, user_id, language)
+    mastery = skill_mastery(db, user_id, mlang) if mlang else {}
+    to_review = skills_to_review(db, user_id, mlang) if mlang else {}
 
     # Update memory strength for all
     result = []
     for t in topics:
+        m = mastery.get(t.skill_id) if t.skill_id else None
+        reason = _review_reason(to_review.get(t.skill_id)) if t.skill_id else None
         t.memory_strength = (entry_strength(mastery.get(t.skill_id)) if t.skill_id
                              else t.calculate_memory_strength())
         result.append({
@@ -87,7 +114,9 @@ async def list_topics(
             "stability": t.stability,
             "retrievability": t.retrievability,
             "fsrs_state": t.fsrs_state,
-            "is_due": t.is_due(),
+            "is_due": bool(reason) if t.skill_id else t.is_due(),
+            "review_reason": reason,
+            "mastery": {k: m[k] for k in ("status", "accuracy", "attempts")} if m else None,
             "days_until_review": t.days_until_review(),
             "items_count": t.total_items,
             "repetitions": t.repetitions,
@@ -142,10 +171,11 @@ async def due_topics(
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    """Get topics due for review."""
+    """Get topics due for review, then Bank wiedzy skills to go back to (3.11.2026)."""
     topics = topic_service.get_due_topics(db, user_id, language, limit)
+    skills = _skills_due(db, user_id, _language(db, user_id, language))
     return {
-        "topics": [{
+        "topics": skills + [{
             "id": t.id,
             "name": t.name,
             "category": t.category,
@@ -157,8 +187,29 @@ async def due_topics(
             "items_count": t.total_items,
             "next_review": t.next_review_date.isoformat() if t.next_review_date else None,
         } for t in topics],
-        "count": len(topics),
+        "count": len(topics) + len(skills),
     }
+
+
+def _skills_due(db: Session, user_id: int, language: Optional[str]) -> list[dict]:
+    if not language:
+        return []
+    to_review = skills_to_review(db, user_id, language)
+    if not to_review:
+        return []
+    mastery = skill_mastery(db, user_id, language)
+    rows = db.query(Topic).filter(Topic.user_id == user_id, Topic.language == language,
+                                  Topic.skill_id.in_(list(to_review))).all()
+    out = [{
+        "id": t.id, "skill_id": t.skill_id, "name": t.name, "category": t.category,
+        "memory_strength": entry_strength(mastery.get(t.skill_id)),
+        "difficulty": t.difficulty, "stability": t.stability, "fsrs_state": t.fsrs_state,
+        "days_until_review": 0, "items_count": t.total_items, "next_review": None,
+        "review_reason": _review_reason(to_review[t.skill_id]),
+        "due_exercises": to_review[t.skill_id]["due_exercises"],
+    } for t in rows]
+    out.sort(key=lambda x: (-x["due_exercises"], x["memory_strength"]))
+    return out
 
 
 @router.get("/{user_id}/stats")
@@ -168,7 +219,10 @@ async def topic_stats(
     db: Session = Depends(get_db),
 ):
     """Get aggregate topic statistics."""
+    language = _language(db, user_id, language)
     stats = topic_service.get_topic_stats(db, user_id, language)
+    if stats.get("total_topics"):
+        stats["due_now"] = stats.get("due_now", 0) + len(_skills_due(db, user_id, language))
     return stats
 
 

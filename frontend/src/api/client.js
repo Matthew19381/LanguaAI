@@ -323,9 +323,9 @@ export const getReadAloud = (userId, count = 8) =>
 
 // ===== Exercise bank =====
 
-export const getPracticeSet = (userId, { size = 10, topic, includeNew = false } = {}) =>
+export const getPracticeSet = (userId, { size = 10, topic, includeNew = false, skill } = {}) =>
   api.get(`/exercises/${userId}/practice`, {
-    params: { size, topic, include_new: includeNew },
+    params: { size, topic, include_new: includeNew, skill },
   })
 
 export const answerExercise = (exerciseId, userId, answer, rating, clientEventId) =>

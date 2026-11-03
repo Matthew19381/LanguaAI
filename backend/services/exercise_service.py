@@ -190,6 +190,49 @@ def build_practice_set(
     }
 
 
+def skill_practice_set(db: Session, user_id: int, language: str, skill_id: str, size: int = 10) -> dict:
+    """Exercises of one Bank wiedzy skill ("Ćwicz tę umiejętność", 3.11.2026): due
+    ones first, then the least practised."""
+    now = datetime.now(timezone.utc)
+    rows = db.query(Exercise).filter(
+        Exercise.user_id == user_id, Exercise.language == language,
+        Exercise.is_active.is_(True), Exercise.skill_id == skill_id,
+    ).all()
+
+    def due(e):
+        d = e.next_review_date
+        return d is not None and (d if d.tzinfo else d.replace(tzinfo=timezone.utc)) <= now
+
+    rows.sort(key=lambda e: (not due(e), e.times_seen or 0, e.id))
+    selected = rows[:size]
+    return {
+        "exercises": [serialize_exercise(e) for e in selected],
+        "due_count": sum(1 for e in selected if due(e)),
+        "interleaved_count": 0,
+        "weak_skills": [],
+        "skill_id": skill_id,
+    }
+
+
+def skills_to_review(db: Session, user_id: int, language: str) -> dict[str, dict]:
+    """Bank wiedzy skills to go back to now (3.11.2026; the list "Do powtórki" was
+    always empty because skills have no topic reviews of their own, D1): a skill
+    with exercises due now, or one whose first tries are weak."""
+    from backend.services.mastery import skill_mastery
+
+    now = datetime.now(timezone.utc)
+    out: dict[str, dict] = {}
+    for e in db.query(Exercise).filter(Exercise.user_id == user_id, Exercise.language == language,
+                                       Exercise.is_active.is_(True), Exercise.skill_id.isnot(None)).all():
+        d = e.next_review_date
+        if d is not None and (d if d.tzinfo else d.replace(tzinfo=timezone.utc)) <= now and (e.times_seen or 0) > 0:
+            out.setdefault(e.skill_id, {"due_exercises": 0, "weak": False})["due_exercises"] += 1
+    for skill_id, m in skill_mastery(db, user_id, language).items():
+        if m.get("status") == "slaba":
+            out.setdefault(skill_id, {"due_exercises": 0, "weak": False})["weak"] = True
+    return out
+
+
 def find_weak_skills(db: Session, user_id: int, language: str, limit: int = 5) -> list[str]:
     """Skills where the learner's accuracy in the bank is weakest.
 

@@ -24,6 +24,7 @@ from backend.services.exercise_service import (
     serialize_exercise,
     skill_memorized_needs_variant,
     skill_needs_auto_variant,
+    skill_practice_set,
 )
 from backend.services.lesson_generator import generate_exercise_variants
 from backend.services.lesson_generator.answers import grade_open_answers
@@ -87,6 +88,7 @@ async def get_practice_set(
     size: int = 10,
     topic: str | None = None,
     include_new: bool = False,
+    skill: str | None = None,
     db: Session = Depends(get_db),
 ):
     """Mixed practice set: items due for spaced retrieval + interleaved from other topics.
@@ -97,6 +99,10 @@ async def get_practice_set(
     """
     user = get_user_or_404(db, user_id)
     size = max(1, min(size, 50))
+    if skill:   # one Bank wiedzy skill (3.11.2026)
+        result = skill_practice_set(db, user_id, user.target_language, skill, size=size)
+        result.update(generated_new=0, user_id=user_id, language=user.target_language)
+        return result
     result = build_practice_set(
         db, user_id, user.target_language, size=size, current_topic=topic
     )

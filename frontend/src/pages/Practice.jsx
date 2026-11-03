@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Dumbbell, Check, X, ArrowRight, Sparkles, Loader2, Shuffle, RotateCcw,
   CloudOff, UploadCloud,
@@ -34,6 +34,10 @@ export default function Practice() {
   // State for "Sprawdź poprawne" feature - highlights correct/incorrect answers
   const [showAnswerCheck, setShowAnswerCheck] = useState(false)
   const navigate = useNavigate()
+  // "Ćwicz tę umiejętność" from the Bank wiedzy (3.11.2026)
+  const [searchParams] = useSearchParams()
+  const skill = searchParams.get('skill') || null
+  const skillName = searchParams.get('name') || ''
   const userId = getUserId()
   const { t, targetLanguage } = useLanguage()
   const answerRef = useRef(null)
@@ -73,7 +77,7 @@ export default function Practice() {
       setAutoNotice('')
     }
 
-    return getPracticeSet(userId, { size: SET_SIZE, includeNew })
+    return getPracticeSet(userId, skill ? { size: SET_SIZE, skill } : { size: SET_SIZE, includeNew })
       .then(data => {
         reset(data, false)
         // Keep an up-to-date pack around for the next time there is no network
@@ -85,7 +89,7 @@ export default function Practice() {
         else setSet(null)
       })
       .finally(() => setLoading(false))
-  }, [userId, setFromPack])
+  }, [userId, setFromPack, skill])
 
   useEffect(() => {
     if (!userId) { navigate('/placement'); return }
@@ -343,6 +347,12 @@ export default function Practice() {
         <Dumbbell className="w-6 h-6" /> {t('practice.title')}
       </h1>
       <p className="text-gray-400 text-sm mb-4">{t('practice.subtitle')}</p>
+      {skill && (
+        <p className="text-sm mb-4 px-3 py-2 rounded-lg bg-indigo-900/30 text-indigo-200" data-testid="practice-skill">
+          Ćwiczysz jedną umiejętność: {skillName || skill}.{' '}
+          <button className="underline" onClick={() => navigate('/practice')}>Wszystkie ćwiczenia</button>
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2 mb-4 text-xs items-center">
         <span className="px-2.5 py-1 rounded-lg bg-indigo-900/40 text-indigo-200">

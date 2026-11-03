@@ -26,6 +26,7 @@ function renderPage() {
       <Routes>
         <Route path="/topics" element={<TopicsPage />} />
         <Route path="/flashcards" element={<div>Flashcards page</div>} />
+        <Route path="/practice" element={<div>Practice page</div>} />
         <Route path="/" element={<div>Home</div>} />
       </Routes>
     </MemoryRouter>
@@ -188,5 +189,47 @@ describe("TopicsPage — Bank wiedzy entry", () => {
     expect(screen.getByText("Częste błędy Polaków (ogólne, nie twoje)")).toBeInTheDocument()
     expect(screen.queryByText("Siła zapamiętania")).not.toBeInTheDocument()
     expect(screen.queryByText("Stabilność")).not.toBeInTheDocument()
+  })
+})
+
+describe("TopicsPage — Bank wiedzy (3.11.2026)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    localStorage.setItem("userId", "42")
+    localStorage.setItem("userLanguage", "German")
+  })
+
+  it("sends the language with every call (without it every skill was at 0 %)", async () => {
+    const api = await import("../../api/client")
+    renderPage()
+    await waitFor(() => expect(api.getTopicStats).toHaveBeenCalled())
+    expect(api.getTopics).toHaveBeenCalledWith(42, expect.objectContaining({ language: "German" }))
+    expect(api.getTopicTree).toHaveBeenCalledWith(42, "German")
+    expect(api.getTopicHierarchy).toHaveBeenCalledWith(42, "German")
+    expect(api.getDueTopics).toHaveBeenCalledWith(42, "German")
+    expect(api.getTopicStats).toHaveBeenCalledWith(42, "German")
+  })
+
+  it("a skill to review shows why, and its detail offers practising just that skill", async () => {
+    const api = await import("../../api/client")
+    api.getTopics.mockResolvedValue({ topics: [{
+      id: 5, skill_id: "G-V2", name: "Szyk V2 [G-V2]", category: "grammar", description: "Czasownik na 2. miejscu",
+      memory_strength: 0.6, is_due: true, review_reason: "ćwiczenia do powtórki: 2",
+      mastery: { status: "slaba", accuracy: 0.6, attempts: 8 }, items_count: 0,
+    }] })
+    api.getTopicDetail.mockResolvedValue({
+      topic: { id: 5, name: "Szyk V2 [G-V2]", memory_strength: 0.6 }, items: [],
+      knowledge: { skill_id: "G-V2", group: "Szyk", rule: "V2", examples: [], recent_errors: [], typical_errors: [],
+        plan: { days: [], modules: [], foundation: false }, mastery: { status: "slaba", accuracy: 0.6, attempts: 8, correct_days: 1 },
+        exercises: 4 },
+    })
+    renderPage()
+    await waitFor(() => expect(screen.getByText("ćwiczenia do powtórki: 2")).toBeInTheDocument())
+    expect(screen.getByText("8 prób")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("ćwiczenia do powtórki: 2"))
+    await waitFor(() => expect(screen.getByTestId("practice-skill-button")).toBeInTheDocument())
+    fireEvent.click(screen.getByTestId("practice-skill-button"))
+    await waitFor(() => expect(screen.getByText("Practice page")).toBeInTheDocument())
   })
 })
