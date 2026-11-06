@@ -167,13 +167,18 @@ _GATE_EXEMPT_PREFIXES = (
 
 @app.middleware("http")
 async def access_gate_middleware(request: Request, call_next):
-    from backend.routers.auth import gate_enabled, request_is_authorized
+    from backend.routers.auth import gate_enabled, hub_summary_allowed, request_is_authorized
 
     if not gate_enabled() or request.method == "OPTIONS":
         return await call_next(request)
 
     path = request.url.path
     if any(path.startswith(p) for p in _GATE_EXEMPT_PREFIXES):
+        return await call_next(request)
+
+    # System-Glowny polls GET /api/v1/summary without the app token; it is let
+    # through on its own rule (exact path; X-Module-Key when MODULE_KEY is set).
+    if hub_summary_allowed(request):
         return await call_next(request)
 
     # Guard the API, the audio files and the generated images (mnemonic pictures of the

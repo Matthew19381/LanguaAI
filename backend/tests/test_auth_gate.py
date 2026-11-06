@@ -120,3 +120,68 @@ def test_lock_forgets_the_device(client, sample_user, gated):
     client.post("/api/auth/lock")
     client.cookies.clear()
     assert client.get(f"/api/flashcards/{sample_user['user_id']}").status_code == 401
+
+
+# ── Hub summary poll (System-Glowny) ─────────────────────────────────────────
+
+MODULE_KEY = "hub-module-key-0987654321"
+
+
+@pytest.fixture
+def module_key():
+    """Configure LinguaAI's module key for a test, then restore the default (empty)."""
+    original = settings.MODULE_KEY
+    settings.MODULE_KEY = MODULE_KEY
+    yield MODULE_KEY
+    settings.MODULE_KEY = original
+
+
+def test_hub_summary_reachable_without_headers(client, sample_user, gated):
+    """The hub polls /api/v1/summary with no auth header; with no MODULE_KEY
+    configured the gate must not drop LinguaAI from the hub's overview."""
+    r = client.get("/api/v1/summary", params={"user_id": sample_user["user_id"]})
+    assert r.status_code == 200
+    assert r.json()["module"] == "lingua-ai"
+
+
+def test_summary_exemption_does_not_open_other_endpoints(client, sample_user, gated):
+    uid = sample_user["user_id"]
+    assert client.get(f"/api/flashcards/{uid}").status_code == 401
+    # /api/v1/* aliases every /api/* route — the exemption must be exact-path
+    assert client.get(f"/api/v1/flashcards/{uid}").status_code == 401
+    assert client.get(f"/api/v1/summary/{uid}").status_code == 401
+    assert client.get(f"/api/v1/users/{uid}/login-link").status_code == 401
+
+
+def test_summary_requires_module_key_when_configured(client, sample_user, gated, module_key):
+    params = {"user_id": sample_user["user_id"]}
+    assert client.get("/api/v1/summary", params=params).status_code == 401
+    assert client.get("/api/v1/summary", params=params,
+                      headers={"X-Module-Key": "wrong"}).status_code == 401
+    assert client.get("/api/v1/summary", params=params,
+                      headers={"X-Module-Key": MODULE_KEY}).status_code == 200
+    # The owner's own app token keeps working there too
+    assert client.get("/api/v1/summary", params=params,
+                      headers={"X-App-Token": TOKEN}).status_code == 200
+
+
+def test_module_key_does_not_unlock_other_endpoints(client, sample_user, gated, module_key):
+    uid = sample_user["user_id"]
+    headers = {"X-Module-Key": MODULE_KEY}
+    assert client.get(f"/api/flashcards/{uid}", headers=headers).status_code == 401
+    assert client.get(f"/api/v1/flashcards/{uid}", headers=headers).status_code == 401
+    assert client.get(f"/api/v1/users/{uid}/login-link", headers=headers).status_code == 401
+    assert client.get(f"/api/v1/users/{uid}/sleep", headers=headers).status_code == 401
+
+
+def test_module_key_does_not_unlock_non_get_summary(client, sample_user, gated, module_key):
+    """Only the read-only GET poll is let through."""
+    r = client.post("/api/v1/summary", params={"user_id": sample_user["user_id"]},
+                    headers={"X-Module-Key": MODULE_KEY})
+    assert r.status_code == 401
+
+
+def test_empty_module_key_never_matches(client, sample_user, gated):
+    """MODULE_KEY unset + an empty X-Module-Key header must not unlock anything."""
+    r = client.get(f"/api/flashcards/{sample_user['user_id']}", headers={"X-Module-Key": ""})
+    assert r.status_code == 401
